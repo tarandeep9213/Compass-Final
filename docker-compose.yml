@@ -1,0 +1,113 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CashRoom Compliance System — Docker Compose
+#
+# Dev / Demo  (SQLite, no extra services):
+#   docker compose up --build
+#
+# Access:
+#   Frontend  →  http://localhost
+#   Backend   →  http://localhost:8000
+#   API Docs  →  http://localhost:8000/docs
+#
+# Production (PostgreSQL):
+#   1. Copy .env.example to .env and fill in real values
+#   2. Uncomment the `db` service and the POSTGRES DATABASE_URL below
+#   3. docker compose --profile prod up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend (FastAPI) ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cashroom-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist SQLite DB between container restarts
+      - db_data:/app/data
+    environment:
+      # ── Database ──────────────────────────────────────────────────────────
+      # SQLite (default — no extra service needed):
+      DATABASE_URL: "sqlite:////app/data/cashroom.db"
+
+      # PostgreSQL (production — uncomment and fill in):
+      # DATABASE_URL: "postgresql://cashroom:${POSTGRES_PASSWORD}@db:5432/cashroom"
+
+      # ── Security ──────────────────────────────────────────────────────────
+      # IMPORTANT: change this to a random 256-bit key in production
+      SECRET_KEY: "${SECRET_KEY:-change-me-in-production-32-chars-minimum}"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      REFRESH_TOKEN_EXPIRE_DAYS: "7"
+
+      # ── Email (SMTP) ───────────────────────────────────────────────────────
+      EMAIL_ENABLED: "${EMAIL_ENABLED:-false}"
+      SMTP_HOST: "${SMTP_HOST:-localhost}"
+      SMTP_PORT: "${SMTP_PORT:-1025}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      FROM_EMAIL: "${FROM_EMAIL:-noreply@compass.com}"
+      FROM_NAME: "${FROM_NAME:-CashRoom Compass}"
+
+      # ── CORS ──────────────────────────────────────────────────────────────
+      # Add your domain here when deploying behind a reverse proxy
+      CORS_ORIGINS: '["http://localhost", "http://localhost:80", "http://localhost:3000"]'
+
+      # ── App ───────────────────────────────────────────────────────────────
+      DEBUG: "false"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+  # ── Frontend (React → nginx) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # This URL is baked into the JS bundle at build time.
+        # For local docker compose it's the host's localhost:8000.
+        # For a server deployment, change to your actual domain, e.g.:
+        #   VITE_API_URL: "https://api.yourcompany.com/v1"
+        VITE_API_URL: "http://localhost:8000/v1"
+    container_name: cashroom-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # ── PostgreSQL (production — uncomment to enable) ───────────────────────────
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: cashroom-db
+  #   restart: unless-stopped
+  #   profiles: ["prod"]
+  #   environment:
+  #     POSTGRES_DB: cashroom
+  #     POSTGRES_USER: cashroom
+  #     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U cashroom"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+# ── Volumes ────────────────────────────────────────────────────────────────────
+volumes:
+  db_data:
+    driver: local
+  # pg_data:
+  #   driver: local

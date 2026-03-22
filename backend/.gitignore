@@ -1,0 +1,8 @@
+# Database
+backend/cashroom.db
+*.db
+
+.venv/
+__pycache__/
+*.db
+.env

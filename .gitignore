@@ -1,0 +1,116 @@
+# =========================================================
+# 🔒 SECRETS & ENV FILES (NEVER COMMIT)
+# =========================================================
+.env 
+.env.* 
+
+# CRITICAL: Allow the example file so devs know required variables
+!.env.example
+
+*.pem 
+*.key 
+
+# Explicit sensitive files
+campus.pem 
+campus_dev.pem 
+
+# =========================================================
+# 🗄 DATABASE FILES (LOCAL ONLY)
+# =========================================================
+*.db 
+*.sqlite3 
+backend/*.db 
+
+# =========================================================
+# 🐍 PYTHON (Backend)
+# =========================================================
+__pycache__/ 
+*.pyc 
+*.pyo 
+*.pyd 
+
+# Virtual environments
+venv/ 
+env/ 
+.venv/ 
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# =========================================================
+# 🌐 NODE / FRONTEND
+# =========================================================
+node_modules/ 
+dist/ 
+build/ 
+.vite/ 
+.eslintcache
+
+# =========================================================
+# 🧪 TEST OUTPUT / COVERAGE
+# =========================================================
+test-results/ 
+coverage/ 
+htmlcov/ 
+playwright-report/
+blob-report/
+
+# =========================================================
+# 📦 ARCHIVES / TEMP FILES
+# =========================================================
+*.zip 
+*.tar 
+*.gz 
+*.tmp 
+*.bak 
+
+# =========================================================
+# 📄 DOCUMENTS (OPTIONAL - IGNORE IF NOT NEEDED IN REPO)
+# =========================================================
+*.xlsx 
+*.xls 
+*.docx 
+
+# =========================================================
+# 🧠 TOOLING / LOCAL CONFIG
+# =========================================================
+.claude/ 
+
+# =========================================================
+# 💻 IDE / EDITOR FILES
+# =========================================================
+.vscode/ 
+.idea/ 
+*.suo 
+*.ntvs* 
+*.njsproj 
+*.sln 
+*.swp 
+
+# Allow extension recommendations only
+!.vscode/extensions.json 
+
+# =========================================================
+# 🖥 OS FILES
+# =========================================================
+.DS_Store 
+Thumbs.db 
+
+# =========================================================
+# 📜 LOG FILES
+# =========================================================
+logs/ 
+*.log 
+npm-debug.log* 
+yarn-debug.log* 
+yarn-error.log* 
+pnpm-debug.log* 
+lerna-debug.log* 
+
+# =========================================================
+# 📁 OPTIONAL PROJECT EXCLUSIONS
+# =========================================================
+# Ignore if this is a separate project
+cashroom-poc/

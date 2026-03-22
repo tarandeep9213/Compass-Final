@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="font-size:22px;font-weight:700;color:#1a5c36;margin:0 0 14px;">Verification Visit Completed</h2>
+<p style="font-size:14px;line-height:1.75;color:#444;margin:0 0 12px;">Hi <strong>{{ recipient_name }}</strong>,</p>
+<p style="font-size:14px;line-height:1.75;color:#444;margin:0 0 20px;">A <strong>{{ visit_type }}</strong> verification visit has been completed.</p>
+
+<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:18px 22px;margin:0 0 16px;">
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Location</p>
+  <p style="font-size:13px;color:#333;margin:0 0 12px;">{{ location_name }}</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Date</p>
+  <p style="font-size:13px;color:#333;margin:0 0 12px;">{{ visit_date }}</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Verifier</p>
+  <p style="font-size:13px;color:#333;margin:0 0 12px;">{{ verifier_name }}</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Observed Total</p>
+  <p style="font-size:13px;color:#333;margin:0;">{{ observed_total }}</p>
+</div>
+
+{% if notes %}
+<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;font-size:13px;color:#166534;line-height:1.6;">
+  <strong>Notes:</strong> {{ notes }}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="font-size:22px;font-weight:700;color:#1a5c36;margin:0 0 14px;">Welcome to CashRoom Compass</h2>
+<p style="font-size:14px;line-height:1.75;color:#444;margin:0 0 12px;">Hi <strong>{{ name }}</strong>,</p>
+<p style="font-size:14px;line-height:1.75;color:#444;margin:0 0 20px;">
+  Your account has been created on <strong>CashRoom Compass</strong> — the Compass Group
+  cash management and compliance platform.
+</p>
+
+<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px 24px;margin:0 0 20px;">
+  <p style="font-size:13px;font-weight:700;color:#166534;margin:0 0 16px;">Your login credentials</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 4px;">Email address</p>
+  <p style="font-size:13px;color:#166534;font-weight:600;margin:0 0 14px;">{{ email }}</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 4px;">Temporary password</p>
+  <p style="font-size:13px;color:#166534;font-weight:700;margin:0;font-family:monospace,monospace;">{{ temp_password }}</p>
+</div>
+
+<p style="font-size:13px;line-height:1.7;color:#555;margin:0 0 10px;">
+  Please log in and <strong>change your password</strong> on first use.
+</p>
+<p style="font-size:12px;line-height:1.7;color:#888;margin:0;">
+  If you did not expect this email, please contact your administrator immediately.
+</p>
+{% endblock %}
