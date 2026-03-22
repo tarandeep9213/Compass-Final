@@ -105,12 +105,6 @@ services:
   #     timeout: 5s
   #     retries: 5
 
-# ── Volumes ────────────────────────────────────────────────────────────────────
-volumes:
-  db_data:
-    driver: local
-  # pg_data:
-  #   driver: local
 
 # ── MailCatcher (Debug SMTP Server) ─────────────────────────────────────────
   mailcatcher:
@@ -118,7 +112,15 @@ volumes:
       context: ./backend
       dockerfile: Dockerfile
     container_name: cashroom-mailcatcher
-    command: python mailcatcher.py
+    # We use 'entrypoint' instead of 'command' to override entrypoint.sh
+    entrypoint: ["python", "mailcatcher.py"] 
     restart: unless-stopped
     ports:
       - "1080:1080"
+
+# ── Volumes ────────────────────────────────────────────────────────────────────
+volumes:
+  db_data:
+    driver: local
+  # pg_data:
+  #   driver: local
