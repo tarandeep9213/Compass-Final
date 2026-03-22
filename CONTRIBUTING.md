@@ -47,10 +47,10 @@ We maintain a decoupled architecture. You will need to run the backend and front
    alembic revision --autogenerate -m "..."
 
    # Inject realistic fake data (mock operators, cash submissions) for local UI testing
-   python seed_demo.py  
+   python seed_demo.py
    
    # Inject the foundational system data (admin accounts, role definitions) required for the app to function
-   python seed.py       
+   python seed.py
    ```
 
 4. **Run the Server:**

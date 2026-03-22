@@ -7,7 +7,7 @@ version: "3.9"
 #   docker compose up --build
 #
 # Access:
-#   Frontend  →  http://localhost
+#   Frontend  →  http://localhost:3000
 #   Backend   →  http://localhost:8000
 #   API Docs  →  http://localhost:8000/docs
 #
@@ -46,8 +46,8 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: "7"
 
       # ── Email (SMTP) ───────────────────────────────────────────────────────
-      EMAIL_ENABLED: "${EMAIL_ENABLED:-false}"
-      SMTP_HOST: "${SMTP_HOST:-localhost}"
+      EMAIL_ENABLED: "true"
+      SMTP_HOST: "mailcatcher"
       SMTP_PORT: "${SMTP_PORT:-1025}"
       SMTP_USER: "${SMTP_USER:-}"
       SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
@@ -82,7 +82,7 @@ services:
     container_name: cashroom-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "3000:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -111,3 +111,14 @@ volumes:
     driver: local
   # pg_data:
   #   driver: local
+
+# ── MailCatcher (Debug SMTP Server) ─────────────────────────────────────────
+  mailcatcher:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cashroom-mailcatcher
+    command: python mailcatcher.py
+    restart: unless-stopped
+    ports:
+      - "1080:1080"

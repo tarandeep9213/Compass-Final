@@ -165,8 +165,8 @@ class ApiHandler(BaseHTTPRequestHandler):
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    smtp_host, smtp_port = "localhost", 1025
-    http_host, http_port = "localhost", 1080
+    smtp_host, smtp_port = "0.0.0.0", 1025
+    http_host, http_port = "0.0.0.0", 1080
 
     # Start SMTP server
     ctrl = Controller(PrintingHandler(), hostname=smtp_host, port=smtp_port)
