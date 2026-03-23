@@ -464,10 +464,13 @@ export default function App() {
       .then(user => {
         syncGrants(user)
         syncLocations()
-        syncUsers()
+        const appRole = apiRoleToRole(user.role)
+        if (appRole === 'admin' || appRole === 'regional-controller') {
+          syncUsers()
+        }
         setAuth({
         userId: user.id,
-        role: apiRoleToRole(user.role),
+        role: appRole,
         name: user.name,
         locationIds: user.location_ids,
       })

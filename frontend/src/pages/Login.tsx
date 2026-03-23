@@ -34,6 +34,8 @@ export default function Login({ onLogin }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+  const [showHints, setShowHints] = useState(false)
+
   // ── Forgot password state ─────────────────────────────────────────────────
   const [view, setView]         = useState<View>('login')
   const [fpEmail, setFpEmail]   = useState('')
@@ -193,15 +195,59 @@ export default function Login({ onLogin }: LoginProps) {
               {loading ? 'Signing in…' : 'Sign In →'}
             </button>
 
-            <div style={{ textAlign: 'center', marginTop: 12 }}>
+            {/* Demo accounts collapsible hint */}
+            <div style={{ marginTop: 14, borderTop: '1px solid var(--ow2)', paddingTop: 14 }}>
               <button
-                onClick={() => { setView('forgot'); setFpEmail(email); setFpError(''); setSuccessMsg('') }}
-                style={{ background: 'none', border: 'none', color: 'var(--g7)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                type="button"
+                onClick={() => setShowHints(v => !v)}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--ts)', fontSize: 12,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: '0 auto',
+                }}
               >
-                Forgot password?
+                <span style={{ fontSize: 10 }}>{showHints ? '▲' : '▼'}</span>
+                Demo accounts
               </button>
-            </div>
 
+              {showHints && (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {[
+                    { email: 'admin@compass.com', role: 'Admin' },
+                    { email: 'operator@compass.com', role: 'Operator' },
+                    { email: 'controller@compass.com', role: 'Controller' },
+                    { email: 'dgm@compass.com', role: 'DGM' },
+                    { email: 'rc@compass.com', role: 'Regional Controller' },
+                  ].map(h => (
+                    <button
+                      key={h.email}
+                      type="button"
+                      onClick={() => { 
+                        setEmail(h.email); 
+                        setPassword(DEMO_PASSWORD); 
+                        setError(''); 
+                        setShowHints(false); 
+                        setSuccessMsg(''); 
+                      }}
+                      style={{
+                        background: 'var(--ow)', border: '1px solid var(--ow2)', borderRadius: 7,
+                        padding: '7px 12px', cursor: 'pointer', display: 'flex',
+                        justifyContent: 'space-between', alignItems: 'center', fontSize: 12,
+                        color: 'var(--td)', fontFamily: 'inherit',
+                      }}
+                    >
+                      <span style={{ color: 'var(--ts)' }}>{h.email}</span>
+                      <span style={{
+                        background: 'var(--g0)', color: 'var(--g7)', border: '1px solid var(--g1)',
+                        borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                      }}>{h.role}</span>
+                    </button>
+                  ))}
+                  <p style={{ fontSize: 11, color: 'var(--ts)', textAlign: 'center', margin: '6px 0 0' }}>
+                    All accounts use password: <strong>demo1234</strong>
+                  </p>
+                </div>
+              )}
+            </div>
           </>
         )}
 

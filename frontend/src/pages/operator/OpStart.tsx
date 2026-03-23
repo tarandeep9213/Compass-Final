@@ -276,12 +276,21 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--ts)' }}>
-                  Variance:&nbsp;
-                  <strong style={{ color: varColor(todaySub.variancePct) }}>
-                    {todaySub.variance >= 0 ? '+' : ''}{formatCurrency(todaySub.variance)}
-                    &nbsp;({todaySub.variancePct >= 0 ? '+' : ''}{todaySub.variancePct.toFixed(2)}%)
-                  </strong>
-                  &nbsp;·&nbsp;Imprest: {formatCurrency(IMPREST)}
+                  {(() => {
+                    const expCash = todaySub.expectedCash || location?.expected_cash || IMPREST;
+                    const dynamicVar = todaySub.totalCash - expCash;
+                    const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
+                    return (
+                      <>
+                        Variance:&nbsp;
+                        <strong style={{ color: varColor(dynamicVarPct) }}>
+                          {dynamicVar >= 0 ? '+' : ''}{formatCurrency(dynamicVar)}
+                          &nbsp;({dynamicVarPct >= 0 ? '+' : ''}{dynamicVarPct.toFixed(2)}%)
+                        </strong>
+                        &nbsp;·&nbsp;Imprest: {formatCurrency(expCash)}
+                      </>
+                    );
+                  })()}
                 </div>
                 {todaySub.rejectionReason && (
                   <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6, fontStyle: 'italic' }}>
@@ -535,14 +544,19 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                           {row.sub ? formatCurrency(row.sub.totalCash) : <span style={{ color: 'var(--wg)' }}>—</span>}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          {row.sub ? (
-                            <span style={{ color: varColor(row.sub.variancePct), fontWeight: 500, fontSize: 13 }}>
-                              {row.sub.variance >= 0 ? '+' : ''}{formatCurrency(row.sub.variance)}
-                              <div style={{ fontSize: 11, color: varColor(row.sub.variancePct) }}>
-                                ({row.sub.variancePct >= 0 ? '+' : ''}{row.sub.variancePct.toFixed(2)}%)
-                              </div>
-                            </span>
-                          ) : (
+                          {row.sub ? (() => {
+                            const expCash = row.sub.expectedCash || location?.expected_cash || IMPREST;
+                            const dynamicVar = row.sub.totalCash - expCash;
+                            const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
+                            return (
+                              <span style={{ color: varColor(dynamicVarPct), fontWeight: 500, fontSize: 13 }}>
+                                {dynamicVar >= 0 ? '+' : ''}{formatCurrency(dynamicVar)}
+                                <div style={{ fontSize: 11, color: varColor(dynamicVarPct) }}>
+                                  ({dynamicVarPct >= 0 ? '+' : ''}{dynamicVarPct.toFixed(2)}%)
+                                </div>
+                              </span>
+                            );
+                          })() : (
                             <span style={{ color: 'var(--wg)' }}>—</span>
                           )}
                         </td>
