@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { SUBMISSIONS, getLocation, formatCurrency } from '../../mock/data'
+import { SUBMISSIONS, getLocation, formatCurrency, IMPREST } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import type { ApiSubmission } from '../../api/types'
@@ -68,7 +68,16 @@ export default function MgrHistory({ managerName, locationIds, onNavigate }: Pro
     return 0
   }, [dateRange])
 
-  const sourceSubs = apiSubs.length > 0 ? apiSubs : SUBMISSIONS
+  const sourceSubs = useMemo(() => {
+    const base = apiSubs.length > 0 ? apiSubs : SUBMISSIONS
+    return base.map(s => {
+      const loc = getLocation(s.locationId)
+      const expCash = Number(s.expectedCash || (loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
+      const variance = s.totalCash - expCash
+      const variancePct = expCash > 0 ? (variance / expCash) * 100 : 0
+      return { ...s, expectedCash: expCash, variance, variancePct }
+    })
+  }, [apiSubs])
 
   // All actioned (approved/rejected) subs for this manager's locations within date range
   const allActioned = useMemo(() =>

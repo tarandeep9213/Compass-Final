@@ -622,7 +622,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                   const loc        = getLocation(v.locationId)
                   const isFuture   = v.date > todayStr
                   const isExpanded = expandedId === v.id
-                  const expCash    = Number((loc as unknown as Record<string, number>)?.expected_cash ?? (loc as unknown as Record<string, number>)?.expectedCash ?? IMPREST)
+                  const expCash    = Number((loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
                   const variance   = v.observedTotal !== undefined ? v.observedTotal - expCash : null
                   const pct        = variance !== null && expCash > 0 ? (variance / expCash) * 100 : null
                   const varCol     = pct !== null

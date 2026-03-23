@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { SUBMISSIONS, VERIFICATIONS, LOCATIONS, USERS, AUDIT_EVENTS, formatCurrency, todayStr } from '../../mock/data'
+import { SUBMISSIONS, VERIFICATIONS, LOCATIONS, USERS, AUDIT_EVENTS, formatCurrency, todayStr, getLocation, IMPREST } from '../../mock/data'
 import { getReportSummary } from '../../api/reports'
 import type { ReportSummary } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
@@ -61,10 +61,16 @@ export default function AdmReports({ adminName }: Props) {
     getReportSummary({ date_from: start, date_to: end })
       .then(setApiSummary)
       .catch(() => setApiSummary(null))
-  }, [start, end]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [start, end])
 
   const filteredSubs = useMemo(() =>
-    SUBMISSIONS.filter(s => (!start||s.date>=start) && (!end||s.date<=end)),
+    SUBMISSIONS.filter(s => (!start||s.date>=start) && (!end||s.date<=end)).map(s => {
+      const loc = getLocation(s.locationId)
+      const expCash = Number(s.expectedCash || (loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
+      const variance = s.totalCash - expCash
+      const variancePct = expCash > 0 ? (variance / expCash) * 100 : 0
+      return { ...s, expectedCash: expCash, variance, variancePct }
+    }),
   [start, end])
 
   const approvedCount  = apiSummary ? apiSummary.approved           : filteredSubs.filter(s=>s.status==='approved').length

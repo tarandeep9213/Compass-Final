@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
-import { SUBMISSIONS, formatCurrency } from '../../mock/data'
+import { SUBMISSIONS, getLocation, formatCurrency, IMPREST } from '../../mock/data'
 import type { Submission, SubmissionReview } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
@@ -100,7 +100,16 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
     return 0
   }, [dateRange])
 
-  const sourceSubs = apiSubs.length > 0 ? apiSubs : SUBMISSIONS
+  const sourceSubs = useMemo(() => {
+    const base = apiSubs.length > 0 ? apiSubs : SUBMISSIONS
+    return base.map(s => {
+      const loc = getLocation(s.locationId)
+      const expCash = Number(s.expectedCash || (loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
+      const variance = s.totalCash - expCash
+      const variancePct = expCash > 0 ? (variance / expCash) * 100 : 0
+      return { ...s, expectedCash: expCash, variance, variancePct }
+    })
+  }, [apiSubs])
 
   const allMgrSubs = useMemo(() =>
     sourceSubs.filter(s =>
