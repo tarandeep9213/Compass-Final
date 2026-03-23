@@ -148,7 +148,12 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
   const rejectedCount = inRange.filter(s => effectiveStatus(s) === 'rejected').length
   const actionedInRange = inRange.filter(s => effectiveStatus(s) !== 'pending_approval')
   const avgVariance   = actionedInRange.length > 0
-    ? actionedInRange.reduce((sum, s) => sum + Math.abs(s.variancePct), 0) / actionedInRange.length
+    ? actionedInRange.reduce((sum, s) => {
+        const loc = apiLocations.find(l => l.id === s.locationId)
+        const expCash = s.expectedCash || loc?.expected_cash || 0
+        const calcVarPct = expCash > 0 ? ((s.totalCash - expCash) / expCash) * 100 : 0
+        return sum + Math.abs(calcVarPct)
+      }, 0) / actionedInRange.length
     : null
 
   // ── Filter counts (for chips) ────────────────────────────────────────────
@@ -369,6 +374,10 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
                   const isOver  = eff === 'pending_approval' && Date.now() - new Date(sub.submittedAt).getTime() > 48 * 3600000
                   const review  = eff === 'pending_approval' ? null : (reviews[sub.id] ?? null)
 
+                  const expCash = sub.expectedCash || loc?.expected_cash || 0
+                  const calcVariance = sub.totalCash - expCash
+                  const calcVariancePct = expCash > 0 ? (calcVariance / expCash) * 100 : 0
+
                   function goReview() {
                     onNavigate('op-readonly', {
                       locationId: sub.locationId, date: sub.date,
@@ -398,11 +407,11 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
                           {formatCurrency(sub.totalCash)}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <span style={{ color: varColor(sub.variancePct), fontWeight: 500, fontSize: 13 }}>
-                            {sub.variance >= 0 ? '+' : ''}{formatCurrency(sub.variance)}
+                          <span style={{ color: varColor(calcVariancePct), fontWeight: 500, fontSize: 13 }}>
+                            {calcVariance >= 0 ? '+' : ''}{formatCurrency(calcVariance)}
                           </span>
                           <div style={{ fontSize: 11, color: 'var(--ts)' }}>
-                            ({sub.variancePct >= 0 ? '+' : ''}{sub.variancePct.toFixed(2)}%)
+                            ({calcVariancePct >= 0 ? '+' : ''}{calcVariancePct.toFixed(2)}%)
                           </div>
                         </td>
                         <td>
