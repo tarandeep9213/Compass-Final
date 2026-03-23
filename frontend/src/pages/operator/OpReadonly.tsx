@@ -73,7 +73,11 @@ const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 
 const SEC_C_LABELS = ['Dollars', 'Halves', 'Quarters', 'Dimes', 'Nickels', 'Pennies']
 const SEC_C_FACE   = [1.00, 0.50, 0.25, 0.10, 0.05, 0.01]
+const SEC_C_KEYS   = ['cDollar', 'cHalves', 'cQuarters', 'cDimes', 'cNickels', 'cPennies']
+
 const SEC_D_LABELS = ['Dollars', 'Quarters', 'Dimes', 'Nickels']
+const SEC_D_FACE   = [1.00, 0.25, 0.10, 0.05]
+const SEC_D_KEYS   = ['dDollar', 'dQuarters', 'dDimes', 'dNickels']
 
 export default function OpReadonly({ ctx, onNavigate }: Props) {
   // When a controller comes via "Mark as Completed" flow, force a fresh re-review
@@ -86,7 +90,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
   // Load denomination detail — first from sessionStorage (set by OpForm/OpExcel before navigate),
   // then overwritten by API response if available.
-  const [denomDetail, setDenomDetail] = useState<Record<string, Record<string, number>>>(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [denomDetail, setDenomDetail] = useState<Record<string, any>>(() => {
     if (!ctx.submissionId) return {}
     try {
       const stored = sessionStorage.getItem(`denom_${ctx.submissionId}`)
@@ -107,29 +112,33 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           approvedBy: s.approved_by ?? undefined, approvedByName: s.approved_by_name ?? undefined,
           rejectionReason: s.rejection_reason ?? undefined,
           sections: {
-            A: (s.sections['A'] as { total?: number })?.total ?? 0,
-            B: (s.sections['B'] as { total?: number })?.total ?? 0,
-            C: (s.sections['C'] as { total?: number })?.total ?? 0,
-            D: (s.sections['D'] as { total?: number })?.total ?? 0,
-            E: (s.sections['E'] as { total?: number })?.total ?? 0,
-            F: (s.sections['F'] as { total?: number })?.total ?? 0,
-            G: (s.sections['G'] as { total?: number })?.total ?? 0,
-            H: (s.sections['H'] as { total?: number })?.total ?? 0,
-            I: (s.sections['I'] as { total?: number })?.total ?? 0,
-          },
+            A: typeof s.sections['A'] === 'number' ? s.sections['A'] : (s.sections['A'] as { total?: number })?.total ?? 0,
+            B: typeof s.sections['B'] === 'number' ? s.sections['B'] : (s.sections['B'] as { total?: number })?.total ?? 0,
+            C: typeof s.sections['C'] === 'number' ? s.sections['C'] : (s.sections['C'] as { total?: number })?.total ?? 0,
+            D: typeof s.sections['D'] === 'number' ? s.sections['D'] : (s.sections['D'] as { total?: number })?.total ?? 0,
+            E: typeof s.sections['E'] === 'number' ? s.sections['E'] : (s.sections['E'] as { total?: number })?.total ?? 0,
+            F: typeof s.sections['F'] === 'number' ? s.sections['F'] : (s.sections['F'] as { total?: number })?.total ?? 0,
+            G: typeof s.sections['G'] === 'number' ? s.sections['G'] : (s.sections['G'] as { total?: number })?.total ?? 0,
+            H: typeof s.sections['H'] === 'number' ? s.sections['H'] : (s.sections['H'] as { total?: number })?.total ?? 0,
+            I: typeof s.sections['I'] === 'number' ? s.sections['I'] : (s.sections['I'] as { total?: number })?.total ?? 0,
+            holdover: typeof s.sections['holdover'] === 'number' ? s.sections['holdover'] : 0,
+            coinTransit: typeof s.sections['coin_transit'] === 'number' ? s.sections['coin_transit'] : 0,
+          } as unknown as Submission['sections'],
         })
         // Extract denomination detail from API response and merge with stored
-        const detail: Record<string, Record<string, number>> = {}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const detail: Record<string, any> = {}
         for (const [sec, data] of Object.entries(s.sections)) {
           if (typeof data === 'object' && data !== null) {
-            const d: Record<string, number> = {}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const d: any = {}
             for (const [k, v] of Object.entries(data as unknown as Record<string, unknown>)) {
-              if (k !== 'total' && typeof v === 'number') d[k] = v
+              if (k !== 'total') d[k] = v
             }
             if (Object.keys(d).length > 0) detail[sec] = d
           }
         }
-        if (Object.keys(detail).length > 0) setDenomDetail(detail)
+        if (Object.keys(detail).length > 0) setDenomDetail(prev => ({ ...prev, ...detail }))
       })
       .catch(() => { /* keep sessionStorage data */ })
   }, [ctx.submissionId])
@@ -641,16 +650,23 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {SEC_C_LABELS.map((lbl, i) => (
-                  <tr key={lbl}>
-                    <td>{lbl}</td>
-                    <DashCell />
-                    <DashCell />
-                    <td style={{ textAlign: 'right', color: 'var(--ts)', fontSize: 11 }}>{formatCurrency(SEC_C_FACE[i])}</td>
-                    <DashCell />
-                    <DashCell />
-                  </tr>
-                ))}
+                {SEC_C_LABELS.map((lbl, i) => {
+                  const m = denomDetail['C']?.machines?.[SEC_C_KEYS[i]]
+                  const m1 = m?.m1 ? parseFloat(m.m1) : 0
+                  const m2 = m?.m2 ? parseFloat(m.m2) : 0
+                  const totalCount = m1 + m2
+                  const totalAmt = totalCount * SEC_C_FACE[i]
+                  return (
+                    <tr key={lbl}>
+                      <td>{lbl}</td>
+                      {m1 > 0 ? <td style={{ textAlign: 'right', fontSize: 12 }}>{m1}</td> : <DashCell />}
+                      {m2 > 0 ? <td style={{ textAlign: 'right', fontSize: 12 }}>{m2}</td> : <DashCell />}
+                      <td style={{ textAlign: 'right', color: 'var(--ts)', fontSize: 11 }}>{formatCurrency(SEC_C_FACE[i])}</td>
+                      {totalCount > 0 ? <td style={YC}>{totalCount}</td> : <DashCell />}
+                      {totalAmt > 0 ? <td style={YC}>{formatCurrency(totalAmt)}</td> : <DashCell />}
+                    </tr>
+                  )
+                })}
                 <tr style={{ background: 'var(--g0)' }}>
                   <td colSpan={5} style={{ fontWeight: 700, fontSize: 11, color: 'var(--g8)' }}>C. Total</td>
                   <ValCell val={s.C} />
@@ -677,13 +693,17 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
               </tr>
             </thead>
             <tbody>
-              {SEC_D_LABELS.map(lbl => (
-                <tr key={lbl}>
-                  <td>{lbl}</td>
-                  <DashCell />
-                  <DashCell />
-                </tr>
-              ))}
+              {SEC_D_LABELS.map((lbl, i) => {
+                const qty = denomDetail['D']?.bags?.[SEC_D_KEYS[i]]
+                const total = qty ? qty * SEC_D_FACE[i] : 0
+                return (
+                  <tr key={lbl}>
+                    <td>{lbl}</td>
+                    {qty > 0 ? <td style={{ textAlign: 'right', fontSize: 12 }}>{qty}</td> : <DashCell />}
+                    {total > 0 ? <td style={YC}>{formatCurrency(total)}</td> : <DashCell />}
+                  </tr>
+                )
+              })}
               <tr style={{ background: 'var(--g0)' }}>
                 <td colSpan={2} style={{ fontWeight: 700, fontSize: 11, color: 'var(--g8)' }}>D. Total</td>
                 <ValCell val={s.D} />
@@ -712,14 +732,20 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}>
-                        <DashCell />
-                        <td style={{ textAlign: 'center', color: 'var(--ts)', fontSize: 11 }}>ea. @</td>
-                        <DashCell />
-                        <DashCell />
-                      </tr>
-                    ))}
+                    {Array.from({ length: 5 }).map((_, i) => {
+                      const row = denomDetail['E']?.[si === 0 ? 'set1' : 'set2']?.[i] || denomDetail['E']?.[si === 0 ? 'left' : 'right']?.[i]
+                      const qty = row?.qty ? parseFloat(row.qty) : 0
+                      const amt = row?.amount ? parseFloat(row.amount) : 0
+                      const total = qty * amt
+                      return (
+                        <tr key={i}>
+                          {qty > 0 ? <td style={{ textAlign: 'right', fontSize: 12 }}>{qty}</td> : <DashCell />}
+                          <td style={{ textAlign: 'center', color: 'var(--ts)', fontSize: 11 }}>ea. @</td>
+                          {amt > 0 ? <td style={{ textAlign: 'right', fontSize: 12 }}>{formatCurrency(amt)}</td> : <DashCell />}
+                          {total > 0 ? <td style={YC}>{formatCurrency(total)}</td> : <DashCell />}
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -752,14 +778,20 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <tr key={i}>
-                <DashCell />
-                <td style={{ textAlign: 'center', color: 'var(--ts)', fontSize: 11 }}>ea. @</td>
-                <DashCell />
-                <DashCell />
-              </tr>
-            ))}
+            {Array.from({ length: 4 }).map((_, i) => {
+              const row = denomDetail['F']?.rows?.[i] || (Array.isArray(denomDetail['F']) ? denomDetail['F'][i] : null)
+              const qty = row?.qty ? parseFloat(row.qty) : 0
+              const amt = row?.amount ? parseFloat(row.amount) : 0
+              const total = qty * amt
+              return (
+                <tr key={i}>
+                  {qty > 0 ? <td style={{ textAlign: 'right', fontSize: 12 }}>{qty}</td> : <DashCell />}
+                  <td style={{ textAlign: 'center', color: 'var(--ts)', fontSize: 11 }}>ea. @</td>
+                  {amt > 0 ? <td style={{ textAlign: 'right', fontSize: 12 }}>{formatCurrency(amt)}</td> : <DashCell />}
+                  {total > 0 ? <td style={YC}>{formatCurrency(total)}</td> : <DashCell />}
+                </tr>
+              )
+            })}
             <tr style={{ background: 'var(--g0)' }}>
               <td colSpan={3} style={{ fontWeight: 700, fontSize: 11, color: 'var(--g8)' }}>F. Total</td>
               <ValCell val={s.F} />
@@ -880,11 +912,20 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
                   </td>
                 </tr>
               ))}
+              <tr style={{ borderBottom: '1px solid var(--ow2)' }}>
+                <td />
+                <td style={{ padding: '7px 8px', fontSize: 13, color: 'var(--ts)', fontStyle: 'italic' }}>
+                  Deduct Holdover (if any)
+                </td>
+                <td style={{ textAlign: 'right', padding: '7px 0', color: 'var(--td)', fontSize: 14 }}>
+                  {formatCurrency((s as unknown as Record<string, number>).holdover || 0)}
+                </td>
+              </tr>
               <tr style={{ background: '#fffde7', borderBottom: '2px solid var(--ow2)' }}>
                 <td />
                 <td style={{ padding: '8px 8px', fontWeight: 700, fontSize: 13, color: '#78590a' }}>Total Cash</td>
                 <td style={{ ...YC, padding: '8px 0', fontSize: 15, fontFamily: 'DM Serif Display,serif' }}>
-                  {formatCurrency(s.A + s.B + s.C + s.D + s.E + s.F + s.G)}
+                  {formatCurrency((s.A + s.B + s.C + s.D + s.E + s.F + s.G) - ((s as unknown as Record<string, number>).holdover || 0))}
                 </td>
               </tr>
               {(['H', 'I'] as const).map(k => (
@@ -898,6 +939,13 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
                   </td>
                 </tr>
               ))}
+              <tr style={{ borderBottom: '1px solid var(--ow2)' }}>
+                <td style={{ padding: '7px 0', color: 'var(--g7)', fontWeight: 700, fontSize: 13 }}>J</td>
+                <td style={{ padding: '7px 8px', fontSize: 13, color: 'var(--td)' }}>Coin Purchase in Transit to / from Bank</td>
+                <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 14, padding: '7px 0' }}>
+                  {formatCurrency((s as unknown as Record<string, number>).coinTransit || 0)}
+                </td>
+              </tr>
               <tr style={{ background: '#fffde7', borderBottom: '2px solid var(--ow2)' }}>
                 <td />
                 <td style={{ padding: '8px 8px', fontWeight: 700, fontSize: 13, color: '#78590a' }}>Total Cashier's Fund – TODAY</td>

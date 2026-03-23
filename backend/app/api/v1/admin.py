@@ -671,8 +671,7 @@ def import_roster(
             if cc: loc.cost_center = cc
             locs_updated += 1
         else:
-            loc = Location(id=loc_id, name=row.location_name,
-                           cost_center=cc, city=row.district or "", address="")
+            loc = Location(id=loc_id, name=row.location_name,cost_center=cc, city=row.district or "", address="", expected_cash=100)
             db.add(loc)
             locs_created += 1
 

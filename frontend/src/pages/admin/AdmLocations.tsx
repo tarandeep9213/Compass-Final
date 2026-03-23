@@ -81,7 +81,18 @@ export default function AdmLocations({ adminName }: Props) {
     if (mode === 'add' && !form.id.trim()) e.id = 'Cost center required'
     if (mode === 'add' && form.id.trim() && !/^\d+$/.test(form.id.trim())) e.id = 'Cost center must be numeric'
     if (mode === 'add' && locs.some(l => l.id === form.id.trim())) e.id = 'ID must be unique'
-    if (!form.name.trim()) e.name = 'Name required'
+    
+    if (!form.name.trim()) {
+      e.name = 'Name required'
+    } else {
+      const nameLower = form.name.trim().toLowerCase()
+      const isDuplicate = locs.some(l => 
+        l.name.toLowerCase() === nameLower && 
+        (mode === 'add' || (mode !== null && typeof mode === 'object' && l.id !== mode.id))
+      )
+      if (isDuplicate) e.name = 'Location name must be unique'
+    }
+    
     const cash = Number(form.expectedCash)
     if (!form.expectedCash || isNaN(cash) || cash <= 0) e.expectedCash = 'Enter a valid amount'
     const tol = Number(form.tolerancePct)

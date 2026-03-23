@@ -3,7 +3,7 @@ import { USERS, LOCATIONS } from '../../mock/data'
 import type { User } from '../../mock/data'
 import { readGrants, writeGrants } from '../../utils/operatorAccess'
 import type { AccessGrant, AccessType } from '../../utils/operatorAccess'
-import { listUsers, listLocations, createUser, updateUser, deactivateUser, reactivateUser, listAccessGrants, grantAccess, updateGrantNote, revokeAccess, purgeNonAdminUsers } from '../../api/admin'
+import { listUsers, listLocations, createUser, updateUser, deactivateUser, reactivateUser, listAccessGrants, grantAccess, updateGrantNote, revokeAccess, purgeNonAdminUsers, getConfig, updateConfig } from '../../api/admin'
 import { me as getMe } from '../../api/auth'
 import { ApiError } from '../../api/client'
 import type { ApiUser, ApiRole } from '../../api/types'
@@ -64,6 +64,14 @@ export default function AdmUsers({ adminName }: Props) {
 
   useEffect(() => {
     getMe().then(u => setCurrentUserId(u.id)).catch(() => {})
+    // FETCH EXISTING SETTINGS
+    getConfig().then(cfg => {
+      setSys({
+        dowLookbackWeeks: cfg.global.dow_lookback_weeks as 4 | 6,
+        reminderTime: cfg.global.daily_reminder_time,
+        retentionYears: cfg.global.data_retention_years,
+      })
+    }).catch(() => { /* keep defaults if fails */ })
     listUsers({ page_size: 200 })
       .then(r => { setUsers(r.items.map(mapApiUser)); setFetchError('') })
       .catch((err: unknown) => {
@@ -89,6 +97,17 @@ export default function AdmUsers({ adminName }: Props) {
       })
       if (res.items.length > 0) { setOpGrants(op); setCtrlGrants(ctrl); writeGrants(op, 'operator'); writeGrants(ctrl, 'controller') }
     }).catch(() => { /* use localStorage */ })
+
+    getConfig().then(cfg => {
+      setSys({
+        dowLookbackWeeks: cfg.global.dow_lookback_weeks as 4 | 6,
+        reminderTime: cfg.global.daily_reminder_time,
+        retentionYears: cfg.global.data_retention_years
+      })
+    }).catch(() => {
+      const localSys = localStorage.getItem('mockSystemConfig')
+      if (localSys) setSys(JSON.parse(localSys))
+    })
   }, [])
   const [mode,    setMode]    = useState<'add'|{id:string}|null>(null)
   const [form,    setForm]    = useState(EMPTY_FORM)
@@ -173,7 +192,8 @@ export default function AdmUsers({ adminName }: Props) {
 
   function openAdd() { setMode('add'); setForm(EMPTY_FORM); setErrors({}); setConfirm(null); setPage(0) }
   function openEdit(u: User) {
-    const idx = users.findIndex(x => x.id === u.id)
+    // Calculate page index against filteredUsers so it stays on the correct page when filters are active
+    const idx = filteredUsers.findIndex(x => x.id === u.id)
     if (idx >= 0) setPage(Math.floor(idx / PAGE_SIZE))
     setMode({id:u.id}); setErrors({}); setConfirm(null)
     setForm({ name:u.name, email:u.email, role:u.role as Role, locationIds:[...u.locationIds], password:'' })
@@ -271,6 +291,23 @@ export default function AdmUsers({ adminName }: Props) {
       flash('Error removing users.')
     } finally {
       setPurging(false)
+    }
+  }
+
+  async function handleSysSave() {
+    try {
+      await updateConfig({
+        dow_lookback_weeks: sys.dowLookbackWeeks,
+        daily_reminder_time: sys.reminderTime,
+        data_retention_years: sys.retentionYears
+      })
+      setSysSaved(true)
+      setTimeout(() => setSysSaved(false), 3000)
+    } catch {
+      // Fallback to local storage if DB is not connected
+      localStorage.setItem('mockSystemConfig', JSON.stringify(sys))
+      setSysSaved(true)
+      setTimeout(() => setSysSaved(false), 3000)
     }
   }
 
@@ -506,7 +543,7 @@ export default function AdmUsers({ adminName }: Props) {
               <button
                 className="btn btn-primary"
                 style={{ fontSize: 12, padding: '7px 18px' }}
-                onClick={() => { setSysSaved(true); setTimeout(() => setSysSaved(false), 3000) }}
+                onClick={handleSysSave}
               >
                 Save Settings
               </button>

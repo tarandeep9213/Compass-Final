@@ -237,7 +237,11 @@ def update_draft(
     tolerance = loc.tolerance_pct_override if loc and loc.tolerance_pct_override is not None else cfg.default_tolerance_pct
     totals = _calc_totals(body.sections, s.expected_cash, tolerance)
 
+    from sqlalchemy.orm.attributes import flag_modified # add this import locally, or at top of file
+
     s.sections = body.sections
+    flag_modified(s, "sections") # Force SQLAlchemy to track the JSON update
+    
     s.variance_note = body.variance_note
     s.source = SubmissionSource(body.source)
     for k, v in totals.items():
