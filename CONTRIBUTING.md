@@ -13,8 +13,7 @@ We maintain a decoupled architecture. You will need to run the backend and front
 ### Backend Setup (FastAPI / Python)
 
 1. **Create and Activate a Virtual Environment:**
-   *  `Ctrl+Shift+P --> Python Interpreter --> Create Virtual Environment`: This uses the VS Code UI to create an isolated Python sandbox. This ensures the packages you install for this project don't conflict with other Python projects on your computer.
-
+   
    Open your terminal (VS Code or standard) and run:
    ```powershell
    # Navigate into the backend directory
