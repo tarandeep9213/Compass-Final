@@ -88,7 +88,7 @@ We maintain a decoupled architecture. You will need to run the backend and front
    ```
 
 
-## 2. Mail Server Testing
+## 3. Mail Server Testing
 
 Do not send real emails during local development. We use a local mail catcher to intercept and verify outgoing notifications.
 
