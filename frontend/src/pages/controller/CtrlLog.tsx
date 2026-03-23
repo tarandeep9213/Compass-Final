@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { VERIFICATIONS, LOCATIONS, getLocation, todayStr } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
-import { scheduleControllerVisit } from '../../api/verifications'
+import { scheduleControllerVisit, listControllerVerifications } from '../../api/verifications'
+import type { ApiVerification } from '../../api/types'
 
 interface Props {
   controllerName: string
@@ -26,6 +27,17 @@ function padDate(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+function mapApiVerification(v: ApiVerification): VerificationRecord {
+  return {
+    id: v.id, locationId: v.location_id, verifierName: v.verifier_name,
+    type: v.verification_type === 'CONTROLLER' ? 'controller' : 'dgm',
+    date: v.verification_date, monthYear: v.month_year ?? undefined,
+    observedTotal: v.observed_total ?? undefined, notes: v.notes,
+    dayOfWeek: v.day_of_week, warningFlag: v.warning_flag, status: v.status,
+    missedReason: v.missed_reason ?? undefined, scheduledTime: v.scheduled_time ?? undefined,
+  }
+}
+
 export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }: Props) {
   const today    = todayStr()
 
@@ -46,6 +58,13 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   const [refresh,      setRefresh]      = useState(0)
   const [fetchError,   setFetchError]   = useState('')
 
+  const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
+  useEffect(() => {
+    listControllerVerifications()
+      .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
+      .catch(() => { /* fall back to mock */ })
+  }, [locationIds, refresh])
+
   // ── Calendar grid ──────────────────────────────────────────────────────
   // Returns null-padded array: null = empty leading cell, number = day-of-month
   const calCells = useMemo<(number | null)[]>(() => {
@@ -61,26 +80,36 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   const bookedMap = useMemo<Map<string, VerificationRecord>>(() => {
     if (!location) return new Map()
     const map = new Map<string, VerificationRecord>()
-    VERIFICATIONS
+    let sessionUpdates: Record<string, { status: string }> = {}
+    try {
+      const saved = sessionStorage.getItem('ctrl_session_updates')
+      if (saved) sessionUpdates = JSON.parse(saved)
+    } catch { /* ignore */ }
+
+    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
+
+    sourceVerifs
       .filter(v => v.type === 'controller' && v.locationId === location)
       .forEach(v => {
-        if (v.status !== 'cancelled') {
-          map.set(v.date, v)
+        const currentStatus = sessionUpdates[v.id]?.status || v.status
+        if (currentStatus !== 'cancelled') {
+          map.set(v.date, { ...v, status: currentStatus as 'scheduled' | 'completed' | 'missed' })
         }
       })
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, refresh])
+  }, [location, refresh, apiVerifs])
 
   // ── Active visits for selected location ────────────────────────────────
   const activeVisits = useMemo(() => {
     if (!location) return []
-    return VERIFICATIONS.filter(v =>
+    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
+    return sourceVerifs.filter(v =>
       v.type === 'controller' && v.locationId === location &&
       (v.status === 'completed' || v.status === 'scheduled')
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, refresh])
+  }, [location, refresh, apiVerifs])
 
   // Helper to get conflicts for a specific date (4-week lookback from that date)
   const getDowConflicts = useCallback((targetDateStr: string) => {

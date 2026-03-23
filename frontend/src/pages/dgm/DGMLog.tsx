@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { VERIFICATIONS, LOCATIONS, getLocation, todayStr } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
-import { scheduleDgmVisit } from '../../api/verifications'
+import { scheduleDgmVisit, listDgmVerifications } from '../../api/verifications'
+import type { ApiVerification } from '../../api/types'
 
 interface Props {
   dgmName: string
@@ -23,6 +24,17 @@ function monthYearOf(dateStr: string) {
   return dateStr.slice(0, 7)   // "YYYY-MM"
 }
 
+function mapApiVerification(v: ApiVerification): VerificationRecord {
+  return {
+    id: v.id, locationId: v.location_id, verifierName: v.verifier_name,
+    type: v.verification_type === 'CONTROLLER' ? 'controller' : 'dgm',
+    date: v.verification_date, monthYear: v.month_year ?? undefined,
+    observedTotal: v.observed_total ?? undefined, notes: v.notes,
+    dayOfWeek: v.day_of_week, warningFlag: v.warning_flag, status: v.status,
+    missedReason: v.missed_reason ?? undefined, scheduledTime: v.scheduled_time ?? undefined,
+  }
+}
+
 export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props) {
   const today = todayStr()
 
@@ -41,6 +53,13 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
   const [saving,       setSaving]       = useState(false)
   const [refresh,      setRefresh]      = useState(0)
   const [fetchError,   setFetchError]   = useState('')
+
+  const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
+  useEffect(() => {
+    listDgmVerifications()
+      .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
+      .catch(() => { /* fall back to mock */ })
+  }, [locationIds, refresh])
 
   // ── Calendar grid ──────────────────────────────────────────────────────
   const calCells = useMemo<(number | null)[]>(() => {
@@ -62,8 +81,10 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
       if (saved) sessionUpdates = JSON.parse(saved)
     } catch { /* ignore */ }
 
+    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
+
     // 2. Filter and merge statuses
-    const completed = VERIFICATIONS
+    const completed = sourceVerifs
       .filter(v => v.type === 'dgm' && v.locationId === location)
       .map(v => ({ ...v, status: sessionUpdates[v.id]?.status || v.status }))
       .filter(v => v.status === 'completed')
@@ -72,7 +93,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     completed.sort((a, b) => b.date.localeCompare(a.date))
     return completed[0] || null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, refresh])
+  }, [location, refresh, apiVerifs])
 
 // -- Booked months for selected location --------------------------------
   // DGM rule: ONE visit per location per calendar month.
@@ -89,7 +110,9 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
       // ignore parse errors
     }
 
-    VERIFICATIONS.forEach(v => {
+    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
+
+    sourceVerifs.forEach(v => {
       if (v.type !== 'dgm' || v.locationId !== location) return
       
       // Get current status (respecting session actions)
@@ -106,7 +129,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     })
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, refresh])
+  }, [location, refresh, apiVerifs])
 
   // ── Calendar navigation ────────────────────────────────────────────────
   const prevDisabled =
@@ -160,9 +183,13 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
       const my = monthYearOf(selectedDate)
       const existing = bookedMonths.get(my)
 
-      // DOM warning is non-blocking — ⚠️ Caution shown in UI but scheduling is always allowed
-      // If a visit exists and it's not a reschedule (different date), block it
-      if (existing && (existing.status === 'scheduled' || existing.status === 'completed')) {
+      // 1. Check for Day-of-Month (DOM) compliance conflict
+      if (domWarning) {
+        e.date = `Compliance Error: You cannot visit on the ${new Date(selectedDate + 'T12:00:00').getDate()}th as it matches the date of your last completed visit.`
+      }
+      
+      // 2. If a visit exists and it's not a reschedule (different date), block it
+      else if (existing && (existing.status === 'scheduled' || existing.status === 'completed')) {
         if (existing.date !== selectedDate) {
           e.date = `This month already has a ${existing.status} visit on ${new Date(existing.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.`
         }

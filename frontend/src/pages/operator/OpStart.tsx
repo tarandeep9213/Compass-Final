@@ -294,23 +294,12 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                   onClick={() => onNavigate('op-readonly', { locationId, date: todayStr(), submissionId: todaySub.id, from: 'op-start' })}>
                   View →
                 </button>
-                {todaySub.status === 'pending_approval' && (
-                  <button className="btn btn-outline"
-                    onClick={() => onNavigate('op-form', { locationId, date: todayStr(), submissionId: todaySub.id, from: 'op-start' })}>
-                    Update
-                  </button>
-                )}
+                {/* Update button intentionally omitted for 'pending_approval' to enforce View-only access */}
                 {todaySub.status === 'rejected' && (
-                  <>
-                    <button className="btn btn-outline"
-                      onClick={() => onNavigate('op-form', { locationId, date: todayStr(), submissionId: todaySub.id, from: 'op-start' })}>
-                      Update
-                    </button>
-                    <button className="btn btn-primary"
-                      onClick={() => onNavigate('op-method', { locationId, date: todayStr(), submissionId: todaySub.id })}>
-                      Resubmit →
-                    </button>
-                  </>
+                  <button className="btn btn-primary"
+                    onClick={() => onNavigate('op-method', { locationId, date: todayStr(), submissionId: todaySub.id })}>
+                    Resubmit →
+                  </button>
                 )}
               </div>
             </div>

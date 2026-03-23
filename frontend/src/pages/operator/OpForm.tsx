@@ -527,6 +527,14 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       }
 
       sessionStorage.setItem(`op_status_${newId}`, 'pending_approval')
+
+      // Remove stale rejection reviews from mock data
+      if (SUBMISSION_REVIEWS[newId]) {
+        delete SUBMISSION_REVIEWS[newId]
+        localStorage.setItem('compass_submission_reviews', JSON.stringify(SUBMISSION_REVIEWS))
+      }
+
+      sessionStorage.setItem(`op_status_${newId}`, 'pending_approval')
       sessionStorage.setItem(`op_status_${ctx.locationId}_${ctx.date}`, 'pending_approval')
       sessionStorage.setItem(`denom_${newId}`, JSON.stringify(denomDetail))
       window.alert('Could not reach the server. Make sure the backend is running on port 8000.\n\nProceeding with local session data.')
