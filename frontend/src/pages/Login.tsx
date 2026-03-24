@@ -195,6 +195,16 @@ export default function Login({ onLogin }: LoginProps) {
               {loading ? 'Signing in…' : 'Sign In →'}
             </button>
 
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <button
+                type="button"
+                onClick={() => { setView('forgot'); setFpEmail(email); setFpError(''); setSuccessMsg('') }}
+                style={{ background: 'none', border: 'none', color: 'var(--g7)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Forgot password?
+              </button>
+            </div>
+
             {/* Demo accounts collapsible hint */}
             <div style={{ marginTop: 14, borderTop: '1px solid var(--ow2)', paddingTop: 14 }}>
               <button
