@@ -190,7 +190,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   // API-fetched verifications — overlay over mock data
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   // Map of locationId_date to { status, id }
-  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string }>>({})
+  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number }>>({})
 
   // Clear any stale sessionStorage from old code so it doesn't affect other reads
   useEffect(() => {
@@ -213,9 +213,9 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
           const flats = arrays.flat()
-          const map: Record<string, { status: string; id: string }> = {}
+          const map: Record<string, { status: string; id: string; totalCash: number }> = {}
           flats.forEach(s => {
-            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id }
+            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash }
           })
           setApiSubsMap(map)
         })
@@ -240,6 +240,12 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     const key = `${locId}_${date}`
     if (apiSubsMap[key]) return apiSubsMap[key].id
     return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.id
+  }
+
+  function getSubTotalCash(locId: string, date: string): number | null {
+    const key = `${locId}_${date}`
+    if (apiSubsMap[key]) return apiSubsMap[key].totalCash
+    return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.totalCash ?? null
   }
 
   // FIX: Removed useEffect to prevent cascading render errors. Resetting state happens inside the click/change handlers now.
@@ -599,7 +605,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                 <col style={{ width: 110 }} />
                 <col style={{ width: 80 }} />
                 <col style={{ width: 140 }} />
-                <col style={{ width: 120 }} />
+                <col style={{ width: 145 }} /> {/* Increased Status width from 120px to 145px */}
                 <col style={{ width: 120 }} />
                 <col style={{ width: 110 }} />
                 <col />
@@ -623,7 +629,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                   const isFuture   = v.date > todayStr
                   const isExpanded = expandedId === v.id
                   const expCash    = Number((loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
-                  const variance   = v.observedTotal !== undefined ? v.observedTotal - expCash : null
+                  const effObsTotal = (v.observedTotal && v.observedTotal > 0) ? v.observedTotal : getSubTotalCash(v.locationId, v.date)
+                  const variance   = effObsTotal !== null && effObsTotal !== undefined ? effObsTotal - expCash : null
                   const pct        = variance !== null && expCash > 0 ? (variance / expCash) * 100 : null
                   const varCol     = pct !== null
                     ? (Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)')
@@ -675,8 +682,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
                         {/* Observed Total */}
                         <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 15 }}>
-                          {v.observedTotal !== undefined
-                            ? formatCurrency(v.observedTotal)
+                          {effObsTotal !== null && effObsTotal !== undefined
+                            ? formatCurrency(effObsTotal)
                             : <span style={{ color: 'var(--wg)', fontFamily: 'inherit', fontSize: 12 }}>—</span>
                           }
                         </td>

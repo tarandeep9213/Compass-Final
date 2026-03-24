@@ -164,7 +164,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
   useEffect(() => { sessionStorage.removeItem('dgm_session_updates') }, [])
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
-  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string }>>({})
+  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number }>>({})
 
   const locIdsJoined = locationIds.join(',')
   useEffect(() => {
@@ -177,9 +177,9 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     if (locationIds.length > 0) {
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
-          const map: Record<string, { status: string; id: string }> = {}
+          const map: Record<string, { status: string; id: string; totalCash: number }> = {}
           arrays.flat().forEach(s => {
-            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id }
+            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash }
           })
           setApiSubsMap(map)
         })
@@ -203,6 +203,12 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     const key = `${locId}_${date}`
     if (apiSubsMap[key]) return apiSubsMap[key].id
     return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.id
+  }
+
+  function getSubTotalCash(locId: string, date: string): number | null {
+    const key = `${locId}_${date}`
+    if (apiSubsMap[key]) return apiSubsMap[key].totalCash
+    return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.totalCash ?? null
   }
 
   function closeExpand() {
@@ -513,8 +519,10 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                   const loc        = getLocation(v.locationId)
                   const isFuture   = v.date > today
                   const isExpanded = expandedId === v.id
-                  const variance   = v.observedTotal !== undefined ? v.observedTotal - IMPREST : null
-                  const pct        = variance !== null ? (variance / IMPREST) * 100 : null
+                  const expCash    = Number((loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
+                  const effObsTotal = (v.observedTotal && v.observedTotal > 0) ? v.observedTotal : getSubTotalCash(v.locationId, v.date)
+                  const variance   = effObsTotal !== null && effObsTotal !== undefined ? effObsTotal - expCash : null
+                  const pct        = variance !== null && expCash > 0 ? (variance / expCash) * 100 : null
                   const varCol     = pct !== null
                     ? (Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)')
                     : 'var(--wg)'
@@ -540,8 +548,8 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                         </td>
                         <td><StatusBadge status={v.status} isOverdue={(v as DashRecord).isOverdue} /></td>
                         <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 15 }}>
-                          {v.observedTotal !== undefined
-                            ? formatCurrency(v.observedTotal)
+                          {effObsTotal !== null && effObsTotal !== undefined
+                            ? formatCurrency(effObsTotal)
                             : <span style={{ color: 'var(--wg)', fontFamily: 'inherit', fontSize: 12 }}>—</span>}
                         </td>
                         <td style={{ textAlign: 'right' }}>
