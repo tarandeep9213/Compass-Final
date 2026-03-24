@@ -16,17 +16,20 @@ function formatCC(cc: string | undefined | null): string {
 
 type Granularity = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 
-// Section labels matching the operator cash form (Sections A–I)
+// Section labels matching the operator cash form (Sections A–L)
 const SECTIONS = [
-  { key: 'secA', label: 'Currency (Bills)',           short: 'A', color: '#2563eb', base: 6100 },
-  { key: 'secB', label: 'Coins in Counting Machines', short: 'B', color: '#7c3aed', base: 470  },
-  { key: 'secC', label: 'Bagged Coin',                short: 'C', color: '#db2777', base: 760  },
-  { key: 'secD', label: 'Unissued Changer Funds',     short: 'D', color: '#d97706', base: 920  },
-  { key: 'secE', label: 'Rolled Coin',                short: 'E', color: '#059669', base: 460  },
-  { key: 'secF', label: 'Returned Uncounted Funds',   short: 'F', color: '#64748b', base: 170  },
-  { key: 'secG', label: 'Mutilated / Foreign',        short: 'G', color: '#e11d48', base: 370  },
-  { key: 'secH', label: 'Changer Funds Outstanding',  short: 'H', color: '#0891b2', base: 165  },
-  { key: 'secI', label: 'Shortage / Overage',         short: 'I', color: '#65a30d', base: 160  },
+  { key: 'secA', label: 'Currency',                                      short: 'A', color: '#2563eb', base: 6100 },
+  { key: 'secB', label: 'Rolled Coin',                                   short: 'B', color: '#059669', base: 460  },
+  { key: 'secC', label: 'Coins in Counting Machines (Sorter/Counter)',   short: 'C', color: '#7c3aed', base: 470  },
+  { key: 'secD', label: 'Bagged Coin (Full for Bank)',                   short: 'D', color: '#db2777', base: 760  },
+  { key: 'secE', label: 'Unissued Changer Funds in Cashroom or Vault',   short: 'E', color: '#d97706', base: 920  },
+  { key: 'secF', label: 'Returned but Uncounted Manual Change',          short: 'F', color: '#64748b', base: 170  },
+  { key: 'secG', label: 'Mutilated Currency, Foreign, and/or Bent Coin', short: 'G', color: '#e11d48', base: 370  },
+  { key: 'secH', label: 'Changer Funds Outstanding',                     short: 'H', color: '#0891b2', base: 165  },
+  { key: 'secI', label: 'Net Unreimbursed Bill Changer',                 short: 'I', color: '#8b5cf6', base: 300  },
+  { key: 'secJ', label: 'Coin Purchase in transit to/from bank',         short: 'J', color: '#f59e0b', base: 250  },
+  { key: 'secK', label: "Total Cashier's Fund - TODAY",                  short: 'K', color: '#10b981', base: 8500 },
+  { key: 'secL', label: 'Variance - Short or (Over)',                    short: 'L', color: '#65a30d', base: 160  },
 ]
 
 // Per-location cash volume multipliers
@@ -241,28 +244,27 @@ export default function RcTrends({ adminName }: Props) {
 
   // Single source of truth for Chart and Cards:
   const chartData = useMemo((): DataPoint[] => {
-    if (fetchError) return mockData; // Fallback to mock ONLY on API failure
+    if (fetchError) return mockData; 
     
     if (apiTrends && apiTrends.data) {
       if (apiTrends.data.length === 0) {
-        // If API returns empty dataset, map empty 0s dynamically to prevent crashing the UI
-        return genPts(locationId, granularity, effectivePeriodN).map(p => ({ period: p.period, [sectionKey]: 0 }));
+        return genPts(locationId, granularity, effectivePeriodN).map((p: DataPoint) => ({ period: p.period, [sectionKey]: p[sectionKey] ?? 0 }));
       }
       return apiTrends.data.map(p => ({ period: p.period, [sectionKey]: p.avg_total }))
     }
     
-    return mockData; // Render mock during initial load
-  }, [apiTrends, mockData, sectionKey, fetchError, locationId, granularity, effectivePeriodN])
+    return mockData; 
+  }, [apiTrends, mockData, sectionKey, fetchError, locationId, granularity, effectivePeriodN]);
 
   // STRICTLY derive KPIs dynamically from the chart dataset (Ignore backend summaries)
-  const values    = chartData.map(r => (r[sectionKey] as number | string | undefined) ?? 0).map(Number)
-  const latest    = values.length > 0 ? values[values.length - 1] : 0
-  const prev      = values.length > 1 ? values[values.length - 2] : latest
-  const avg       = values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0
-  const peak      = values.length > 0 ? Math.max(...values) : 0
-  const total     = values.reduce((a, b) => a + b, 0)
-  const pctChange = prev > 0 ? ((latest - prev) / prev) * 100 : 0
-  const changeUp  = pctChange >= 0
+  const values    = chartData.map((r: DataPoint) => (r[sectionKey] as number | string | undefined) ?? 0).map(Number);
+  const latest    = values.length > 0 ? values[values.length - 1] : 0;
+  const prev      = values.length > 1 ? values[values.length - 2] : latest;
+  const avg       = values.length > 0 ? Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length) : 0;
+  const peak      = values.length > 0 ? Math.max(...values) : 0;
+  const total     = values.reduce((a: number, b: number) => a + b, 0);
+  const pctChange = prev > 0 ? ((latest - prev) / prev) * 100 : 0;
+  const changeUp  = pctChange >= 0;
 
   const periodUnit = granularity === 'daily' ? 'days' : granularity === 'weekly' ? 'wks' : granularity === 'monthly' ? 'mo' : 'qtrs'
 
@@ -492,7 +494,7 @@ export default function RcTrends({ adminName }: Props) {
           sub={activeSec.label}
           tooltip={{
             what: "The currently selected cash form section being charted.",
-            how: "Sections A–I correspond to different cash categories from the operator's daily submission form. Select a different section using the tabs above the chart.",
+            how: "Sections A–L correspond to different cash categories from the operator's daily submission form. Select a different section using the tabs above the chart.",
           }}
         />
       </div>
