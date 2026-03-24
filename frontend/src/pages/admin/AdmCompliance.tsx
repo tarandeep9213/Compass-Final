@@ -46,6 +46,7 @@ export default function AdmCompliance({ adminName }: Props) {
   const [cy,cm] = curMY.split('-')
   const [sortKey,    setSortKey]    = useState<SortKey>('status')
   const [dashboard,  setDashboard]  = useState<ComplianceDashboard | null>(null)
+  const [fetchError, setFetchError] = useState('')
   const [range,      setRange]      = useState<RangeKey>('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo,   setCustomTo]   = useState(today)
@@ -71,7 +72,18 @@ export default function AdmCompliance({ adminName }: Props) {
   }, [range, start, end, cm, cy])
 
   useEffect(() => {
-    getComplianceDashboard().then(setDashboard).catch(() => { /* fall back to mock */ })
+    setFetchError('')
+    getComplianceDashboard()
+      .then(setDashboard)
+      .catch((err) => {
+        const error = err instanceof Error ? err : new Error(String(err));
+        const isNetworkError = error instanceof TypeError || error.message === 'Failed to fetch' || error.message === 'Network Error';
+        if (isNetworkError) {
+          setFetchError('Could not reach the server. Make sure the backend is running on port 8000.')
+        } else {
+          setFetchError(error.message || 'Failed to load compliance data.')
+        }
+      })
   }, [])
 
   const btnBase: React.CSSProperties = {
@@ -197,6 +209,16 @@ export default function AdmCompliance({ adminName }: Props) {
           <span style={{fontSize:12,color:'var(--ts)'}}>{totalLocations} locations · {rangeLabel}</span>
         </div>
       </div>
+
+      {fetchError && (
+        <div style={{
+          background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8,
+          padding: '10px 14px', fontSize: 12, color: 'var(--red)', marginBottom: 18,
+          display: 'flex', alignItems: 'center', gap: 8
+        }}>
+          <span>⚠️</span> {fetchError} (Showing mock data)
+        </div>
+      )}
 
       {/* ── Date filter ────────────────────────────────────────────── */}
       <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:20}}>

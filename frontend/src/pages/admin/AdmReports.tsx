@@ -43,6 +43,7 @@ export default function AdmReports({ adminName }: Props) {
   const [excPage,    setExcPage]    = useState(0)
   const [dtlPage,    setDtlPage]    = useState(0)
   const [dtlLocFilter, setDtlLocFilter] = useState('all')
+  const [fetchError, setFetchError] = useState('')
 
   const [apiSummary, setApiSummary] = useState<ReportSummary | null>(null)
 
@@ -55,12 +56,22 @@ export default function AdmReports({ adminName }: Props) {
   // Fetch real summary KPIs when date range is available
   useEffect(() => {
     if (!start || !end) {
-      Promise.resolve().then(() => setApiSummary(null))
+      Promise.resolve().then(() => { setApiSummary(null); setFetchError(''); })
       return
     }
+    setFetchError('')
     getReportSummary({ date_from: start, date_to: end })
       .then(setApiSummary)
-      .catch(() => setApiSummary(null))
+      .catch((err) => {
+        setApiSummary(null)
+        const error = err instanceof Error ? err : new Error(String(err));
+        const isNetworkError = error instanceof TypeError || error.message === 'Failed to fetch' || error.message === 'Network Error';
+        if (isNetworkError) {
+          setFetchError('Could not reach the server. Make sure the backend is running on port 8000.')
+        } else {
+          setFetchError(error.message || 'Failed to load report summary.')
+        }
+      })
   }, [start, end])
 
   const filteredSubs = useMemo(() =>
@@ -318,6 +329,16 @@ export default function AdmReports({ adminName }: Props) {
           <button className="btn btn-outline" style={{fontSize:13}} onClick={handleDownload}>⬇ Export CSV</button>
         </div>
       </div>
+
+      {fetchError && (
+        <div style={{
+          background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8,
+          padding: '10px 14px', fontSize: 12, color: 'var(--red)', marginBottom: 18,
+          display: 'flex', alignItems: 'center', gap: 8
+        }}>
+          <span>⚠️</span> {fetchError} (Showing mock data)
+        </div>
+      )}
 
       {/* Filters: period + location */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:22,flexWrap:'nowrap',minWidth:0}}>

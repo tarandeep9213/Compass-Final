@@ -192,6 +192,7 @@ export default function RcTrends({ adminName }: Props) {
   const [customTo,       setCustomTo]       = useState(TODAY_ISO)
   const [locationId,     setLocationId]     = useState('all')
   const [sectionKey,     setSectionKey]     = useState('secA')
+  const [fetchError,     setFetchError]     = useState('')
   const [apiTrends,      setApiTrends]      = useState<SectionTrends | null>(null)
 
   const activeSec = SECTIONS.find(s => s.key === sectionKey)!
@@ -207,13 +208,21 @@ export default function RcTrends({ adminName }: Props) {
   }
 
   useEffect(() => {
-    Promise.resolve().then(() => setApiTrends(null))
+    Promise.resolve().then(() => { setApiTrends(null); setFetchError(''); })
     getSectionTrends({
       section:     activeSec.short,
       granularity: granularity === 'daily' ? 'weekly' : granularity, // API doesn't support daily yet
       periods:     effectivePeriodN,
       location_id: locationId === 'all' ? undefined : locationId,
-    }).then(setApiTrends).catch(() => { /* fall back to mock */ })
+    }).then(setApiTrends).catch((err) => {
+      const error = err instanceof Error ? err : new Error(String(err));
+      const isNetworkError = error instanceof TypeError || error.message === 'Failed to fetch' || error.message === 'Network Error';
+      if (isNetworkError) {
+        setFetchError('Could not reach the server. Make sure the backend is running on port 8000.')
+      } else {
+        setFetchError(error.message || 'Failed to load trends data.')
+      }
+    })
   }, [sectionKey, granularity, effectivePeriodN, locationId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const mockData = useMemo((): DataPoint[] => genPts(locationId, granularity, effectivePeriodN),
@@ -257,6 +266,16 @@ export default function RcTrends({ adminName }: Props) {
           </button>
         </div>
       </div>
+
+      {fetchError && (
+        <div style={{
+          background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8,
+          padding: '10px 14px', fontSize: 12, color: 'var(--red)', marginBottom: 18,
+          display: 'flex', alignItems: 'center', gap: 8
+        }}>
+          <span>⚠️</span> {fetchError} (Showing mock data)
+        </div>
+      )}
 
       {/* ── Filter bar ── */}
       <div className="card" style={{ marginBottom: 18 }}>
