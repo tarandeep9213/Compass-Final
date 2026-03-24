@@ -9,8 +9,7 @@ import type { ApiSubmission, ApiLocation } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 
 function mapApiSub(s: ApiSubmission): Submission {
-  // Ensure backend naive datetime strings are properly interpreted as UTC
-  const forceUTC = (d?: string) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
+  const forceUTC = (d?: string | null) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
   return {
     id: s.id,
     locationId: s.location_id,

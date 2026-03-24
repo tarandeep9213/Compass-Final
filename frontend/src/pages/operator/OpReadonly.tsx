@@ -103,7 +103,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
     if (!ctx.submissionId) return
     getSubmission(ctx.submissionId)
       .then(s => {
-        const forceUTC = (d?: string) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
+        const forceUTC = (d?: string | null) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
         setApiSub({
           id: s.id, locationId: s.location_id, operatorName: s.operator_name,
           date: s.submission_date, status: s.status, source: s.source,

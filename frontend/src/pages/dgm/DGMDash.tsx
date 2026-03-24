@@ -467,7 +467,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
           <option value="all">📍 All Locations ({locationIds.length})</option>
           {locationIds.map(id => {
             const loc = getLocation(id)
-            return <option key={id} value={id}>{loc?.name ?? id}</option>
+            return <option key={id} value={id}>{loc?.name ?? id}{loc?.cost_center ? ` (CC: ${loc.cost_center})` : ''}</option>
           })}
         </select>
       </div>

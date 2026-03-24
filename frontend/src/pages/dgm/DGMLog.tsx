@@ -413,7 +413,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
               >
                 {locationIds.map(id => {
                   const loc = LOCATIONS.find(l => l.id === id)
-                  return <option key={id} value={id}>{loc?.name ?? id} ({id})</option>
+                  return <option key={id} value={id}>{loc?.name ?? id}{loc?.cost_center ? ` (CC: ${loc.cost_center})` : ''}</option>
                 })}
               </select>
             </div>

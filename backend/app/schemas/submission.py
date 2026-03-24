@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, Any
+from datetime import datetime, timezone
 
 
 class SubmissionOut(BaseModel):
@@ -19,13 +20,20 @@ class SubmissionOut(BaseModel):
     variance_note: Optional[str]
     approved_by: Optional[str]
     approved_by_name: Optional[str]
-    approved_at: Optional[str]
+    approved_at: Optional[datetime]
     rejection_reason: Optional[str]
-    submitted_at: Optional[str]
-    created_at: str
-    updated_at: str
+    submitted_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("created_at", "updated_at", "submitted_at", "approved_at", mode="after")
+    @classmethod
+    def force_utc(cls, v: Optional[datetime]) -> Optional[datetime]:
+        if v is not None and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 
 class SubmissionDetailOut(SubmissionOut):
@@ -66,7 +74,7 @@ class ApproveResponse(BaseModel):
     status: str
     approved_by: str
     approved_by_name: str
-    approved_at: str
+    approved_at: datetime
 
 
 class MissedSubmissionOut(BaseModel):
@@ -76,7 +84,7 @@ class MissedSubmissionOut(BaseModel):
     reason: str
     detail: str
     supervisor_name: str
-    logged_at: str
+    logged_at: datetime
 
     model_config = {"from_attributes": True}
 

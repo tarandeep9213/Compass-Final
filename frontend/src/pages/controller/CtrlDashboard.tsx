@@ -520,8 +520,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
         >
           <option value="all" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>📍 All Locations ({locationIds.length})</option>
           {locationIds.map(id => {
-            const loc = apiLocations.find(l => l.id === id)
-            return <option key={id} value={id} style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>{loc?.name ?? getLocation(id)?.name ?? id}</option>
+            const loc = apiLocations.find(l => l.id === id) || getLocation(id)
+            return <option key={id} value={id} style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>{loc?.name ?? id}{loc?.cost_center ? ` (CC: ${loc.cost_center})` : ''}</option>
           })}
         </select>
         

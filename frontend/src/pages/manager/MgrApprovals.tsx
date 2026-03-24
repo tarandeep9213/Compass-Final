@@ -274,10 +274,10 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
         >
           <option value="all">📍 All Locations ({locationIds.length})</option>
           {locationIds.map(id => {
-            const loc = apiLocations.find(l => l.id === id)
+            const loc = apiLocations.find(l => l.id === id) || getLocation(id)
             return (
               <option key={id} value={id}>
-                {loc?.name ?? id}
+                {loc?.name ?? id}{loc?.cost_center ? ` (CC: ${loc.cost_center})` : ''}
               </option>
             )
           })}

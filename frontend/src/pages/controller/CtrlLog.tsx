@@ -28,12 +28,14 @@ function padDate(year: number, month: number, day: number) {
 }
 
 function mapApiVerification(v: ApiVerification): VerificationRecord {
+  // Recalculate DOW safely on the frontend to avoid Python (Mon=0) vs JS (Sun=0) mismatches
+  const safeDow = new Date(v.verification_date + 'T12:00:00').getDay()
   return {
     id: v.id, locationId: v.location_id, verifierName: v.verifier_name,
     type: v.verification_type === 'CONTROLLER' ? 'controller' : 'dgm',
     date: v.verification_date, monthYear: v.month_year ?? undefined,
     observedTotal: v.observed_total ?? undefined, notes: v.notes,
-    dayOfWeek: v.day_of_week, warningFlag: v.warning_flag, status: v.status,
+    dayOfWeek: safeDow, warningFlag: v.warning_flag, status: v.status,
     missedReason: v.missed_reason ?? undefined, scheduledTime: v.scheduled_time ?? undefined,
   }
 }
@@ -113,14 +115,18 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
 
   // Helper to get conflicts for a specific date (4-week lookback from that date)
   const getDowConflicts = useCallback((targetDateStr: string) => {
-    const targetTime = new Date(targetDateStr + 'T12:00:00').getTime()
-    const cutoffTime = targetTime - 28 * 86400000 // 28 days lookback
-    const targetDow  = new Date(targetDateStr + 'T12:00:00').getDay()
+    const targetDateObj = new Date(targetDateStr + 'T12:00:00')
+    const targetDow  = targetDateObj.getDay()
+
+    // Safe string-based lookback to prevent Daylight Saving Time (DST) shift bugs
+    const cutoffObj = new Date(targetDateObj)
+    cutoffObj.setDate(cutoffObj.getDate() - 28)
+    const cutoffStr = padDate(cutoffObj.getFullYear(), cutoffObj.getMonth(), cutoffObj.getDate())
 
     return activeVisits.filter(v =>
       v.dayOfWeek === targetDow &&
       v.date < targetDateStr &&
-      new Date(v.date + 'T12:00:00').getTime() >= cutoffTime
+      v.date >= cutoffStr
     )
   }, [activeVisits])
 
@@ -373,7 +379,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
               >
                 {locationIds.map(id => {
                   const loc = LOCATIONS.find(l => l.id === id)
-                  return <option key={id} value={id}>{loc?.name ?? id} ({id})</option>
+                  return <option key={id} value={id}>{loc?.name ?? id}{loc?.cost_center ? ` (CC: ${loc.cost_center})` : ''}</option>
                 })}
               </select>
             </div>
