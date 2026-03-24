@@ -171,14 +171,14 @@ export default function AdmCompliance({ adminName }: Props) {
           };
         })() : null,
             overdue: checkOverdueSla(lc.submission?.status, lc.submission?.submitted_at) ? [lc.submission] : [],
-            rate30:     Math.round(lc.submission_rate_30d * 100),
-        lastCtrl:   lc.controller_visit.last_date ? { date: lc.controller_visit.last_date, observedTotal: undefined as number | undefined, warningFlag: lc.controller_visit.warning_flag } : null,
-        nextCtrl:   lc.controller_visit.next_scheduled_date ? { date: lc.controller_visit.next_scheduled_date, scheduledTime: undefined as string | undefined } : null,
-        missedCtrl: 0,
-        dSinceCtrl: lc.controller_visit.days_since,
-        dgmVisit:   lc.dgm_visit.visit_date ? { date: lc.dgm_visit.visit_date, observedTotal: lc.dgm_visit.observed_total ?? undefined } : null,
-        subC, ctrlC, dgmC,
-        compStatus: lc.health as CompStatus,
+            rate30:     Math.round(lc.submission_rate_30d), // Fix: Backend already provides the formatted percentage (e.g., 3.3)
+            lastCtrl:   lc.controller_visit.last_date ? { date: lc.controller_visit.last_date, observedTotal: undefined as number | undefined, warningFlag: lc.controller_visit.warning_flag } : null,
+            nextCtrl:   lc.controller_visit.next_scheduled_date ? { date: lc.controller_visit.next_scheduled_date, scheduledTime: undefined as string | undefined } : null,
+            missedCtrl: 0,
+            dSinceCtrl: lc.controller_visit.days_since,
+            dgmVisit:   lc.dgm_visit.visit_date ? { date: lc.dgm_visit.visit_date, observedTotal: lc.dgm_visit.observed_total ?? undefined } : null,
+            subC, ctrlC, dgmC,
+            compStatus: lc.health as CompStatus,
       }
     })
   }, [dashboard])
