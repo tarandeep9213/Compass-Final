@@ -46,7 +46,7 @@ def _loc_out(loc: Location, cfg: SystemConfig, overrides: dict) -> dict:
         "city": loc.city,
         "address": loc.address,
         "expected_cash": loc.expected_cash,
-        "tolerance_pct": cfg.default_tolerance_pct,
+        "tolerance_pct": tol_override.tolerance_pct if tol_override else cfg.default_tolerance_pct,
         "effective_tolerance_pct": tol_override.tolerance_pct if tol_override else cfg.default_tolerance_pct,
         "sla_hours": loc.sla_hours,
         "active": loc.active,
@@ -665,15 +665,25 @@ def import_roster(
         name_slug = _re.sub(r'[^a-z0-9]+', '-', row.location_name.lower()).strip('-')
         loc_id = f"loc-{name_slug}"
         cc = row.location_code.strip() if row.location_code else None
-        loc = db.get(Location, loc_id)
+        
+        # 1. Update/create Location
+        loc = db.query(Location).filter(Location.id == loc_id).first()
         if loc:
             loc.name = row.location_name
             if cc: loc.cost_center = cc
+            loc.expected_cash = 9575.0
             locs_updated += 1
         else:
-            loc = Location(id=loc_id, name=row.location_name,cost_center=cc, city=row.district or "", address="", expected_cash=100)
+            loc = Location(id=loc_id, name=row.location_name, cost_center=cc, city=row.district or "", address="", expected_cash=9575.0)
             db.add(loc)
             locs_created += 1
+            
+        db.flush() 
+        
+        # 2. Safely apply Tolerance Override using merge to prevent duplicate session conflicts
+        override = LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5)
+        db.merge(override)
+        db.flush()
 
         # Map role column → (name, explicit_email) + UserRole
         role_map = [
