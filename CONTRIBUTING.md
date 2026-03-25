@@ -118,6 +118,7 @@ If your local database gets out of sync or corrupted, use the following utilitie
 # Inserts foundational data needed for the app to function (e.g., system admin accounts, role definitions, initial config settings).
 * **Base Setup (Admin/Roles):** `python seed.py`
 # Injects realistic "fake" data (mock operators, test cash submissions, historical audits) so you can test the UI/Charts without manually typing in data.
+
 * **Demo Data (Charts/Submissions):** `python seed_demo.py`
 
 ---
