@@ -22,7 +22,7 @@ function mapApiLocation(l: ApiLocation): Location {
 
 interface Props { adminName: string }
 
-const EMPTY_FORM = { id: '', name:'', expectedCash:'', tolerancePct:'' }
+const EMPTY_FORM = { id: '', cost_center: '', name:'', expectedCash:'', tolerancePct:'' }
 const PAGE_SIZE  = 10
 
 function pageNums(cur: number, total: number): (number | 'gap')[] {
@@ -66,11 +66,11 @@ export default function AdmLocations({ adminName }: Props) {
   const toRow      = Math.min((page + 1) * PAGE_SIZE, filtered.length)
 
   function openAdd() { setMode('add'); setForm({ ...EMPTY_FORM, tolerancePct: defaults.tolerancePct }); setErrors({}); setPage(0) }
-  function openEdit(loc: Location) {
+    function openEdit(loc: Location) {
     const idx = locs.findIndex(l => l.id === loc.id)
     if (idx >= 0) setPage(Math.floor(idx / PAGE_SIZE))
     setMode({id:loc.id})
-    setForm({ id: loc.id, name:loc.name, expectedCash:String(loc.expectedCash), tolerancePct:String(loc.tolerancePct) })
+    setForm({ id: loc.id, cost_center: loc.cost_center || loc.id, name:loc.name, expectedCash:String(loc.expectedCash), tolerancePct:String(loc.tolerancePct) })
     setErrors({})
     setConfirm(null)
   }
@@ -81,6 +81,8 @@ export default function AdmLocations({ adminName }: Props) {
     if (mode === 'add' && !form.id.trim()) e.id = 'Cost center required'
     if (mode === 'add' && form.id.trim() && !/^\d+$/.test(form.id.trim())) e.id = 'Cost center must be numeric'
     if (mode === 'add' && locs.some(l => l.id === form.id.trim())) e.id = 'ID must be unique'
+    
+    if (mode !== 'add' && form.cost_center !== undefined && !form.cost_center.trim()) e.cost_center = 'Cost center required'
     
     if (!form.name.trim()) {
       e.name = 'Name required'
@@ -130,11 +132,11 @@ export default function AdmLocations({ adminName }: Props) {
       setSaved(`Location "${newLoc.name}" added.`)
     } else if (mode && typeof mode === 'object') {
       try {
-        await updateLocation(mode.id, { name: form.name.trim(), expected_cash: Number(form.expectedCash), tolerance_pct: Number(form.tolerancePct) })
+        await updateLocation(mode.id, { cost_center: form.cost_center.trim(), name: form.name.trim(), expected_cash: Number(form.expectedCash), tolerance_pct: Number(form.tolerancePct) })
       } catch { /* demo mode */ }
       setLocs(prev => {
         const next = prev.map(l => l.id === (mode as {id:string}).id
-          ? { ...l, name:form.name.trim(), expectedCash:Number(form.expectedCash), tolerancePct:Number(form.tolerancePct) }
+          ? { ...l, cost_center: form.cost_center.trim(), name:form.name.trim(), expectedCash:Number(form.expectedCash), tolerancePct:Number(form.tolerancePct) }
           : l
         )
         syncToStorage(next)
@@ -299,6 +301,10 @@ export default function AdmLocations({ adminName }: Props) {
                       <tr key={loc.id+'-edit'} style={{background:'var(--g0)'}}>
                         <td colSpan={6}>
                           <div style={{display:'flex',gap:14,flexWrap:'wrap',padding:'12px 4px',alignItems:'flex-end'}}>
+                            <div style={{flex:'1 1 120px'}}>
+                              <label style={{fontSize:11,fontWeight:600,color:'var(--td)',display:'block',marginBottom:4}}>Cost Center</label>
+                              {F('cost_center')}{errors.cost_center&&<div style={{fontSize:11,color:'var(--red)'}}>{errors.cost_center}</div>}
+                            </div>
                             <div style={{flex:'1 1 180px'}}>
                               <label style={{fontSize:11,fontWeight:600,color:'var(--td)',display:'block',marginBottom:4}}>Name</label>
                               {F('name')}{errors.name&&<div style={{fontSize:11,color:'var(--red)'}}>{errors.name}</div>}

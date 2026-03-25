@@ -85,6 +85,7 @@ class CreateLocationBody(BaseModel):
 
 class UpdateLocationBody(BaseModel):
     name: Optional[str] = None
+    cost_center: Optional[str] = None
     city: Optional[str] = None
     address: Optional[str] = None
     expected_cash: Optional[float] = None

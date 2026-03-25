@@ -21,6 +21,7 @@ export function listLocations(active?: boolean): Promise<Paginated<ApiLocation>>
 
 export interface CreateLocationBody {
   id?: string
+  cost_center?: string
   name: string
   city: string
   expected_cash: number
