@@ -48,13 +48,16 @@ export default function AdmLocations({ adminName }: Props) {
   const [confirm,  setConfirm]  = useState<string|null>(null)   // id awaiting deactivate confirm
   const [saved,    setSaved]    = useState('')
   const [page,     setPage]     = useState(0)
-  const [defaults, setDefaults] = useState<{ tolerancePct: string; slaHours: string }>(() => {
+  // setDefaults is removed from the array below because it is currently unused
+  const [defaults] = useState<{ tolerancePct: string; slaHours: string }>(() => {
     // This runs every time the component mounts (e.g. when you navigate back to this tab)
     const saved = localStorage.getItem('compass_location_defaults')
     return saved ? JSON.parse(saved) : DEFAULTS_INIT
   })
-  const [defSaved, setDefSaved] = useState(false)
-  const [defErrors, setDefErrors] = useState<Record<string, string>>({})
+  
+  // Commented out unused state to fix ESLint/TS errors while Global Defaults UI is hidden
+  // const [defSaved, setDefSaved] = useState(false)
+  // const [defErrors, setDefErrors] = useState<Record<string, string>>({})
   const [filterLoc, setFilterLoc] = useState('')
 
   const filtered   = filterLoc
@@ -171,6 +174,7 @@ export default function AdmLocations({ adminName }: Props) {
     setTimeout(() => setSaved(''), 3000)
   }
 
+  /* Commented out while Global Defaults UI is hidden
   async function handleSaveDefaults() {
     const e: Record<string, string> = {}
     
@@ -200,6 +204,7 @@ export default function AdmLocations({ adminName }: Props) {
       setDefErrors({ form: 'Failed to save defaults. Please try again.' })
     }
   }
+  */
 
   const F = (field: keyof typeof EMPTY_FORM) => (
     <input className="f-inp" value={form[field]}
@@ -361,7 +366,7 @@ export default function AdmLocations({ adminName }: Props) {
         </div>
       </div>
 
-      {/* ── Global Defaults ── */}
+      {/* ── Global Defaults ──
       <div className="card" style={{ marginTop: 24 }}>
         <div className="card-header">
           <span className="card-title">Global Defaults</span>
@@ -410,7 +415,7 @@ export default function AdmLocations({ adminName }: Props) {
             </div>
           </div>
         </div>
-      </div>
+      </div>*/}
     </div>
   )
 }
