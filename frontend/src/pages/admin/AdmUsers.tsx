@@ -760,9 +760,26 @@ function AddEditForm({ form, setForm, errors, setErrors, locNeeded, toggleLoc, l
       )}
       {locNeeded && (
         <div style={{flex:'1 1 220px'}}>
-          <label style={{fontSize:11,fontWeight:600,color:errors.locationIds?'var(--red)':'var(--td)',display:'block',marginBottom:4}}>
-            Location{form.role !== 'operator' ? 's' : ''} {['operator','controller','dgm'].includes(form.role) ? '*' : ''}
-            {form.role === 'operator' && <span style={{fontSize:10,fontWeight:400,color:'var(--ts)',marginLeft:6}}>(single only)</span>}
+          <label style={{fontSize:11,fontWeight:600,color:errors.locationIds?'var(--red)':'var(--td)',display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+            <span>
+              Location{form.role !== 'operator' ? 's' : ''} {['operator','controller','dgm'].includes(form.role) ? '*' : ''}
+              {form.role === 'operator' && <span style={{fontSize:10,fontWeight:400,color:'var(--ts)',marginLeft:6}}>(single only)</span>}
+            </span>
+            {form.role !== 'operator' && locations.length > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--ts)', cursor: 'pointer', fontWeight: 400 }}>
+                <input
+                  type="checkbox"
+                  style={{ accentColor: 'var(--g7)' }}
+                  checked={form.locationIds.length === locations.length}
+                  onChange={(e) => {
+                    const isChecked = e.target.checked;
+                    setForm(p => ({ ...p, locationIds: isChecked ? locations.map(l => l.id) : [] }));
+                    setErrors(p => ({ ...p, locationIds: '' }));
+                  }}
+                />
+                Select All
+              </label>
+            )}
           </label>
           <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
             {locations.map(l=>(
