@@ -439,13 +439,13 @@ export default function AdmCompliance({ adminName }: Props) {
                 <th style={{width:120}}>Health</th>
                 <th style={{minWidth:150}}>Location</th>
                 <th style={{minWidth:210}}>📋 Today's Submission</th>
-                <th style={{minWidth:80,textAlign:'center'}}>30d Rate</th>
+                {/* <th style={{minWidth:80,textAlign:'center'}}>30d Rate</th> */}
                 <th style={{minWidth:200}}>🔍 Controller Visit</th>
                 <th style={{minWidth:200}}>📅 DGM Visit</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(({loc,todaySub,overdue,rate30,
+              {filteredRows.map(({loc,todaySub,overdue,//rate30,
                                 lastCtrl,nextCtrl,missedCtrl,dSinceCtrl,dgmVisit,
                                 subC,ctrlC,dgmC,compStatus})=>{
                 const sBg  = compStatus==='green'?'#f0fdf4':compStatus==='amber'?'#fffbeb':'#fff5f5'
@@ -498,13 +498,13 @@ export default function AdmCompliance({ adminName }: Props) {
                       </div>}
                     </td>
 
-                    {/* 30-day submission rate */}
+                    {/* 30-day submission rate 
                     <td style={{textAlign:'center'}}>
                       <div style={{fontSize:14,fontWeight:700,
                         color:rate30>=90?'var(--g7)':rate30>=70?'var(--amb)':'var(--red)'}}>
                         {rate30}%
                       </div>
-                    </td>
+                    </td> 
 
                     {/* Controller visit */}
                     <td>
@@ -541,7 +541,7 @@ export default function AdmCompliance({ adminName }: Props) {
                             :'Not yet visited'}
                         </span>
                       </div>
-                      {dgmVisit?.observedTotal!==undefined&&<div style={{fontSize:11,color:'var(--ts)',paddingLeft:14}}>
+                      {/*{dgmVisit?.observedTotal!==undefined&&<div style={{fontSize:11,color:'var(--ts)',paddingLeft:14}}>
                         {(()=>{
                           const v=dgmVisit.observedTotal!-IMPREST
                           const p=(v/IMPREST)*100
@@ -549,7 +549,7 @@ export default function AdmCompliance({ adminName }: Props) {
                             {formatCurrency(dgmVisit.observedTotal!)} · {v>=0?'+':''}{formatCurrency(v)}
                           </span>
                         })()}
-                      </div>}
+                      </div>}*/}
                       {!dgmVisit&&<div style={{fontSize:11,color:'var(--amb)',paddingLeft:14}}>
                         No visit in period
                       </div>}
