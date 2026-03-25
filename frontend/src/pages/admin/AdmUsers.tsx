@@ -515,7 +515,7 @@ export default function AdmUsers({ adminName }: Props) {
                 ))}
               </div>
             </div>
-            <div>
+            {/*<div>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)', display: 'block', marginBottom: 4 }}>Daily Reminder Time</label>
               <input
                 className="f-inp"
@@ -524,7 +524,7 @@ export default function AdmUsers({ adminName }: Props) {
                 onChange={e => setSys(p => ({ ...p, reminderTime: e.target.value }))}
                 style={{ fontSize: 13, width: 120 }}
               />
-            </div>
+            </div>*/}
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)', display: 'block', marginBottom: 4 }}>Data Retention</label>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

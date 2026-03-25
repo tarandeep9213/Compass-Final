@@ -355,7 +355,7 @@ export default function AdmLocations({ adminName }: Props) {
         </div>
       </div>
 
-      {/* ── Global Defaults ── */}
+      {/* ── Global Defaults ── 
       <div className="card" style={{ marginTop: 24 }}>
         <div className="card-header">
           <span className="card-title">Global Defaults</span>
@@ -404,7 +404,7 @@ export default function AdmLocations({ adminName }: Props) {
             </div>
           </div>
         </div>
-      </div>
+      </div>*/}
     </div>
   )
 }
