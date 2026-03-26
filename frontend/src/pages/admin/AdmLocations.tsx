@@ -36,15 +36,6 @@ const DEFAULTS_INIT: { tolerancePct: string; slaHours: string } = { tolerancePct
 
 export default function AdmLocations({ adminName }: Props) {
   const [locs,     setLocs]     = useState<Location[]>([...LOCATIONS])
-
-  useEffect(() => {
-    listLocations()
-      .then(r => setLocs(r.items.map(mapApiLocation)))
-      .catch(() => { /* fall back to mock */ })
-    getConfig()
-      .then(cfg => setDefaults(prev => ({ ...prev, tolerancePct: String(cfg.global.default_tolerance_pct) })))
-      .catch(() => { /* keep defaults */ })
-  }, [])
   const [mode,     setMode]     = useState<'add'|{id:string}|null>(null)
   const [form,     setForm]     = useState(EMPTY_FORM)
   const [errors,   setErrors]   = useState<Record<string,string>>({})
@@ -57,6 +48,15 @@ export default function AdmLocations({ adminName }: Props) {
   })
   const [defSaved, setDefSaved] = useState(false)
   const [defErrors, setDefErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    listLocations()
+      .then(r => setLocs(r.items.map(mapApiLocation)))
+      .catch(() => { /* fall back to mock */ })
+    getConfig()
+      .then(cfg => setDefaults(prev => ({ ...prev, tolerancePct: String(cfg.global.default_tolerance_pct) })))
+      .catch(() => { /* keep defaults */ })
+  }, [])
   const [filterLoc, setFilterLoc] = useState('')
 
   const filtered   = filterLoc

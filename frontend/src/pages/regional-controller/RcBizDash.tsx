@@ -26,6 +26,7 @@ import type { SlaApprover, LocationCompliance } from '../../api/types'
 interface Props { adminName: string }
 
 const NOW = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+const NOW_MS = Date.now()
 
 // ── Tooltip button ─────────────────────────────────────────────────────────
 
@@ -189,8 +190,6 @@ export default function RcBizDash({ adminName }: Props) {
     pendingQueue: { under24h: number; between24and48h: number; over48h: number }
   }
   const [coverage, setCoverage] = useState<CoverageData | null>(null)
-  const pendingQueue = coverage?.pendingQueue ?? { under24h: 0, between24and48h: 0, over48h: 0 }
-  const totalPending = pendingQueue.under24h + pendingQueue.between24and48h + pendingQueue.over48h
 
   // ── Task 3 + 4: Compliance dashboard (at-risk + location table) ──────────
   type RiskFlag = 'No submission' | 'Rejected' | 'Overdue >48h' | 'Variance >5%' | 'No DGM visit' | 'Ctrl overdue' | 'No ctrl visit'
@@ -201,7 +200,6 @@ export default function RcBizDash({ adminName }: Props) {
 
   useEffect(() => {
     // Task 1
-    setTrendLoading(true)
     getComplianceTrend('weekly', 8)
       .then(res => {
         const realTrend = res.data.map(p => ({
@@ -218,7 +216,6 @@ export default function RcBizDash({ adminName }: Props) {
       .finally(() => setTrendLoading(false))
 
     // Task 2
-    setApproversLoading(true)
     getSlaSummary({ date_from: monthStart, date_to: today })
       .then(res => {
         setApprovers(
@@ -236,7 +233,6 @@ export default function RcBizDash({ adminName }: Props) {
       .finally(() => setApproversLoading(false))
 
     // Task 3: Fetch compliance dashboard → compute risk scores
-    setAtRiskLoading(true)
     getComplianceDashboard()
       .then(dash => {
         const nowMs = Date.now()
@@ -312,7 +308,6 @@ export default function RcBizDash({ adminName }: Props) {
 
     // Task 5: Fetch report summaries + SLA (current + prior month) for KPI cards with deltas
     // Use individual catch() so prior-month failures don't break the whole thing
-    setKpiLoading(true)
     const emptySum = { approval_rate_pct: 0, variance_exceptions: 0, cash_at_risk: 0, total_submissions: 0 }
     const emptySla = { sla_compliance_pct: null as number | null }
     Promise.all([
@@ -322,10 +317,9 @@ export default function RcBizDash({ adminName }: Props) {
       getSlaSummary({ date_from: priorMonthStart, date_to: priorMonthEnd }).catch(() => emptySla),
       getComplianceDashboard().catch(() => ({ summary: { overall_compliance_pct: 0 } })),
     ])
-      .then(([curSummary, prevSummary, curSla, prevSla, dash]) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .then(([curSummary, prevSummary, _curSla, _prevSla, dash]) => {
         const curCompPct  = Math.round(dash.summary.overall_compliance_pct)
-        const curSlaPct   = curSla.sla_compliance_pct ?? 0
-        const prevSlaPct  = prevSla.sla_compliance_pct ?? 0
         const prevCompPct = prevSummary.total_submissions > 0
           ? Math.round(prevSummary.approval_rate_pct)
           : curCompPct
@@ -352,28 +346,24 @@ export default function RcBizDash({ adminName }: Props) {
       .finally(() => setKpiLoading(false))
 
     // Task 8: Controller Activity
-    setCtrlActivityLoading(true)
     getControllerActivity()
       .then(res => setCtrlActivity(res.items.length > 0 ? res.items : null))
       .catch(() => setCtrlActivity(null)) // MOCK FALLBACK handled in render
       .finally(() => setCtrlActivityLoading(false))
 
     // Task 9: Operator Behaviour
-    setOpBehaviourLoading(true)
     getOperatorBehaviour()
       .then(setOpBehaviour)
       .catch(() => setOpBehaviour(null))
       .finally(() => setOpBehaviourLoading(false))
 
     // Task 10: Rejections
-    setRejectionsLoading(true)
     getRejections()
       .then(setRejections)
       .catch(() => setRejections(null))
       .finally(() => setRejectionsLoading(false))
 
     // Task 11: DGM Coverage
-    setDgmCovLoading(true)
     getDgmCoverage()
       .then(setDgmCov)
       .catch(() => setDgmCov(null))
@@ -388,7 +378,7 @@ export default function RcBizDash({ adminName }: Props) {
   type AlertItem = { type: 'red' | 'amber'; message: string; details: string[] }
   const alerts: AlertItem[] = []
   if (apiLocations) {
-    const nowMs = Date.now()
+    const nowMs = NOW_MS
     // SLA breaches: pending submissions waiting >48h
     const slaBreach = apiLocations.filter(l =>
       l.submission && l.submission.status === 'pending_approval' && l.submission.submitted_at &&
@@ -1098,7 +1088,7 @@ export default function RcBizDash({ adminName }: Props) {
                       if (sub.status === 'approved') subDisplayStatus = 'approved'
                       else if (sub.status === 'rejected') subDisplayStatus = 'rejected'
                       else if (sub.status === 'pending_approval') {
-                        pendingHours = sub.submitted_at ? Math.round((Date.now() - new Date(sub.submitted_at).getTime()) / 3600000) : null
+                        pendingHours = sub.submitted_at ? Math.round((NOW_MS - new Date(sub.submitted_at).getTime()) / 3600000) : null
                         subDisplayStatus = pendingHours !== null && pendingHours > 48 ? 'overdue' : 'pending'
                       }
                     }
