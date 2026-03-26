@@ -258,7 +258,31 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
 
       {/* ── Today's Status card ── */}
       <div style={{ marginBottom: 20 }}>
-        {todaySubmitted && todaySub ? (
+        {todaySub && todaySub.status === 'draft' ? (
+          /* API draft — show Draft In Progress card */
+          <div style={{ borderRadius: 12, padding: '20px 24px', background: 'var(--amb-bg)', border: '1px solid #fcd34d' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 22 }}>📝</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ts)', marginBottom: 4 }}>Draft In Progress</div>
+                <div style={{ fontFamily: 'DM Serif Display,serif', fontSize: 20, marginBottom: 4 }}>
+                  {formatCurrency(todaySub.totalCash)} counted so far
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ts)' }}>Not yet submitted for approval</div>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary"
+                  onClick={() => onNavigate('op-form', { locationId, date: todayStr(), draftId: todaySub.id, method: 'form', from: 'op-start' })}>
+                  Resume Draft →
+                </button>
+                <button className="btn btn-outline"
+                  onClick={() => onNavigate('op-method', { locationId, date: todayStr(), from: 'op-start' })}>
+                  Start fresh
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : todaySubmitted && todaySub ? (
           <div style={{
             borderRadius: 12, padding: '20px 24px',
             background: todaySub.status === 'approved' ? 'var(--g0)'
@@ -312,7 +336,12 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                   onClick={() => onNavigate('op-readonly', { locationId, date: todayStr(), submissionId: todaySub.id, from: 'op-start' })}>
                   View →
                 </button>
-                {/* Update button intentionally omitted for 'pending_approval' to enforce View-only access */}
+                {todaySub.status === 'pending_approval' && (
+                  <button className="btn btn-primary"
+                    onClick={() => onNavigate('op-form', { locationId, date: todayStr(), submissionId: todaySub.id, method: 'form', from: 'op-start' })}>
+                    Update
+                  </button>
+                )}
                 {todaySub.status === 'rejected' && (
                   <button className="btn btn-primary"
                     onClick={() => onNavigate('op-method', { locationId, date: todayStr(), submissionId: todaySub.id })}>

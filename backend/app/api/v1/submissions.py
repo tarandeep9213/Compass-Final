@@ -73,6 +73,7 @@ def _to_out(s: Submission) -> SubmissionOut:
         submitted_at=s.submitted_at.isoformat() if s.submitted_at else None,
         created_at=s.created_at.isoformat(),
         updated_at=s.updated_at.isoformat(),
+        sections=s.sections,
     )
 
 
@@ -144,7 +145,7 @@ def get_submission(
     if current_user.role == UserRole.CONTROLLER and s.location_id not in (current_user.location_ids or []):
         raise HTTPException(404, "Submission not found")
     out = _to_out(s)
-    return SubmissionDetailOut(**out.model_dump(), sections=s.sections)
+    return SubmissionDetailOut(**out.model_dump())
 
 
 # ── Create (or save as draft) ─────────────────────────────────────────────────
