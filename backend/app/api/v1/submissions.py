@@ -25,7 +25,7 @@ from app.services.audit import log_event
 
 router = APIRouter(tags=["Submissions"])
 
-_REVIEWER_ROLES = (UserRole.CONTROLLER,)
+_REVIEWER_ROLES = (UserRole.CONTROLLER, UserRole.DGM)
 
 
 def _fmt_currency(v: float) -> str:
@@ -356,7 +356,8 @@ def approve_submission(
     s = db.get(Submission, submission_id)
     if not s:
         raise HTTPException(404, "Submission not found")
-    if current_user.role == UserRole.CONTROLLER and s.location_id not in (current_user.location_ids or []):
+    if current_user.role in (UserRole.CONTROLLER, UserRole.DGM) and s.location_id not in (current_user.location_ids or []):
+        # DGM and Controller both need explicit location assignments to approve
         raise HTTPException(404, "Submission not found")
     if s.status != SubmissionStatus.PENDING_APPROVAL:
         raise HTTPException(400, "Submission is not pending approval")
@@ -411,7 +412,7 @@ def reject_submission(
     s = db.get(Submission, submission_id)
     if not s:
         raise HTTPException(404, "Submission not found")
-    if current_user.role == UserRole.CONTROLLER and s.location_id not in (current_user.location_ids or []):
+    if current_user.role in (UserRole.CONTROLLER, UserRole.DGM) and s.location_id not in (current_user.location_ids or []):
         raise HTTPException(404, "Submission not found")
     if s.status != SubmissionStatus.PENDING_APPROVAL:
         raise HTTPException(400, "Submission is not pending approval")
