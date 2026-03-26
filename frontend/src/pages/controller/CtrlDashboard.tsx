@@ -61,6 +61,7 @@ type SessionUpdate = {
   missedReason?: string
   notes?: string
   warningFlag?: boolean
+  signatureData?: string
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -277,6 +278,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
         if (upd.missedReason)               merged.missedReason  = upd.missedReason
         if (upd.notes)                      merged.notes         = upd.notes
         if (upd.warningFlag !== undefined)  merged.warningFlag   = upd.warningFlag
+        if (upd.signatureData)              merged.signatureData = upd.signatureData
         return merged
       })
       .sort((a, b) => b.date.localeCompare(a.date)),
@@ -385,7 +387,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
     setSessionUpdates(prev => ({
       ...prev,
-      [id]: { status: 'completed', observedTotal: obs, notes: cNotes.trim(), warningFlag: !!dowWarning },
+      [id]: { status: 'completed', observedTotal: obs, notes: cNotes.trim(), warningFlag: !!dowWarning, signatureData: cSig },
     }))
     closeExpand()
   }
