@@ -327,10 +327,15 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
   async function handleComplete(id: string) {
     const e: Record<string, string> = {}
     
-    // 1. Check if the submission is approved
+    // 1. Check if the submission is approved and verified
     const rec = allRecords.find(r => r.id === id)
     if (rec && getSubStatus(rec.locationId, rec.date) !== 'approved') {
       e.approval = "The submission must be approved before verification. Please open the form using 'View & Verify' and verify it first."
+    } else {
+      const isVerified = sessionStorage.getItem(`dgm_verified_${id}`) === 'true'
+      if (!isVerified) {
+        e.approval = 'You have not yet verified this submission. Please click on "View and Verify" button and verify this submission first.';
+      }
     }
 
     if (!cSig) e.sig = 'Please sign before confirming.'
@@ -639,7 +644,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                           })}>
                                           👁 View & Verify
                                         </button>
-                                        {st === 'approved'         && <span style={{ fontSize: 11, color: 'var(--g7)',  fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Approved</span>}
+                                        {st === 'approved'         && <span style={{ fontSize: 11, color: 'var(--g7)',  fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ {sessionStorage.getItem(`dgm_verified_${v.id}`) === 'true' ? 'Approved & Verified' : 'Approved'}</span>}
                                         {st === 'rejected'         && <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Rejected</span>}
                                         {st === 'pending_approval' && <span style={{ fontSize: 11, color: '#b45309',   fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Pending approval</span>}
                                       </>

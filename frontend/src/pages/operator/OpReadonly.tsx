@@ -167,6 +167,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const location = getLocation(ctx.locationId)
 
   const [localAction, setLocalAction] = useState<'approved' | 'rejected' | null>(null)
+  
+  const [verifyChecked, setVerifyChecked] = useState(false)
+  const [dgmVerified, setDgmVerified] = useState(() => sessionStorage.getItem(`dgm_verified_${ctx.visitId}`) === 'true')
 
   // Load existing review for pre-populating section decisions (same-day editing)
   const existingReview: SubmissionReview | null = useMemo(() => {
@@ -389,7 +392,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         <span style={{ fontSize: 24 }}>{sc.icon}</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-            {effStatus === 'pending_approval' ? 'Pending Approval' : effStatus.charAt(0).toUpperCase() + effStatus.slice(1)}
+            {effStatus === 'pending_approval' ? 'Pending Approval' : (effStatus === 'approved' && dgmVerified ? 'Approved & Verified' : effStatus.charAt(0).toUpperCase() + effStatus.slice(1))}
             {/*{forceReview && effStatus === 'approved' && (
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
@@ -1029,10 +1032,57 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         <div className="card">
           <div className="card-header">
             <span className="card-title">Approval Details</span>
-            <span className="badge badge-green"><span className="bdot" />Approved</span>
+            <span className="badge badge-green"><span className="bdot" />{dgmVerified ? 'Approved & Verified' : 'Approved'}</span>
           </div>
-          <div className="card-body" style={{ fontSize: 13, color: 'var(--ts)' }}>
+          <div className="card-body" style={{ fontSize: 13, color: 'var(--ts)', lineHeight: 1.5 }}>
             Approved by <strong style={{ color: 'var(--td)' }}>{sub.approvedByName ?? sub.approvedBy ?? 'Unknown'}</strong>
+            {dgmVerified && <div>Verified by <strong style={{ color: 'var(--td)' }}>DGM</strong></div>}
+          </div>
+        </div>
+      )}
+
+      {/* DGM Verification Section */}
+      {ctx.fromPanel === 'dgm-dash' && effStatus === 'approved' && ctx.expandAction === 'complete' && (
+        <div className="card" style={{ marginTop: 18, border: dgmVerified ? '1px solid var(--g4)' : '1px solid var(--ow2)' }}>
+          <div className="card-header" style={{ background: dgmVerified ? 'var(--g0)' : undefined }}>
+            <span className="card-title">DGM Verification</span>
+            {dgmVerified && <span className="badge badge-green"><span className="bdot" />Verified</span>}
+          </div>
+          <div className="card-body">
+            {dgmVerified ? (
+              <div style={{ fontSize: 13, color: 'var(--g7)', fontWeight: 600 }}>
+                ✅ You have successfully verified this submission.
+                <div style={{ marginTop: 12 }}>
+                  <button className="btn btn-primary" onClick={() => onNavigate('dgm-dash', { expandVisitId: ctx.visitId, expandAction: 'complete' })}>
+                    Return to Dashboard
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, color: 'var(--td)', marginBottom: 16 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={verifyChecked} 
+                    onChange={e => setVerifyChecked(e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <strong>I confirm that I have verified this submission.</strong>
+                </label>
+                <button 
+                  className="btn btn-primary" 
+                  disabled={!verifyChecked}
+                  style={{ opacity: verifyChecked ? 1 : 0.5 }}
+                  onClick={() => {
+                    sessionStorage.setItem(`dgm_verified_${ctx.visitId}`, 'true')
+                    setDgmVerified(true)
+                    onNavigate('dgm-dash', { expandVisitId: ctx.visitId, expandAction: 'complete' })
+                  }}
+                >
+                  Mark as Verified
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
