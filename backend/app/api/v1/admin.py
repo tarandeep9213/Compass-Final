@@ -3,11 +3,12 @@
 Covers: locations (full CRUD), users (paginated), config, access grants, roster import.
 """
 import math
+import re as _re
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
-
 from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.core.security import hash_password, hash_password_fast
@@ -21,12 +22,9 @@ from app.services.email import send_email_background, send_welcome_background
 from app.services.audit import log_event
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
 _ADMIN = [Depends(require_roles(UserRole.ADMIN))]
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
 def _get_config(db: Session) -> SystemConfig:
     cfg = db.get(SystemConfig, 1)
     if not cfg:
@@ -35,7 +33,6 @@ def _get_config(db: Session) -> SystemConfig:
         db.commit()
         db.refresh(cfg)
     return cfg
-
 
 def _loc_out(loc: Location, cfg: SystemConfig, overrides: dict) -> dict:
     tol_override = overrides.get(loc.id)
@@ -55,7 +52,6 @@ def _loc_out(loc: Location, cfg: SystemConfig, overrides: dict) -> dict:
         "updated_at": loc.updated_at.isoformat(),
     }
 
-
 def _user_out(u: User, loc_map: dict) -> dict:
     return {
         "id": u.id,
@@ -68,11 +64,9 @@ def _user_out(u: User, loc_map: dict) -> dict:
         "created_at": u.created_at.isoformat(),
     }
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # LOCATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
-
 class CreateLocationBody(BaseModel):
     name: str
     city: str = ""
@@ -81,7 +75,6 @@ class CreateLocationBody(BaseModel):
     tolerance_pct: Optional[float] = None
     sla_hours: int = 24
     id: Optional[str] = None
-
 
 class UpdateLocationBody(BaseModel):
     name: Optional[str] = None
@@ -92,7 +85,6 @@ class UpdateLocationBody(BaseModel):
     tolerance_pct: Optional[float] = None
     sla_hours: Optional[int] = None
     active: Optional[bool] = None
-
 
 @router.get("/locations", dependencies=_ADMIN)
 def admin_list_locations(
@@ -106,7 +98,6 @@ def admin_list_locations(
         q = q.filter(Location.active == active)
     total = q.count()
     locs = q.order_by(Location.name).offset((page - 1) * page_size).limit(page_size).all()
-
     cfg = _get_config(db)
     overrides = {o.location_id: o for o in db.query(LocationToleranceOverride).all()}
     return {
@@ -117,20 +108,16 @@ def admin_list_locations(
         "total_pages": max(1, math.ceil(total / page_size)),
     }
 
-
 @router.post("/locations", dependencies=_ADMIN, status_code=201)
 def admin_create_location(
     body: CreateLocationBody,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Duplicate name check
     if db.query(Location).filter(Location.name == body.name.strip()).first():
         raise HTTPException(409, f"A location named '{body.name}' already exists")
-    # Duplicate id/cost-center check
     if body.id and db.get(Location, body.id.strip()):
         raise HTTPException(409, f"Cost center '{body.id}' is already in use")
-
     loc = Location(
         name=body.name, city=body.city, address=body.address,
         expected_cash=body.expected_cash, sla_hours=body.sla_hours,
@@ -148,7 +135,6 @@ def admin_create_location(
     overrides = {o.location_id: o for o in db.query(LocationToleranceOverride).all()}
     return _loc_out(loc, cfg, overrides)
 
-
 @router.put("/locations/{location_id}", dependencies=_ADMIN)
 def admin_update_location(
     location_id: str,
@@ -159,19 +145,16 @@ def admin_update_location(
     loc = db.get(Location, location_id)
     if not loc:
         raise HTTPException(404, "Location not found")
-
     updates = body.model_dump(exclude_unset=True)
     tol = updates.pop("tolerance_pct", None)
     for k, v in updates.items():
         setattr(loc, k, v)
-
     if tol is not None:
         override = db.get(LocationToleranceOverride, location_id)
         if override:
             override.tolerance_pct = tol
         else:
             db.add(LocationToleranceOverride(location_id=location_id, tolerance_pct=tol))
-
     log_event(db, current_user, "LOCATION_UPDATED", f"Location {loc.name} updated",
               entity_id=loc.id, entity_type="Location")
     db.commit()
@@ -179,7 +162,6 @@ def admin_update_location(
     cfg = _get_config(db)
     overrides = {o.location_id: o for o in db.query(LocationToleranceOverride).all()}
     return _loc_out(loc, cfg, overrides)
-
 
 @router.delete("/locations/{location_id}", dependencies=_ADMIN)
 def admin_deactivate_location(
@@ -196,7 +178,6 @@ def admin_deactivate_location(
     db.commit()
     return {"id": location_id, "active": False}
 
-
 @router.post("/locations/{location_id}/reactivate", dependencies=_ADMIN)
 def admin_reactivate_location(
     location_id: str,
@@ -212,11 +193,9 @@ def admin_reactivate_location(
     db.commit()
     return {"id": location_id, "active": True}
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # USERS
 # ═══════════════════════════════════════════════════════════════════════════════
-
 class AdminCreateUserBody(BaseModel):
     name: str
     email: str
@@ -224,14 +203,12 @@ class AdminCreateUserBody(BaseModel):
     role: UserRole
     location_ids: list[str] = []
 
-
 class AdminUpdateUserBody(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     password: Optional[str] = None
     role: Optional[UserRole] = None
     location_ids: Optional[list[str]] = None
-
 
 @router.get("/users", dependencies=_ADMIN)
 def admin_list_users(
@@ -248,7 +225,6 @@ def admin_list_users(
     if active is not None:
         q = q.filter(User.active == active)
     if location_id:
-        # SQLite JSON_CONTAINS not available; do in-memory filter
         all_users = q.all()
         users = [u for u in all_users if location_id in (u.location_ids or [])]
         total = len(users)
@@ -256,7 +232,6 @@ def admin_list_users(
     else:
         total = q.count()
         paginated = q.order_by(User.name).offset((page - 1) * page_size).limit(page_size).all()
-
     loc_map = {l.id: l.name for l in db.query(Location).all()}
     return {
         "items": [_user_out(u, loc_map) for u in paginated],
@@ -265,7 +240,6 @@ def admin_list_users(
         "page_size": page_size,
         "total_pages": max(1, math.ceil(total / page_size)),
     }
-
 
 @router.post("/users", dependencies=_ADMIN, status_code=201)
 def admin_create_user(
@@ -276,8 +250,6 @@ def admin_create_user(
 ):
     if db.query(User).filter(User.email == body.email.lower().strip()).first():
         raise HTTPException(409, "Email already registered")
-
-    # Check for a user with identical name + role + location set (all four fields match)
     name_norm = body.name.strip().lower()
     loc_set = set(body.location_ids)
     duplicate = next(
@@ -287,7 +259,6 @@ def admin_create_user(
     )
     if duplicate:
         raise HTTPException(409, "A user with the same name, role, and location(s) already exists")
-
     user = User(
         name=body.name, email=body.email.lower().strip(),
         hashed_password=hash_password(body.password),
@@ -299,14 +270,11 @@ def admin_create_user(
               entity_id=user.id, entity_type="User")
     db.commit()
     db.refresh(user)
-
     send_email_background(background, to=[user.email],
         subject="Welcome to CashRoom Compass", template="welcome.html",
         ctx={"name": user.name, "email": user.email, "temp_password": body.password})
-
     loc_map = {l.id: l.name for l in db.query(Location).all()}
     return _user_out(user, loc_map)
-
 
 @router.put("/users/{user_id}", dependencies=_ADMIN)
 def admin_update_user(
@@ -318,7 +286,6 @@ def admin_update_user(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
-
     updates = body.model_dump(exclude_unset=True)
     if "password" in updates:
         if updates["password"]:
@@ -329,7 +296,6 @@ def admin_update_user(
         updates["email"] = updates["email"].lower().strip()
     for k, v in updates.items():
         setattr(user, k, v)
-
     log_event(db, current_user, "USER_UPDATED", f"User {user.email} updated",
               entity_id=user.id, entity_type="User")
     db.commit()
@@ -337,13 +303,11 @@ def admin_update_user(
     loc_map = {l.id: l.name for l in db.query(Location).all()}
     return _user_out(user, loc_map)
 
-
 @router.post("/purge-users", dependencies=_ADMIN)
 def admin_purge_non_admin_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete all users except admins. Used to reset the DB for retesting."""
     users_to_delete = db.query(User).filter(User.role != UserRole.ADMIN).all()
     count = len(users_to_delete)
     for u in users_to_delete:
@@ -354,28 +318,22 @@ def admin_purge_non_admin_users(
     db.commit()
     return {"deleted": count}
 
-
 @router.post("/reset-all", dependencies=_ADMIN)
 def admin_reset_all(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete all users except the currently logged-in admin, and all locations."""
     users_deleted = db.query(User).filter(User.id != current_user.id).all()
     users_count = len(users_deleted)
     for u in users_deleted:
         db.delete(u)
-
     locs_deleted = db.query(Location).all()
     locs_count = len(locs_deleted)
     for l in locs_deleted:
         db.delete(l)
-
     db.query(AuditEvent).delete()
-
     db.commit()
     return {"users_deleted": users_count, "locations_deleted": locs_count}
-
 
 @router.delete("/users/{user_id}", dependencies=_ADMIN)
 def admin_deactivate_user(
@@ -394,7 +352,6 @@ def admin_deactivate_user(
     db.commit()
     return {"id": user_id, "active": False}
 
-
 @router.post("/users/{user_id}/reactivate", dependencies=_ADMIN)
 def admin_reactivate_user(
     user_id: str,
@@ -410,18 +367,15 @@ def admin_reactivate_user(
     db.commit()
     return {"id": user_id, "active": True}
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIG
 # ═══════════════════════════════════════════════════════════════════════════════
-
 class UpdateConfigBody(BaseModel):
     default_tolerance_pct: Optional[float] = None
     approval_sla_hours: Optional[int] = None
     dow_lookback_weeks: Optional[int] = None
     daily_reminder_time: Optional[str] = None
     data_retention_years: Optional[int] = None
-
 
 @router.get("/config", dependencies=_ADMIN)
 def admin_get_config(db: Session = Depends(get_db)):
@@ -435,7 +389,6 @@ def admin_get_config(db: Session = Depends(get_db)):
             for o in overrides
         ],
     }
-
 
 @router.put("/config", dependencies=_ADMIN)
 def admin_update_config(
@@ -458,7 +411,6 @@ def admin_update_config(
             for o in overrides
         ],
     }
-
 
 @router.put("/config/locations/{location_id}", dependencies=_ADMIN)
 def admin_set_override(
@@ -487,7 +439,6 @@ def admin_set_override(
                                tolerance_pct=override.tolerance_pct,
                                updated_at=override.updated_at.isoformat()).model_dump()
 
-
 @router.delete("/config/locations/{location_id}", dependencies=_ADMIN, status_code=204)
 def admin_remove_override(
     location_id: str,
@@ -503,20 +454,16 @@ def admin_remove_override(
         db.delete(override)
         db.commit()
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # ACCESS GRANTS
 # ═══════════════════════════════════════════════════════════════════════════════
-
 class GrantAccessBody(BaseModel):
     user_id: str
-    access_type: str  # 'operator' | 'controller'
+    access_type: str
     note: str = ""
-
 
 class UpdateGrantBody(BaseModel):
     note: str
-
 
 def _grant_out(g: AccessGrant) -> dict:
     return {
@@ -532,12 +479,10 @@ def _grant_out(g: AccessGrant) -> dict:
         "granted_at": g.granted_at.isoformat(),
     }
 
-
 @router.get("/access-grants", dependencies=_ADMIN)
 def list_access_grants(db: Session = Depends(get_db)):
     grants = db.query(AccessGrant).order_by(AccessGrant.granted_at.desc()).all()
     return {"items": [_grant_out(g) for g in grants]}
-
 
 @router.post("/access-grants", dependencies=_ADMIN, status_code=201)
 def grant_access(
@@ -548,16 +493,10 @@ def grant_access(
     user = db.get(User, body.user_id)
     if not user:
         raise HTTPException(404, "User not found")
-
     grant = AccessGrant(
-        user_id=user.id,
-        user_name=user.name,
-        user_email=user.email,
-        user_role=user.role.value,
-        access_type=body.access_type,
-        note=body.note,
-        granted_by=current_user.id,
-        granted_by_name=current_user.name,
+        user_id=user.id, user_name=user.name, user_email=user.email,
+        user_role=user.role.value, access_type=body.access_type, note=body.note,
+        granted_by=current_user.id, granted_by_name=current_user.name,
     )
     db.add(grant)
     log_event(db, current_user, "ACCESS_GRANT_CREATED",
@@ -566,7 +505,6 @@ def grant_access(
     db.commit()
     db.refresh(grant)
     return _grant_out(grant)
-
 
 @router.put("/access-grants/{grant_id}", dependencies=_ADMIN)
 def update_grant(
@@ -588,7 +526,6 @@ def update_grant(
     db.refresh(grant)
     return _grant_out(grant)
 
-
 @router.delete("/access-grants/{grant_id}", dependencies=_ADMIN, status_code=204)
 def revoke_access(
     grant_id: str,
@@ -604,11 +541,9 @@ def revoke_access(
     db.delete(grant)
     db.commit()
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROSTER IMPORT
 # ═══════════════════════════════════════════════════════════════════════════════
-
 class ImportRow(BaseModel):
     location_code: str
     location_name: str
@@ -625,14 +560,10 @@ class ImportRow(BaseModel):
     division_contacts: Optional[str] = None
     division_contacts_email: Optional[str] = None
 
-
 class ImportBody(BaseModel):
     rows: list[ImportRow]
 
-
 def _generate_password(name: str) -> str:
-    """Generate a name-based temporary password: FirstNameL@YYYY (min 8 chars)."""
-    from datetime import datetime
     parts = name.strip().split()
     first = parts[0].capitalize() if parts else "User"
     last_initial = parts[-1][0].upper() if len(parts) > 1 else ""
@@ -641,7 +572,6 @@ def _generate_password(name: str) -> str:
         pwd += "1"
     return pwd
 
-
 @router.post("/import", dependencies=_ADMIN)
 def import_roster(
     body: ImportBody,
@@ -649,29 +579,21 @@ def import_roster(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    import re as _re
     locs_created = locs_updated = users_created = users_updated = assignments = 0
     skipped = 0
     warnings: list[str] = []
-    pending_users: dict[str, User] = {}  # email → User, deduplicates across rows in same import
-    seen_keys: set[tuple] = set()         # (email, role, loc_id) — deduplicates within the Excel
+    pending_users: dict[str, User] = {}
+    seen_keys: set[tuple] = set()
 
     def name_to_email(val: str) -> str:
-        """Convert 'Jane Smith' → 'jane.smith@compass.com'."""
         slug = _re.sub(r'[^a-z0-9]+', '.', val.lower().strip()).strip('.')
         return f"{slug}@compass.com"
 
     for row in body.rows:
-        # Build unique location ID from district name slug; store CC# separately
         name_slug = _re.sub(r'[^a-z0-9]+', '-', row.location_name.lower()).strip('-')
         loc_id = f"loc-{name_slug}"
         cc = row.location_code.strip() if row.location_code else None
         
-<<<<<<< Updated upstream
-        # 1. Update/create Location
-=======
-        # 1. Safely query and update/create Location
->>>>>>> Stashed changes
         loc = db.query(Location).filter(Location.id == loc_id).first()
         if loc:
             loc.name = row.location_name
@@ -683,28 +605,13 @@ def import_roster(
             db.add(loc)
             locs_created += 1
             
-<<<<<<< Updated upstream
         db.flush() 
         
-        # 2. Safely apply Tolerance Override using merge to prevent duplicate session conflicts
-        override = LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5)
-        db.merge(override)
-        db.flush()
-=======
-        db.flush() # Ensure location exists in DB session before adding override
-        
-        # 2. Safely query and update/create Tolerance Override
-        override = db.query(LocationToleranceOverride).filter(LocationToleranceOverride.location_id == loc_id).first()
-        if override:
-            override.tolerance_pct = 0.5
-        else:
-            override = LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5)
-            db.add(override)
->>>>>>> Stashed changes
+        override = db.get(LocationToleranceOverride, loc_id)
+        if not override:
+            db.add(LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5))
 
-        # Map role column → (name, explicit_email) + UserRole
         role_map = [
-            (row.cashroom_lead,       row.cashroom_lead_email,       UserRole.OPERATOR),
             (row.daily_reviewer,      None,                          UserRole.OPERATOR),
             (row.controller,          row.controller_email,          UserRole.CONTROLLER),
             (row.dgm,                 row.dgm_email,                 UserRole.DGM),
@@ -715,7 +622,6 @@ def import_roster(
             if not name_val:
                 continue
             val = name_val.strip()
-            # Prefer explicit email from import; fall back to value-is-email; else generate
             if email_val and "@" in email_val:
                 if not _re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email_val.strip()):
                     warnings.append(f"Invalid email format skipped: '{email_val}'")
@@ -733,27 +639,20 @@ def import_roster(
                 display_name = val
                 warnings.append(f"No email found for '{val}' — generated '{email}'")
 
-            # Deduplicate within the Excel: skip if (email, role, location) already seen this import
             row_key = (email, role, loc_id)
             if row_key in seen_keys:
                 skipped += 1
                 continue
             seen_keys.add(row_key)
 
-            # Check session cache first (handles same person appearing in multiple rows)
             if email in pending_users:
                 user = pending_users[email]
-                # Fully identical to DB state — skip
-                if loc_id in (user.location_ids or []) and user.role == role and user.name == display_name:
-                    skipped += 1
-                    continue
                 if loc_id not in (user.location_ids or []):
                     user.location_ids = list(user.location_ids or []) + [loc_id]
                     assignments += 1
             else:
                 user = db.query(User).filter(User.email == email).first()
                 if user:
-                    # All four fields identical — truly nothing to do
                     if (user.name == display_name and user.role == role
                             and loc_id in (user.location_ids or [])):
                         skipped += 1
@@ -785,7 +684,6 @@ def import_roster(
     log_event(db, current_user, "ROSTER_IMPORT",
               f"Imported {len(body.rows)} rows: {locs_created}L created, {users_created}U created, {skipped} skipped as duplicate")
     db.commit()
-
     return {
         "locations_created": locs_created,
         "locations_updated": locs_updated,
