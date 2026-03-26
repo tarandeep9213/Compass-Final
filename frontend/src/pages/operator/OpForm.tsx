@@ -319,6 +319,10 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const [submitError,  setSubmitError]  = useState('')
   const [submitting,   setSubmitting]   = useState(false)
   const [draftId,      setDraftId]      = useState<string | null>(ctx.draftId ?? null)
+  const [globalRejectReason, setGlobalRejectReason] = useState(() => SUBMISSIONS.find(s => s.id === ctx.submissionId)?.rejectionReason || '')
+
+  const existingReview = ctx.submissionId ? SUBMISSION_REVIEWS[ctx.submissionId] : null
+  const REVIEW_SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 
   // ── Pre-fill from API when editing a rejected submission ───────────────────
   useEffect(() => {
@@ -408,6 +412,11 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       }
       if (sub.variance_note) {
         setVarianceNote(prev => prev === '' ? (sub.variance_note ?? '') : prev)
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((sub as any).rejection_reason) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setGlobalRejectReason((sub as any).rejection_reason)
       }
     }).catch(() => { /* keep empty if fetch fails */ })
   }, [ctx.submissionId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -708,6 +717,64 @@ export default function OpForm({ ctx, onNavigate }: Props) {
           </div>
         )
       })()}
+
+      {globalRejectReason && (
+        <div style={{
+          display: 'flex', gap: 12, alignItems: 'flex-start',
+          padding: '14px 18px', borderRadius: 10, marginBottom: 16,
+          background: 'var(--red-bg)', border: '1px solid #fca5a5',
+        }}>
+          <span style={{ fontSize: 24 }}>❌</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--red)', marginBottom: 4 }}>
+              Submission Rejected
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--red)', lineHeight: 1.5 }}>
+              {globalRejectReason}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {existingReview && existingReview.outcome === 'rejected' && (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div className="card-header">
+            <span className="card-title">Controller Review</span>
+            <span className="badge badge-red">
+              <span className="bdot" />Rejected
+            </span>
+          </div>
+          <div className="card-body" style={{ padding: 0 }}>
+            <table className="dt" style={{ fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 100 }}>Section</th>
+                  <th style={{ width: 120 }}>Decision</th>
+                  <th>Comment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {REVIEW_SECTIONS.map(k => {
+                  const rev = existingReview.sections[k]
+                  return (
+                    <tr key={k} style={{ background: rev?.decision === 'reject' ? '#fff5f5' : undefined }}>
+                      <td style={{ fontWeight: 600 }}>Section {k}</td>
+                      <td>
+                        {rev?.decision === 'accept'
+                          ? <span style={{ color: 'var(--g7)', fontWeight: 600 }}>✓ Accepted</span>
+                          : <span style={{ color: 'var(--red)', fontWeight: 600 }}>✗ Rejected</span>}
+                      </td>
+                      <td style={{ fontSize: 12, color: rev?.decision === 'reject' ? 'var(--red)' : 'var(--ts)' }}>
+                        {rev?.note || '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── Auto-filled form header ── */}
       <div className="card" style={{ marginBottom: 16, overflow: 'hidden' }}>
