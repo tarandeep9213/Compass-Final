@@ -216,7 +216,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
   // Show review form when pending approval OR when controller is doing a forced re-review
   //const showSecReview = isManagerView && (effStatus === 'pending_approval' || forceReview)
-  const showSecReview = isManagerView && effStatus === 'pending_approval'
+  const showSecReview = (ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard') && effStatus === 'pending_approval'
   const allDecided = SECTIONS.every(k => secDecisions[k] !== null)
   const allNoted   = SECTIONS.every(k => secDecisions[k] !== 'reject' || secNotes[k].trim() !== '')
   const canSubmit  = allDecided && allNoted

@@ -12,6 +12,8 @@ function mapApiVerification(v: ApiVerification): VerificationRecord {
     type: v.verification_type === 'CONTROLLER' ? 'controller' : 'dgm',
     date: v.verification_date, monthYear: v.month_year ?? undefined,
     observedTotal: v.observed_total ?? undefined, notes: v.notes,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    signatureData: (v as any).signature_data ?? undefined,
     dayOfWeek: v.day_of_week, warningFlag: v.warning_flag, status: v.status,
     missedReason: v.missed_reason ?? undefined, scheduledTime: v.scheduled_time ?? undefined,
   }
@@ -43,6 +45,7 @@ type SessionUpdate = {
   observedTotal?: number
   missedReason?: string
   notes?: string
+  signatureData?: string
 }
 
 interface DashRecord extends VerificationRecord {
@@ -237,6 +240,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
           if (upd.observedTotal !== undefined) merged.observedTotal = upd.observedTotal
           if (upd.missedReason)               merged.missedReason  = upd.missedReason
           if (upd.notes)                      merged.notes         = upd.notes
+          if (upd.signatureData)              merged.signatureData = upd.signatureData
         }
 
         // Apply 48-hour overdue & auto-miss logic
@@ -326,7 +330,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     // 1. Check if the submission is approved
     const rec = allRecords.find(r => r.id === id)
     if (rec && getSubStatus(rec.locationId, rec.date) !== 'approved') {
-      e.approval = "The submission must be approved before confirming visit completion. Please open the form using 'View' and approve it first."
+      e.approval = "The submission must be approved before verification. Please open the form using 'View & Verify' and verify it first."
     }
 
     if (!cSig) e.sig = 'Please sign before confirming.'
@@ -338,7 +342,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     try {
       await completeDgmVisit(id, { observed_total: obs, signature_data: cSig, notes: cNotes.trim() || undefined })
     } catch { /* demo mode */ }
-    setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: obs, notes: cNotes.trim() } }))
+    setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: obs, notes: cNotes.trim(), signatureData: cSig } }))
     closeExpand()
   }
 
@@ -633,7 +637,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                             expandVisitId: v.id,
                                             expandAction: 'complete'
                                           })}>
-                                          👁 View & Approve
+                                          👁 View & Verify
                                         </button>
                                         {st === 'approved'         && <span style={{ fontSize: 11, color: 'var(--g7)',  fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Approved</span>}
                                         {st === 'rejected'         && <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Rejected</span>}
