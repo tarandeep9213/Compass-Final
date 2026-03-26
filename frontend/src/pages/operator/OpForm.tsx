@@ -319,6 +319,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const [submitError,  setSubmitError]  = useState('')
   const [submitting,   setSubmitting]   = useState(false)
   const [draftId,      setDraftId]      = useState<string | null>(ctx.draftId ?? null)
+  const [draftSaved,  setDraftSaved]   = useState(false)
   const [globalRejectReason, setGlobalRejectReason] = useState(() => SUBMISSIONS.find(s => s.id === ctx.submissionId)?.rejectionReason || '')
 
   const existingReview = ctx.submissionId ? SUBMISSION_REVIEWS[ctx.submissionId] : null
@@ -676,7 +677,8 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       sessionStorage.setItem(`denom_${newId}`, JSON.stringify(denomDetail))
       window.alert('Could not reach the server. Make sure the backend is running on port 8000.\n\nDraft saved to local session.')
     }
-    onNavigate(ctx.from || 'op-start')
+    setDraftSaved(true)
+    setTimeout(() => setDraftSaved(false), 3000)
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -697,6 +699,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
             🗑 Discard
           </button>
           <button className="btn btn-outline" onClick={handleSaveDraft}>💾 Save Draft</button>
+          {draftSaved && <span style={{ fontSize: 12, color: 'var(--g7)', fontWeight: 600 }}>Draft saved</span>}
         </div>
       </div>
 
@@ -823,16 +826,11 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         </div>
         <div style={{ width: 1, height: 32, background: 'var(--ow2)' }} />
         <div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Expected</div>
-          <div style={{ fontFamily: 'DM Serif Display,serif', fontSize: 16, color: 'var(--ts)' }}>{formatCurrency(expectedCash)}</div>
-        </div>
-        <div style={{ width: 1, height: 32, background: 'var(--ow2)' }} />
-        <div>
           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Variance</div>
           <div style={{ fontFamily: 'DM Serif Display,serif', fontSize: 20, color: varColor }}>
-            {variance >= 0 ? '+' : ''}{formatCurrency(variance)}
+            {variance >= 0 ? '+' : '\u2212'}{formatCurrency(Math.abs(variance))}
             <span style={{ fontSize: 12, marginLeft: 5, fontFamily: 'DM Sans,sans-serif', fontWeight: 500 }}>
-              ({variancePct >= 0 ? '+' : ''}{variancePct.toFixed(2)}%)
+              ({variancePct >= 0 ? '+' : '\u2212'}{Math.abs(variancePct).toFixed(2)}%)
             </span>
           </div>
         </div>
@@ -1345,8 +1343,8 @@ export default function OpForm({ ctx, onNavigate }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '2px solid var(--ow2)', marginTop: 6 }}>
             <strong style={{ color: varColor }}>Variance – Short or (Over)</strong>
             <strong style={{ fontFamily: 'DM Serif Display,serif', fontSize: 18, color: varColor }}>
-              {variance >= 0 ? '+' : ''}{formatCurrency(variance)}&nbsp;
-              ({variancePct >= 0 ? '+' : ''}{variancePct.toFixed(2)}%)
+              {variance >= 0 ? '+' : '\u2212'}{formatCurrency(Math.abs(variance))}&nbsp;
+              ({variancePct >= 0 ? '+' : '\u2212'}{Math.abs(variancePct).toFixed(2)}%)
             </strong>
           </div>
 

@@ -175,7 +175,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     try {
       await changePassword(currentPw, newPw)
       setSuccess('Password changed successfully!')
-      setTimeout(onClose, 1500)
+      setTimeout(onClose, 3000)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong.'
       setError(msg)

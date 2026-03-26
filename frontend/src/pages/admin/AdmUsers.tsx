@@ -777,7 +777,7 @@ function AddEditForm({ form, setForm, errors, setErrors, locNeeded, toggleLoc, l
                     setErrors(p => ({ ...p, locationIds: '' }));
                   }}
                 />
-                Select All
+                {form.role === 'regional-controller' ? 'All Locations' : 'Select All'}
               </label>
             )}
           </label>

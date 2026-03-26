@@ -124,14 +124,14 @@ def admin_create_location(
         **({"id": body.id.strip()} if body.id and body.id.strip() else {}),
     )
     db.add(loc)
-    if body.tolerance_pct is not None:
+    cfg = _get_config(db)
+    if body.tolerance_pct is not None and body.tolerance_pct != cfg.default_tolerance_pct:
         db.flush()
         db.add(LocationToleranceOverride(location_id=loc.id, tolerance_pct=body.tolerance_pct))
     log_event(db, current_user, "LOCATION_CREATED", f"Location {body.name} created",
               entity_id=loc.id, entity_type="Location")
     db.commit()
     db.refresh(loc)
-    cfg = _get_config(db)
     overrides = {o.location_id: o for o in db.query(LocationToleranceOverride).all()}
     return _loc_out(loc, cfg, overrides)
 
@@ -331,6 +331,7 @@ def admin_reset_all(
     locs_count = len(locs_deleted)
     for l in locs_deleted:
         db.delete(l)
+    db.query(LocationToleranceOverride).delete()
     db.query(AuditEvent).delete()
     db.commit()
     return {"users_deleted": users_count, "locations_deleted": locs_count}
@@ -605,13 +606,10 @@ def import_roster(
             db.add(loc)
             locs_created += 1
             
-        db.flush() 
-        
-        override = db.get(LocationToleranceOverride, loc_id)
-        if not override:
-            db.add(LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5))
+        db.flush()
 
         role_map = [
+            (row.cashroom_lead,       row.cashroom_lead_email,       UserRole.OPERATOR),
             (row.daily_reviewer,      None,                          UserRole.OPERATOR),
             (row.controller,          row.controller_email,          UserRole.CONTROLLER),
             (row.dgm,                 row.dgm_email,                 UserRole.DGM),
