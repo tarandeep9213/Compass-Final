@@ -82,7 +82,7 @@ const SEC_D_KEYS   = ['dDollar', 'dQuarters', 'dDimes', 'dNickels']
 export default function OpReadonly({ ctx, onNavigate }: Props) {
   // When a controller comes via "Mark as Completed" flow, force a fresh re-review
   // regardless of prior approval — treated as an independent review (don't pre-populate)
-  const forceReview = ctx.fromPanel === 'ctrl-dashboard' && ctx.expandAction === 'complete'
+  //const forceReview = ctx.fromPanel === 'ctrl-dashboard' && ctx.expandAction === 'complete'
 
   const mockSub = SUBMISSIONS.find(s => s.id === ctx.submissionId) ??
                   SUBMISSIONS.find(s => s.locationId === ctx.locationId && s.date === ctx.date)
@@ -160,14 +160,16 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
   const [secDecisions, setSecDecisions] = useState<Record<string, 'accept' | 'reject' | null>>(() => {
     // forceReview = independent fresh review; never pre-populate from previous decision
-    if (!forceReview && ctx.submissionId) {
+    //if (!forceReview && ctx.submissionId) {
+      if (ctx.submissionId) {
       const rev = SUBMISSION_REVIEWS[ctx.submissionId]
       if (rev) return Object.fromEntries(SECTIONS.map(k => [k, rev.sections[k]?.decision ?? null]))
     }
     return Object.fromEntries(SECTIONS.map(k => [k, null]))
   })
   const [secNotes, setSecNotes] = useState<Record<string, string>>(() => {
-    if (!forceReview && ctx.submissionId) {
+    //if (!forceReview && ctx.submissionId) {
+      if (ctx.submissionId) {
       const rev = SUBMISSION_REVIEWS[ctx.submissionId]
       if (rev) return Object.fromEntries(SECTIONS.map(k => [k, rev.sections[k]?.note ?? '']))
     }
@@ -196,7 +198,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const effStatus = localAction ?? sub.status
 
   // Show review form when pending approval OR when controller is doing a forced re-review
-  const showSecReview = isManagerView && (effStatus === 'pending_approval' || forceReview)
+  //const showSecReview = isManagerView && (effStatus === 'pending_approval' || forceReview)
+  const showSecReview = isManagerView && effStatus === 'pending_approval'
   const allDecided = SECTIONS.every(k => secDecisions[k] !== null)
   const allNoted   = SECTIONS.every(k => secDecisions[k] !== 'reject' || secNotes[k].trim() !== '')
   const canSubmit  = allDecided && allNoted
@@ -233,12 +236,16 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
     sessionStorage.setItem(`op_status_${sub.id}`, outcome)
     sessionStorage.setItem(`op_status_${sub.locationId}_${sub.date}`, outcome)
 
-    if (ctx.fromPanel === 'ctrl-dashboard') {
+    {/*if (ctx.fromPanel === 'ctrl-dashboard') {
       // Re-open the completion panel so the controller can click Confirm Completion
       const vid = ctx.visitId || ctx.verificationId
       onNavigate('ctrl-dashboard', vid ? { expandVisitId: vid, expandAction: 'complete' } : {})
       return
-    }
+    }*/}
+    if (ctx.fromPanel === 'ctrl-dashboard') {
+        onNavigate('ctrl-dashboard')
+        return
+      }
     if (ctx.fromPanel === 'dgm-dash') {
       const vid = ctx.visitId || ctx.verificationId
       onNavigate('dgm-dash', vid ? { expandVisitId: vid, expandAction: 'complete' } : {})
@@ -364,17 +371,18 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
             {effStatus === 'pending_approval' ? 'Pending Approval' : effStatus.charAt(0).toUpperCase() + effStatus.slice(1)}
-            {forceReview && effStatus === 'approved' && (
+            {/*{forceReview && effStatus === 'approved' && (
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
                 background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d',
               }}>Previously Approved — Re-review Required</span>
-            )}
+            )}*/}
           </div>
           <div style={{ fontSize: 13, color: effStatus === 'rejected' ? 'var(--red)' : 'var(--tm)' }}>
-            {forceReview && effStatus === 'approved'
+            {/*{forceReview && effStatus === 'approved'
               ? 'This submission was previously approved. Please review each section again to confirm completion.'
-              : sc.message}
+              : sc.message}*/}
+              {sc.message}
           </div>
         </div>
       </div>
@@ -383,7 +391,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       {showSecReview && (
         <div className="card" style={{ marginBottom: 18 }}>
           <div className="card-header">
-            <span className="card-title">{forceReview ? 'Re-review Required' : 'Complete Review'}</span>
+            {/*<span className="card-title">{forceReview ? 'Re-review Required' : 'Complete Review'}</span>*/}
+            <span className="card-title">Complete Review</span>
             <span className="card-sub">Submitted by {sub.operatorName} · {submittedLabel}</span>
           </div>
           <div className="card-body">
@@ -487,7 +496,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         <KpiCard
           label="Submitted"
           value={submittedLabel}
-          sub={`Ref: ${sub.id}`}
+          //sub={`Ref: ${sub.id}`}
           tooltip={{
             what: "The date and time this cash count submission was recorded.",
             how: "Automatically stamped when the operator submitted the form. Used to track SLA compliance — managers must approve within 48 hours.",
