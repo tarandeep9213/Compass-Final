@@ -37,6 +37,7 @@ def get_report_summary(
     total      = len(subs)
 
     avg_var_pct = round(sum(abs(s.variance_pct) for s in subs) / max(total, 1), 2)
+    cash_at_risk = round(sum(abs(s.variance) for s in subs if s.variance_exception), 2)
 
     ctrl_visits = db.query(Verification).filter(
         Verification.verification_type == VerificationType.CONTROLLER,
@@ -62,6 +63,7 @@ def get_report_summary(
         "approval_rate_pct": round(approved / max(total, 1) * 100, 1),
         "variance_exceptions": exceptions,
         "avg_variance_pct": avg_var_pct,
+        "cash_at_risk": cash_at_risk,
         "controller_verifications": ctrl_visits,
         "dgm_visits": dgm_visits,
     }
@@ -250,6 +252,59 @@ def get_section_trends(
             "period_avg": avg,
             "peak": peak,
         },
+    }
+
+
+@router.get("/sla")
+def get_sla_summary(
+    date_from: str = Query(...),
+    date_to: str = Query(...),
+    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """SLA compliance: % of submissions approved within 48h, plus per-approver stats."""
+    subs = db.query(Submission).filter(
+        Submission.submission_date >= date_from,
+        Submission.submission_date <= date_to,
+        Submission.status.in_([SubmissionStatus.APPROVED, SubmissionStatus.REJECTED]),
+    ).all()
+
+    total_reviewed = len(subs)
+    within_sla = 0
+    by_approver: dict = defaultdict(lambda: {"name": "", "count": 0, "within_sla": 0, "total_hours": 0.0})
+
+    for s in subs:
+        if not s.submitted_at or not s.approved_at:
+            continue
+        submitted = s.submitted_at
+        approved = s.approved_at
+        hours = (approved - submitted).total_seconds() / 3600
+        is_within = hours <= 48
+
+        if is_within:
+            within_sla += 1
+
+        if s.approved_by:
+            a = by_approver[s.approved_by]
+            a["name"] = s.approved_by_name or s.approved_by
+            a["count"] += 1
+            if is_within:
+                a["within_sla"] += 1
+            a["total_hours"] += hours
+
+    approvers = []
+    for ap in by_approver.values():
+        approvers.append({
+            "name": ap["name"],
+            "count": ap["count"],
+            "within_sla": ap["within_sla"],
+            "avg_hours": round(ap["total_hours"] / max(ap["count"], 1), 1),
+        })
+    approvers.sort(key=lambda x: x["avg_hours"], reverse=True)
+
+    return {
+        "sla_compliance_pct": round(within_sla / max(total_reviewed, 1) * 100, 1) if total_reviewed > 0 else None,
+        "approvers": approvers,
     }
 
 
