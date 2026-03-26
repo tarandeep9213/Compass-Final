@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { getLocation, formatCurrency, IMPREST, SUBMISSIONS, DRAFTS, todayStr, SUBMISSION_REVIEWS } from '../../mock/data'
 import { createSubmission, updateDraft, submitDraft, getSubmission } from '../../api/submissions'
+import { listLocations } from '../../api/locations'
+import { api } from '../../api/client'
+
+// ── Excel prefill helper ───────────────────────────────────────────────────────
 
 // ── Excel prefill helper ───────────────────────────────────────────────────────
 interface ExcelPrefill {
@@ -171,8 +175,43 @@ function SecHead({ id, title, total }: { id: string; title: string; total: numbe
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
+interface FormLocation {
+  id?: string;
+  name?: string;
+  expectedCash?: number;
+  expected_cash?: number;
+  tolerancePct?: number;
+  tolerance_pct?: number;
+  effective_tolerance_pct?: number;
+  tolerance_pct_override?: number;
+  [key: string]: unknown;
+}
+
 export default function OpForm({ ctx, onNavigate }: Props) {
-  const location  = getLocation(ctx.locationId)
+  const [location, setLocation] = useState<FormLocation | undefined>(() => getLocation(ctx.locationId) as unknown as FormLocation)
+  const [realTolerance, setRealTolerance] = useState<number | null>(null)
+
+  useEffect(() => {
+    listLocations().then(locs => {
+      const loc = locs.find(l => l.id === ctx.locationId)
+      if (loc) setLocation(loc as unknown as FormLocation)
+    }).catch(() => {})
+
+    // Fetch config to get the exact admin-set tolerance override
+    interface ConfigResponse {
+      global?: { default_tolerance_pct?: number };
+      location_overrides?: Array<{ location_id: string; tolerance_pct: number }>;
+    }
+    api.get<ConfigResponse>('/config').then(conf => {
+      const override = conf.location_overrides?.find(o => o.location_id === ctx.locationId)
+      if (override && override.tolerance_pct !== undefined) {
+        setRealTolerance(override.tolerance_pct)
+      } else if (conf.global && conf.global.default_tolerance_pct !== undefined) {
+        setRealTolerance(conf.global.default_tolerance_pct)
+      }
+    }).catch(() => {})
+  }, [ctx.locationId])
+
   const dateLabel = new Date(ctx.date + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
@@ -287,8 +326,21 @@ export default function OpForm({ ctx, onNavigate }: Props) {
     const hasCache = !!sessionStorage.getItem(`denom_${ctx.submissionId}`)
     
     getSubmission(ctx.submissionId).then(sub => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const s = sub.sections as Record<string, any>
+      interface ParsedSections {
+        A?: { ones?: number; twos?: number; fives?: number; tens?: number; twenties?: number; fifties?: number; hundreds?: number; other?: number };
+        B?: { dollar?: number; halves?: number; quarters?: number; dimes?: number; nickels?: number; pennies?: number };
+        C?: { machines?: Record<string, { m1?: number; m2?: number }> };
+        D?: { bags?: Record<string, number> };
+        E?: { set1?: { qty?: number; amount?: number }[]; set2?: { qty?: number; amount?: number }[] };
+        F?: { rows?: { qty?: number; amount?: number }[] };
+        G?: { currency?: number; coin?: number };
+        H?: { value?: number };
+        I?: { yesterday?: number; today?: number };
+        holdover?: number;
+        coin_transit?: number;
+        [key: string]: unknown;
+      }
+      const s = sub.sections as ParsedSections
       const emptyQA5 = (): QARow[] => [emptyQA(), emptyQA(), emptyQA(), emptyQA(), emptyQA()]
       const emptyQA4 = (): QARow[] => [emptyQA(), emptyQA(), emptyQA(), emptyQA()]
 
@@ -384,8 +436,8 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const totalCash   = totA + totB + totC + totD + totE + totF + totG - holdoverAmt
   const totalFund   = totalCash + totH + totI + coinTransAmt
 
-  const expectedCash = location?.expectedCash ?? IMPREST
-  const tolerance    = location?.tolerancePct ?? 5
+  const expectedCash = location?.expected_cash ?? location?.expectedCash ?? IMPREST
+  const tolerance    = realTolerance ?? location?.tolerance_pct_override ?? location?.effective_tolerance_pct ?? location?.tolerancePct ?? 5
   const variance     = totalFund - expectedCash
   const variancePct  = expectedCash > 0 ? (variance / expectedCash) * 100 : 0
   const requiresNote = Math.abs(variancePct) > tolerance
@@ -510,7 +562,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         id: newId, locationId: ctx.locationId, operatorName: 'A. Patel',
         date: ctx.date, status: 'pending_approval' as const, source: (ctx.fromExcel === 'true' ? 'EXCEL' : 'FORM') as 'EXCEL' | 'FORM',
         totalCash: Math.round(totalFund * 100) / 100,
-        expectedCash: location?.expectedCash ?? IMPREST,
+        expectedCash: location?.expected_cash ?? location?.expectedCash ?? IMPREST,
         variance:  Math.round(variance * 100) / 100,
         variancePct: Math.round(variancePct * 100) / 100,
         submittedAt: new Date().toISOString(),
