@@ -608,7 +608,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                 <col style={{ width: 110 }} />
                 <col style={{ width: 80 }} />
                 <col style={{ width: 140 }} />
-                <col style={{ width: 145 }} /> {/* Increased Status width from 120px to 145px */}
+                <col style={{ width: 145 }} />
                 <col style={{ width: 120 }} />
                 <col style={{ width: 110 }} />
                 <col />
