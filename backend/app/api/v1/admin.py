@@ -667,7 +667,11 @@ def import_roster(
         loc_id = f"loc-{name_slug}"
         cc = row.location_code.strip() if row.location_code else None
         
+<<<<<<< Updated upstream
         # 1. Update/create Location
+=======
+        # 1. Safely query and update/create Location
+>>>>>>> Stashed changes
         loc = db.query(Location).filter(Location.id == loc_id).first()
         if loc:
             loc.name = row.location_name
@@ -679,12 +683,24 @@ def import_roster(
             db.add(loc)
             locs_created += 1
             
+<<<<<<< Updated upstream
         db.flush() 
         
         # 2. Safely apply Tolerance Override using merge to prevent duplicate session conflicts
         override = LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5)
         db.merge(override)
         db.flush()
+=======
+        db.flush() # Ensure location exists in DB session before adding override
+        
+        # 2. Safely query and update/create Tolerance Override
+        override = db.query(LocationToleranceOverride).filter(LocationToleranceOverride.location_id == loc_id).first()
+        if override:
+            override.tolerance_pct = 0.5
+        else:
+            override = LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5)
+            db.add(override)
+>>>>>>> Stashed changes
 
         # Map role column → (name, explicit_email) + UserRole
         role_map = [
