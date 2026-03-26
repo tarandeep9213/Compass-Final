@@ -287,7 +287,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                 <div style={{ fontSize: 13, color: 'var(--ts)' }}>
                   {(() => {
                     const expCash = todaySub.expectedCash || location?.expected_cash || IMPREST;
-                    const dynamicVar = todaySub.totalCash - expCash;
+                    const dynamicVar = Math.round((todaySub.totalCash - expCash) * 100) / 100;
                     const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
                     return (
                       <>
@@ -555,7 +555,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                         <td style={{ textAlign: 'right' }}>
                           {row.sub ? (() => {
                             const expCash = row.sub.expectedCash || location?.expected_cash || IMPREST;
-                            const dynamicVar = row.sub.totalCash - expCash;
+                            const dynamicVar = Math.round((row.sub.totalCash - expCash) * 100) / 100;
                             const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
                             return (
                               <span style={{ color: varColor(dynamicVarPct), fontWeight: 500, fontSize: 13 }}>

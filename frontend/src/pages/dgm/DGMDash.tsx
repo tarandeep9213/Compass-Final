@@ -522,7 +522,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                   const isExpanded = expandedId === v.id
                   const expCash    = Number((loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
                   const effObsTotal = (v.observedTotal && v.observedTotal > 0) ? v.observedTotal : getSubTotalCash(v.locationId, v.date)
-                  const variance   = effObsTotal !== null && effObsTotal !== undefined ? effObsTotal - expCash : null
+                  const variance   = effObsTotal !== null && effObsTotal !== undefined ? Math.round((effObsTotal - expCash) * 100) / 100 : null
                   const pct        = variance !== null && expCash > 0 ? (variance / expCash) * 100 : null
                   const varCol     = pct !== null
                     ? (Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)')

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { SUBMISSIONS, SUBMISSION_REVIEWS, saveSubmissionReview, getLocation, formatCurrency, todayStr } from '../../mock/data'
 import type { Submission, SubmissionReview } from '../../mock/data'
 import { getSubmission, approveSubmission, rejectSubmission } from '../../api/submissions'
+import { api } from '../../api/client'
 import KpiCard from '../../components/KpiCard'
 
 interface Props {
@@ -87,6 +88,22 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const mockSub = SUBMISSIONS.find(s => s.id === ctx.submissionId) ??
                   SUBMISSIONS.find(s => s.locationId === ctx.locationId && s.date === ctx.date)
   const [apiSub, setApiSub] = useState<Submission | null>(null)
+  const [realTolerance, setRealTolerance] = useState<number | null>(null)
+
+  useEffect(() => {
+    interface ConfigResponse {
+      global?: { default_tolerance_pct?: number };
+      location_overrides?: Array<{ location_id: string; tolerance_pct: number }>;
+    }
+    api.get<ConfigResponse>('/config').then(conf => {
+      const override = conf.location_overrides?.find(o => o.location_id === ctx.locationId)
+      if (override && override.tolerance_pct !== undefined) {
+        setRealTolerance(override.tolerance_pct)
+      } else if (conf.global && conf.global.default_tolerance_pct !== undefined) {
+        setRealTolerance(conf.global.default_tolerance_pct)
+      }
+    }).catch(() => {})
+  }, [ctx.locationId])
 
   // Load denomination detail — first from sessionStorage (set by OpForm/OpExcel before navigate),
   // then overwritten by API response if available.
@@ -319,7 +336,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const calcExpectedCash = sub.expectedCash || location?.expectedCash || 0
   const calcVariance = calcTotalFund - calcExpectedCash
   const calcVariancePct = calcExpectedCash > 0 ? (calcVariance / calcExpectedCash) * 100 : 0
-  const tolerance = location?.tolerancePct ?? 5
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const locAny = location as any
+  const tolerance = realTolerance ?? locAny?.tolerance_pct_override ?? locAny?.effective_tolerance_pct ?? locAny?.tolerance_pct ?? location?.tolerancePct ?? 5
   const exceedsTolerance = Math.abs(calcVariancePct) > tolerance
   const varColor = Math.abs(calcVariancePct) > 5 ? 'var(--red)' : Math.abs(calcVariancePct) > 2 ? 'var(--amb)' : 'var(--g7)'
 
