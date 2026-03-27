@@ -69,7 +69,8 @@ export default function AdmLocations({ adminName }: Props) {
 
   function openAdd() { setMode('add'); setForm({ ...EMPTY_FORM, tolerancePct: defaults.tolerancePct }); setErrors({}); setPage(0) }
     function openEdit(loc: Location) {
-    const idx = locs.findIndex(l => l.id === loc.id)
+    const list = filterLoc ? filtered : locs
+    const idx = list.findIndex(l => l.id === loc.id)
     if (idx >= 0) setPage(Math.floor(idx / PAGE_SIZE))
     setMode({id:loc.id})
     setForm({ id: loc.id, cost_center: loc.cost_center || loc.id, name:loc.name, expectedCash:String(loc.expectedCash), tolerancePct:String(loc.tolerancePct) })
