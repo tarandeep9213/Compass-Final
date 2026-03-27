@@ -188,7 +188,7 @@ def get_exception_report(
 def get_section_trends(
     section: str = Query(...),
     granularity: str = Query("monthly"),
-    periods: int = Query(6, ge=1, le=24),
+    periods: int = Query(6, ge=1, le=90),
     location_id: str | None = Query(None),
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -203,7 +203,9 @@ def get_section_trends(
 
     def _period_key(date_str: str) -> str:
         d = dtdate.fromisoformat(date_str)
-        if granularity == "weekly":
+        if granularity == "daily":
+            return date_str
+        elif granularity == "weekly":
             iso = d.isocalendar()
             return f"{iso[0]}-W{iso[1]:02d}"
         elif granularity == "quarterly":
