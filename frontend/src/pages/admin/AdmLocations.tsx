@@ -32,7 +32,7 @@ function pageNums(cur: number, total: number): (number | 'gap')[] {
   return [0, 'gap', cur - 1, cur, cur + 1, 'gap', total - 1]
 }
 
-const DEFAULTS_INIT: { tolerancePct: string; slaHours: string } = { tolerancePct: '5', slaHours: '48' }
+const DEFAULTS_INIT: { tolerancePct: string; slaHours: string } = { tolerancePct: '0.5', slaHours: '24' }
 
 export default function AdmLocations({ adminName }: Props) {
   const [locs,     setLocs]     = useState<Location[]>([...LOCATIONS])
@@ -176,7 +176,7 @@ export default function AdmLocations({ adminName }: Props) {
   async function handleSaveDefaults() {
     const e: Record<string, string> = {}
     const tol = Number(defaults.tolerancePct)
-    if (!defaults.tolerancePct || isNaN(tol) || tol < 1 || tol > 20) e.tolerancePct = 'Enter 1–20%'
+    if (!defaults.tolerancePct || isNaN(tol) || tol <= 0 || tol > 20) e.tolerancePct = 'Enter 0.1–20%'
     if (Object.keys(e).length > 0) { setDefErrors(e); return }
     setDefErrors({})
     try {

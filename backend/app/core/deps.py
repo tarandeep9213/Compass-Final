@@ -32,6 +32,10 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
+    # Populate access_grants from AccessGrant table (not the stale JSON column)
+    from app.models.access_grant import AccessGrant
+    grants = db.query(AccessGrant).filter(AccessGrant.user_id == user.id).all()
+    user.access_grants = list({g.access_type for g in grants})
     return user
 
 

@@ -4,7 +4,7 @@ import { getConfig, updateConfig, setLocationOverride, removeLocationOverride } 
 
 interface Props { adminName: string }
 
-const GLOBALS_DEFAULT = { imprest: '9575', tolerancePct: '5', slaHours: '48', dowLookbackWeeks: '6', reminderTime: '08:00', retentionYears: '7' }
+const GLOBALS_DEFAULT = { imprest: '9575', tolerancePct: '0.5', slaHours: '24', dowLookbackWeeks: '6', reminderTime: '08:00', retentionYears: '7' }
 
 function LabelRow({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
   return (

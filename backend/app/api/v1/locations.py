@@ -10,7 +10,7 @@ from app.schemas.location import LocationOut, CreateLocationBody, UpdateLocation
 router = APIRouter(prefix="/locations", tags=["Locations"])
 
 
-DEFAULT_TOLERANCE = 5.0
+DEFAULT_TOLERANCE = 0.5
 
 def _to_out(loc: Location) -> LocationOut:
     eff = loc.tolerance_pct_override if loc.tolerance_pct_override is not None else DEFAULT_TOLERANCE
