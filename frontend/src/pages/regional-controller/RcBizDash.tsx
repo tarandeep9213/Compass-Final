@@ -6,14 +6,8 @@ import {
 } from 'recharts'
 import {
   TIPS,
-  CORE_KPIS as MOCK_KPIS,
-  COVERAGE as MOCK_COVERAGE,
-  TREND_DATA as MOCK_TREND,
-  AT_RISK_LOCATIONS as MOCK_AT_RISK,
 } from '../../mock/bizDashData'
 import type { TipContent, TrendPoint } from '../../mock/bizDashData'
-
-// TODO: Remove mock fallbacks when backend APIs return real data consistently.
 // Each section below checks if API data is empty/zero and falls back to mock.
 // To switch to real-only: remove the fallback lines marked with "// MOCK FALLBACK"
 import { getComplianceDashboard, getComplianceTrend } from '../../api/compliance'
@@ -208,11 +202,9 @@ export default function RcBizDash({ adminName }: Props) {
           approvalRate: Math.round(p.approval_rate_pct),
           exceptions: p.exception_count,
         }))
-        // MOCK FALLBACK: if all trend values are zero, use demo data
-        const trendAllZero = realTrend.every(p => p.submissionRate === 0 && p.approvalRate === 0)
-        setTrendData(trendAllZero ? MOCK_TREND : realTrend)
+        setTrendData(realTrend)
       })
-      .catch(() => setTrendData(MOCK_TREND)) // MOCK FALLBACK
+      .catch(() => setTrendData([]))
       .finally(() => setTrendLoading(false))
 
     // Task 2
@@ -263,8 +255,7 @@ export default function RcBizDash({ adminName }: Props) {
           .slice(0, 5)
           .map((r: { name: string; score: number; health: 'red' | 'amber'; flags: string[] }, i: number) => ({ ...r, rank: i + 1 }))
 
-        // MOCK FALLBACK: if no at-risk locations found, use demo data
-        setAtRiskData(scored.length > 0 ? scored : MOCK_AT_RISK)
+        setAtRiskData(scored)
         setApiLocations(dash.locations)
 
         // Task 6: Compute coverage from dashboard locations
@@ -294,16 +285,13 @@ export default function RcBizDash({ adminName }: Props) {
               dgmVisits: { done: dgmDone, pct: totalLocs > 0 ? Math.round(dgmDone / totalLocs * 100) : 0 },
               pendingQueue: { under24h: under24, between24and48h: between24and48, over48h: over48 },
             }
-            // MOCK FALLBACK: if all coverage is zero, use demo data
-            const covAllZero = ctrlDone === 0 && dgmDone === 0 && under24 + between24and48 + over48 === 0
-            setCoverage(covAllZero ? MOCK_COVERAGE : realCoverage)
+            setCoverage(realCoverage)
           })
           .catch(() => {
-            // MOCK FALLBACK
-            setCoverage(MOCK_COVERAGE)
+            setCoverage(null)
           })
       })
-      .catch(() => { setAtRiskData(MOCK_AT_RISK); setApiLocations(null) }) // MOCK FALLBACK
+      .catch(() => { setAtRiskData([]); setApiLocations(null) })
       .finally(() => setAtRiskLoading(false))
 
     // Task 5: Fetch report summaries + SLA (current + prior month) for KPI cards with deltas
@@ -338,11 +326,9 @@ export default function RcBizDash({ adminName }: Props) {
           { label: 'Cash at Risk', value: `$${Math.round(curSummary.cash_at_risk).toLocaleString()}`, raw: curSummary.cash_at_risk, delta: Math.round(prevSummary.cash_at_risk - curSummary.cash_at_risk), deltaLabel: 'vs last month', unit: 'gbp', tooltip: tt.cashAtRisk },
           { label: 'Variance Exceptions', value: `${curSummary.variance_exceptions}`, raw: curSummary.variance_exceptions, delta: prevSummary.variance_exceptions - curSummary.variance_exceptions, deltaLabel: 'vs last month', unit: 'count', tooltip: tt.exceptions },
         ]
-        // MOCK FALLBACK: if compliance rate is 0 or most KPIs are zero, use demo data
-        const zeroCount = realCards.filter(c => c.raw === 0).length
-        setKpiCards(zeroCount >= 3 ? MOCK_KPIS : realCards)
+        setKpiCards(realCards)
       })
-      .catch(err => { console.error('KPI fetch error:', err); setKpiCards(MOCK_KPIS) }) // MOCK FALLBACK
+      .catch(err => { console.error('KPI fetch error:', err); setKpiCards([]) })
       .finally(() => setKpiLoading(false))
 
     // Task 8: Controller Activity
