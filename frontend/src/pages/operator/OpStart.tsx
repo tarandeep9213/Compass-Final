@@ -310,15 +310,15 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--ts)' }}>
                   {(() => {
+                    const v = todaySub.variance ?? 0;
+                    const vPct = todaySub.variancePct ?? 0;
                     const expCash = todaySub.expectedCash || location?.expected_cash || IMPREST;
-                    const dynamicVar = Math.round((todaySub.totalCash - expCash) * 100) / 100;
-                    const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
                     return (
                       <>
                         Variance:&nbsp;
-                        <strong style={{ color: varColor(dynamicVarPct) }}>
-                          {dynamicVar >= 0 ? '+' : ''}{formatCurrency(dynamicVar)}
-                          &nbsp;({dynamicVarPct >= 0 ? '+' : ''}{dynamicVarPct.toFixed(2)}%)
+                        <strong style={{ color: varColor(vPct) }}>
+                          {v >= 0 ? '+' : ''}{formatCurrency(v)}
+                          &nbsp;({vPct >= 0 ? '+' : ''}{vPct.toFixed(2)}%)
                         </strong>
                         &nbsp;·&nbsp;Imprest: {formatCurrency(expCash)}
                       </>
@@ -583,14 +583,13 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           {row.sub ? (() => {
-                            const expCash = row.sub.expectedCash || location?.expected_cash || IMPREST;
-                            const dynamicVar = Math.round((row.sub.totalCash - expCash) * 100) / 100;
-                            const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
+                            const v = row.sub.variance ?? 0;
+                            const vPct = row.sub.variancePct ?? 0;
                             return (
-                              <span style={{ color: varColor(dynamicVarPct), fontWeight: 500, fontSize: 13 }}>
-                                {dynamicVar >= 0 ? '+' : ''}{formatCurrency(dynamicVar)}
-                                <div style={{ fontSize: 11, color: varColor(dynamicVarPct) }}>
-                                  ({dynamicVarPct >= 0 ? '+' : ''}{dynamicVarPct.toFixed(2)}%)
+                              <span style={{ color: varColor(vPct), fontWeight: 500, fontSize: 13 }}>
+                                {v >= 0 ? '+' : ''}{formatCurrency(v)}
+                                <div style={{ fontSize: 11, color: varColor(vPct) }}>
+                                  ({vPct >= 0 ? '+' : ''}{vPct.toFixed(2)}%)
                                 </div>
                               </span>
                             );
