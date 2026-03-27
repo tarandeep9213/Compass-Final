@@ -213,7 +213,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     if (locationIds.length > 0) {
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
-          const flats = arrays.flat()
+          const flats = arrays.flat().filter(s => s.status !== 'draft')
           const map: Record<string, { status: string; id: string; totalCash: number }> = {}
           flats.forEach(s => {
             map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash }
