@@ -100,7 +100,7 @@ def list_submissions(
     date_to: str | None = Query(None),
     operator_id: str | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=5000),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
