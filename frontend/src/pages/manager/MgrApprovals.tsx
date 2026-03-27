@@ -130,6 +130,8 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
     return allMgrSubs
       .filter(s => {
         const eff = effectiveStatus(s)
+        // Never show drafts to controller — they are operator's private work
+        if (eff === 'draft') return false
         if (statusFilter !== 'all' && eff !== statusFilter) return false
         // Pending: always show regardless of date range
         if (eff === 'pending_approval') return true

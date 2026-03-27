@@ -112,6 +112,8 @@ def list_submissions(
     elif current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
         if current_user.location_ids:
             q = q.filter(Submission.location_id.in_(current_user.location_ids))
+        # Controllers should not see operator drafts
+        q = q.filter(Submission.status != SubmissionStatus.DRAFT)
 
     if location_id:
         q = q.filter(Submission.location_id == location_id)
