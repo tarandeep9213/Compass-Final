@@ -294,7 +294,7 @@ export default function AdmLocations({ adminName }: Props) {
                           : <span className="badge" style={{background:'var(--ow)',color:'#999',border:'1px solid var(--ow2)',borderRadius:6,padding:'2px 8px',fontSize:11,fontWeight:700}}>INACTIVE</span>}
                       </td>
                       <td style={{textAlign:'right'}}>
-                        <button className="btn btn-ghost" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>openEdit(loc)}>Edit</button>
+                        {loc.active && <button className="btn btn-ghost" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>openEdit(loc)}>Edit</button>}
                         {loc.active
                           ? <button className="btn btn-ghost" style={{fontSize:11,padding:'4px 10px',marginLeft:4,color:'var(--red)'}} onClick={()=>setConfirm(loc.id)}>Deactivate</button>
                           : <button className="btn btn-ghost" style={{fontSize:11,padding:'4px 10px',marginLeft:4,color:'var(--g7)'}} onClick={()=>handleReactivate(loc.id)}>Reactivate</button>}
