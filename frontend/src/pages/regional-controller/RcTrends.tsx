@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { LOCATIONS, formatCurrency } from '../../mock/data'
+import { listLocations } from '../../api/locations'
 import { getSectionTrends } from '../../api/reports'
 import type { SectionTrends } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
@@ -146,7 +147,7 @@ const PERIOD_OPTIONS: Record<Granularity, { label: string; n: number }[]> = {
 
 // ── CSV export ─────────────────────────────────────────────────────────────
 function downloadCSV(chartData: DataPoint[], sectionKey: string, activeSecLabel: string, locationId: string, granularity: Granularity) {
-  const locName = locationId === 'all' ? 'All Locations' : (LOCATIONS.find(l => l.id === locationId)?.name || locationId)
+  const locName = locationId === 'all' ? 'All Locations' : (allLocs.find(l => l.id === locationId)?.name || locationId)
 
   // Header specifically targets the data actively being viewed
   const headers = ['Location', 'Period', 'Granularity', `Section ${activeSecLabel}`]
@@ -190,8 +191,15 @@ export default function RcTrends({ adminName }: Props) {
   const [locationId,     setLocationId]     = useState('all')
   const [sectionKey,     setSectionKey]     = useState('secA')
   const [apiTrends,      setApiTrends]      = useState<SectionTrends | null>(null)
+  const [apiLocs,        setApiLocs]        = useState<{id:string;name:string;active:boolean}[]>([])
   const [fetchError,     setFetchError]     = useState('')
   const [isLoading,      setIsLoading]      = useState(false)
+
+  useEffect(() => {
+    listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, active: l.active })))).catch(() => {})
+  }, [])
+
+  const allLocs = apiLocs.length > 0 ? apiLocs : LOCATIONS
 
   const activeSec = SECTIONS.find(s => s.key === sectionKey)!
 
@@ -372,7 +380,7 @@ export default function RcTrends({ adminName }: Props) {
               >
                 All
               </button>
-              {LOCATIONS.filter(l => l.active).map(l => {
+              {allLocs.filter(l => l.active).map(l => {
                 const locData = l as unknown as { costCenter?: string; cost_center?: string; id: string };
                 const rawCC = locData.costCenter || locData.cost_center || locData.id;
                 const cc = formatCC(rawCC);

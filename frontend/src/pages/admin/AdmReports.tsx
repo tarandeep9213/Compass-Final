@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { SUBMISSIONS, VERIFICATIONS, LOCATIONS, USERS, AUDIT_EVENTS, formatCurrency, todayStr, getLocation, IMPREST } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listControllerVerifications, listDgmVerifications } from '../../api/verifications'
+import { listLocations } from '../../api/locations'
 import type { ApiSubmission, ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 
@@ -52,7 +53,14 @@ export default function AdmReports({ adminName }: Props) {
   // apiSummary removed as KPIs are strictly calculated from the filtered table
   const [apiSubs, setApiSubs] = useState<ApiSubmission[] | null>(null)
   const [apiVerifs, setApiVerifs] = useState<ApiVerification[] | null>(null)
+  const [apiLocs, setApiLocs] = useState<{id:string;name:string;cost_center?:string;active?:boolean}[]>([])
   const [fetchError, setFetchError] = useState('')
+
+  useEffect(() => {
+    listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: l.cost_center, active: l.active })))).catch(() => {})
+  }, [])
+
+  const allLocs = apiLocs.length > 0 ? apiLocs : LOCATIONS
 
 
   const { start, end } = useMemo(() => {
@@ -92,7 +100,7 @@ export default function AdmReports({ adminName }: Props) {
   const filteredSubs = useMemo(() => {
     if (apiSubs) {
       return apiSubs.map(s => {
-        const loc = LOCATIONS.find(l => l.id === s.location_id);
+        const loc = allLocs.find(l => l.id === s.location_id);
         const expCash = Number(s.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || (loc as unknown as Record<string, number>)?.expected_cash || IMPREST);
         const variance = s.total_cash - expCash;
         const variancePct = expCash > 0 ? (variance / expCash) * 100 : 0;
@@ -268,7 +276,7 @@ export default function AdmReports({ adminName }: Props) {
     return [...pairs]
       .map(key => {
         const [date, locId] = key.split('|')
-        const loc  = LOCATIONS.find(l => l.id === locId)
+        const loc  = allLocs.find(l => l.id === locId)
         const sub  = filteredSubs.find(s => s.locationId === locId && s.date === date)
         const ctrl = filteredVerifs.find(v => v.locationId === locId && v.date === date && v.type === 'controller' && v.status === 'completed')
         const dgm  = filteredVerifs.find(v => v.locationId === locId && v.date === date && v.type === 'dgm'        && v.status === 'completed')
@@ -309,7 +317,7 @@ export default function AdmReports({ adminName }: Props) {
     rows.push(['=== SUBMISSIONS ==='])
     rows.push(['Date','Location','Operator','Status','Total Cash','Variance','Variance %','Exception'])
     filteredSubs.forEach(s => {
-      const loc = LOCATIONS.find(l => l.id === s.locationId)
+      const loc = allLocs.find(l => l.id === s.locationId)
       rows.push([
         s.date, loc?.name ?? s.locationId, s.operatorName,
         s.status, String(s.totalCash.toFixed(2)), String(s.variance.toFixed(2)),
@@ -323,7 +331,7 @@ export default function AdmReports({ adminName }: Props) {
 
     // Section 2b: Date-level detail (respects location filter)
     const dtlLabel = dtlLocFilter !== 'all'
-      ? `DATE-LEVEL DETAIL — ${LOCATIONS.find(l=>l.id===dtlLocFilter)?.name ?? dtlLocFilter}`
+      ? `DATE-LEVEL DETAIL — ${allLocs.find(l=>l.id===dtlLocFilter)?.name ?? dtlLocFilter}`
       : 'DATE-LEVEL DETAIL — ALL LOCATIONS'
     rows.push([`=== ${dtlLabel} ===`])
     rows.push(['Date','Location','Operator','Submission Status','Approved By','Controller','DGM','Regional Controller'])
@@ -353,7 +361,7 @@ export default function AdmReports({ adminName }: Props) {
     const a    = document.createElement('a')
     a.href     = url
     const locSlug = dtlLocFilter !== 'all'
-      ? `-${(LOCATIONS.find(l=>l.id===dtlLocFilter)?.name ?? dtlLocFilter).replace(/\s+/g,'-').toLowerCase()}`
+      ? `-${(allLocs.find(l=>l.id===dtlLocFilter)?.name ?? dtlLocFilter).replace(/\s+/g,'-').toLowerCase()}`
       : ''
     a.download = `cashroom-report-${start || 'all'}-to-${end || 'all'}${locSlug}.csv`
     a.click()
@@ -437,7 +445,7 @@ export default function AdmReports({ adminName }: Props) {
             }}
           >
             <option value="all">All Locations</option>
-            {LOCATIONS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(l => {
+            {allLocs.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(l => {
               const locData = l as unknown as { costCenter?: string; cost_center?: string; id: string };
               const rawCC = locData.costCenter || locData.cost_center || locData.id;
               return (
@@ -525,7 +533,7 @@ export default function AdmReports({ adminName }: Props) {
           <span className="card-title">Date-Level Detail</span>
           <span style={{fontSize:11,color:'var(--ts)'}}>
             {dtlFiltered.length} row{dtlFiltered.length !== 1 ? 's' : ''}
-            {dtlLocFilter !== 'all' && <> · {LOCATIONS.find(l=>l.id===dtlLocFilter)?.name}</>}
+            {dtlLocFilter !== 'all' && <> · {allLocs.find(l=>l.id===dtlLocFilter)?.name}</>}
           </span>
         </div>
         <div className="card-body" style={{padding:0}}>
@@ -593,7 +601,7 @@ export default function AdmReports({ adminName }: Props) {
               {dtlFiltered.length === 0 && (
                 <tr>
                   <td colSpan={8} style={{textAlign:'center',padding:'32px 0',color:'var(--ts)',fontSize:13}}>
-                    No activity found for this period{dtlLocFilter !== 'all' ? ` at ${LOCATIONS.find(l=>l.id===dtlLocFilter)?.name}` : ''}.
+                    No activity found for this period{dtlLocFilter !== 'all' ? ` at ${allLocs.find(l=>l.id===dtlLocFilter)?.name}` : ''}.
                   </td>
                 </tr>
               )}
@@ -770,7 +778,7 @@ export default function AdmReports({ adminName }: Props) {
               </thead>
               <tbody>
                 {excPageRows.map(s=>{
-                  const loc=LOCATIONS.find(l=>l.id===s.locationId)
+                  const loc=allLocs.find(l=>l.id===s.locationId)
                   return(
                     <tr key={s.id}>
                       <td style={{fontSize:12,whiteSpace:'nowrap'}}>{new Date(s.date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td>
