@@ -209,7 +209,7 @@ export default function RcTrends({ adminName }: Props) {
     Promise.resolve().then(() => { setIsLoading(true); setFetchError(''); });
     getSectionTrends({
       section:     activeSec.short,
-      granularity: granularity === 'daily' ? 'weekly' : granularity, 
+      granularity: granularity,
       periods:     effectivePeriodN,
       location_id: locationId === 'all' ? undefined : locationId,
     }).then(data => {

@@ -31,11 +31,14 @@ export default function OpDrafts({ onNavigate }: Props) {
     if (!window.confirm("Are you sure you want to delete this draft? This cannot be undone.")) return;
     try {
       await deleteDraft(id)
-      setDeletedIds(prev => [...prev, id])
     } catch {
-      // fallback for mock mode
-      setDeletedIds(prev => [...prev, id])
+      // API failed — still remove from UI
     }
+    // Remove from both API list and mock DRAFTS array
+    setDeletedIds(prev => [...prev, id])
+    setApiDrafts(prev => prev.filter(d => d.id !== id))
+    const mockIdx = DRAFTS.findIndex(d => d.id === id)
+    if (mockIdx >= 0) DRAFTS.splice(mockIdx, 1)
   }
 
   function handleResume(draftId: string, locationId: string, date: string) {

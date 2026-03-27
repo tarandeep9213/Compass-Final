@@ -21,6 +21,13 @@ def log_event(
 ) -> None:
     """Write an audit event row. Never raises."""
     try:
+        # Auto-populate location from actor's assigned locations if not explicitly provided
+        if not location_id and actor.location_ids:
+            location_id = actor.location_ids[0] if isinstance(actor.location_ids, list) and len(actor.location_ids) > 0 else None
+            if location_id and not location_name:
+                from app.models.location import Location
+                loc = db.get(Location, location_id)
+                location_name = loc.name if loc else None
         ev = AuditEvent(
             event_type=event_type,
             actor_id=actor.id,

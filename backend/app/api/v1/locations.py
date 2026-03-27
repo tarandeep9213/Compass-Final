@@ -5,15 +5,22 @@ from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
 from app.models.location import Location
+from app.models.config import SystemConfig
 from app.schemas.location import LocationOut, CreateLocationBody, UpdateLocationBody
 
 router = APIRouter(prefix="/locations", tags=["Locations"])
 
 
-DEFAULT_TOLERANCE = 5.0
+DEFAULT_TOLERANCE = 0.5
 
-def _to_out(loc: Location) -> LocationOut:
-    eff = loc.tolerance_pct_override if loc.tolerance_pct_override is not None else DEFAULT_TOLERANCE
+
+def _get_global_tolerance(db: Session) -> float:
+    cfg = db.get(SystemConfig, 1)
+    return cfg.default_tolerance_pct if cfg else DEFAULT_TOLERANCE
+
+
+def _to_out(loc: Location, global_tolerance: float = DEFAULT_TOLERANCE) -> LocationOut:
+    eff = loc.tolerance_pct_override if loc.tolerance_pct_override is not None else global_tolerance
     return LocationOut(
         id=loc.id,
         name=loc.name,
@@ -43,7 +50,8 @@ def list_locations(
         if not current_user.location_ids:
             return []
         q = q.filter(Location.id.in_(current_user.location_ids))
-    return [_to_out(loc) for loc in q.order_by(Location.name).all()]
+    global_tol = _get_global_tolerance(db)
+    return [_to_out(loc, global_tol) for loc in q.order_by(Location.name).all()]
 
 
 @router.post("", response_model=LocationOut, status_code=status.HTTP_201_CREATED,
@@ -61,7 +69,7 @@ def create_location(
     db.add(loc)
     db.commit()
     db.refresh(loc)
-    return _to_out(loc)
+    return _to_out(loc, _get_global_tolerance(db))
 
 
 @router.patch("/{location_id}", response_model=LocationOut,
@@ -78,4 +86,4 @@ def update_location(
         setattr(loc, field, value)
     db.commit()
     db.refresh(loc)
-    return _to_out(loc)
+    return _to_out(loc, _get_global_tolerance(db))

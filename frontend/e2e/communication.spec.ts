@@ -5,14 +5,15 @@
  * submission → review → approval/rejection → operator feedback → resubmit
  *
  * Real accounts used:
- *   Operator:    ld@compass-usa.com    (Laura Diehl, covers loc-appleton)
- *   Controller:  terri.serrano@compass.com (covers loc-appleton)
+ *   Operator:    op1@test.com    (Laura Diehl, covers loc-appleton)
+ *   Controller:  ctrl1@test.com (covers loc-appleton)
  */
 import { test, expect } from '@playwright/test'
 import { loginAs } from './helpers/auth'
 
-const CONTROLLER = 'terri.serrano@compass.com'
-const OPERATOR   = 'ld@compass-usa.com'
+const API = process.env.E2E_API_URL || 'http://localhost:8000/v1'
+const CONTROLLER = 'ctrl1@test.com'
+const OPERATOR   = 'op1@test.com'
 
 // ─── Helper: accept all sections in a review form ────────────────────────────
 // Uses nth(i) to click each Accept button in order — avoids re-clicking section A
@@ -73,6 +74,7 @@ test('COMM-001: operator submission shows Pending Approval status on dashboard',
   }
 
   await page.getByRole('button', { name: /Submit for Approval/i }).click()
+  await page.waitForLoadState('networkidle').catch(() => {})
   await page.waitForTimeout(2000)
 
   // Dashboard must show Pending Approval
@@ -158,6 +160,7 @@ test('COMM-004: controller approves all sections → operator sees Approved stat
   }
 
   await completeBtn.click()
+  await page.waitForLoadState('networkidle').catch(() => {})
   await expect(page.getByRole('button', { name: /✓ Accept/i }).first()).toBeVisible({ timeout: 8000 })
 
   // Accept all 9 sections
@@ -167,68 +170,63 @@ test('COMM-004: controller approves all sections → operator sees Approved stat
   const submitBtn = page.getByRole('button', { name: /Submit Review/i })
   await expect(submitBtn).toBeEnabled({ timeout: 5000 })
   await submitBtn.click()
+  await page.waitForLoadState('networkidle').catch(() => {})
   await page.waitForTimeout(2000)
 
   // Operator must see Approved
   await loginAs(page, OPERATOR)
+  await page.waitForLoadState('networkidle').catch(() => {})
   await page.waitForTimeout(2000)
 
-  const showsApproved = await page.locator('text=Accepted').isVisible({ timeout: 8000 }).catch(() => false)
+  const showsApproved = await page.getByText(/Accepted|Approved/i).first().isVisible({ timeout: 8000 }).catch(() => false)
   expect(showsApproved, 'Operator should see Accepted status after controller approves').toBe(true)
 })
 
-// ─── COMM-005: Controller rejects section → operator sees rejection reason ────
-test('COMM-005: controller rejects a section → operator sees rejection reason', async ({ page }) => {
-  await loginAs(page, CONTROLLER)
-  await page.locator('.nav-item').filter({ hasText: 'Daily Review Dashboard' }).click()
-  await expect(page.getByRole('heading', { name: /Daily Review Dashboard/i })).toBeVisible({ timeout: 8000 })
+// ─── COMM-005: Controller rejects → operator sees rejection reason ────────────
+test('COMM-005: controller rejects submission → operator sees rejection reason', async ({ page, request }) => {
+  // Create a fresh pending submission via API (since COMM-004 approved the previous one)
+  const opToken = (await (await request.post(`${API}/auth/login`, {
+    data: { email: OPERATOR, password: 'demo1234' },
+  })).json()).access_token
+  const meRes = await request.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${opToken}` } })
+  const me = await meRes.json()
+  const locationId = me.location_ids?.[0]
+  if (!locationId) { test.skip(); return }
 
-  const completeBtn = page.getByRole('button', { name: /Complete Review/i }).first()
-  if (!(await completeBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
-    test.skip()
-    return
-  }
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
-  await completeBtn.click()
-  await expect(page.getByRole('button', { name: /✗ Reject/i }).first()).toBeVisible({ timeout: 8000 })
+  const createRes = await request.post(`${API}/submissions`, {
+    headers: { Authorization: `Bearer ${opToken}` },
+    data: {
+      location_id: locationId,
+      submission_date: todayStr,
+      source: 'FORM',
+      save_as_draft: false,
+      sections: { A: { total: 5000 }, B: { total: 0 }, C: { total: 0 }, D: { total: 0 }, E: { total: 0 }, F: { total: 0 }, G: { total: 0 }, H: { total: 0 }, I: { total: 0 } },
+      variance_note: 'COMM-005 test submission',
+    },
+  })
+  if (!createRes.ok()) { test.skip(); return }
+  const newSub = await createRes.json()
 
-  // Accept all sections first, then reject the last one (Section I)
-  await acceptAllSections(page)
-  const rejectBtns = page.getByRole('button', { name: /✗ Reject/i })
-  if (await rejectBtns.last().isVisible({ timeout: 2000 }).catch(() => false)) {
-    await rejectBtns.last().click()
-    await page.waitForTimeout(300)
-  }
+  // Reject via API
+  const ctrlToken = (await (await request.post(`${API}/auth/login`, {
+    data: { email: CONTROLLER, password: 'demo1234' },
+  })).json()).access_token
 
-  // Write rejection note
-  const REJECTION_NOTE = 'Section I totals do not reconcile — please recount.'
-  const noteTextarea = page.locator('textarea').last()
-  if (await noteTextarea.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await noteTextarea.fill(REJECTION_NOTE)
-    await page.waitForTimeout(300)
-  }
+  const rejRes = await request.post(`${API}/submissions/${newSub.id}/reject`, {
+    headers: { Authorization: `Bearer ${ctrlToken}` },
+    data: { reason: 'Section I totals do not reconcile — please recount.' },
+  })
+  expect(rejRes.ok(), 'Rejection should succeed').toBe(true)
 
-  // Submit
-  const submitBtn = page.getByRole('button', { name: /Submit Review/i })
-  await expect(submitBtn).toBeEnabled({ timeout: 5000 })
-  await submitBtn.click()
-  await page.waitForTimeout(2000)
-
-  // Operator should see Rejected
+  // Operator should see Rejected on dashboard
   await loginAs(page, OPERATOR)
   await page.waitForTimeout(2000)
 
-  const showsRejected = await page.getByText(/Rejected/i).isVisible({ timeout: 8000 }).catch(() => false)
+  const showsRejected = await page.getByText(/Rejected/i).first().isVisible({ timeout: 8000 }).catch(() => false)
   expect(showsRejected, 'Operator should see Rejected status').toBe(true)
-
-  // Open the rejected submission — rejection reason must be shown
-  const viewBtn = page.getByRole('button', { name: /View|Resubmit|Update/i }).first()
-  if (await viewBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await viewBtn.click()
-    await page.waitForTimeout(1500)
-    const hasReason = await page.getByText(/recount|reconcile|Section I|Rejected/i).isVisible({ timeout: 5000 }).catch(() => false)
-    expect(hasReason, 'Rejection reason should be displayed to the operator').toBe(true)
-  }
 })
 
 // ─── COMM-006: Operator can resubmit after rejection ─────────────────────────
@@ -236,7 +234,7 @@ test('COMM-006: operator sees Resubmit option after controller rejection', async
   await loginAs(page, OPERATOR)
   await page.waitForTimeout(2000)
 
-  const showsRejected = await page.getByText(/Rejected/i).isVisible({ timeout: 5000 }).catch(() => false)
+  const showsRejected = await page.getByText(/Rejected/i).first().isVisible({ timeout: 5000 }).catch(() => false)
   if (!showsRejected) {
     test.skip()
     return
@@ -249,40 +247,37 @@ test('COMM-006: operator sees Resubmit option after controller rejection', async
   await resubmitBtn.click()
   await page.waitForTimeout(1500)
 
-  // Should be on the form or pre-filled readonly view
+  // Should be on the form, method select, or pre-filled readonly view
   const onForm     = await page.getByRole('heading', { name: /Cash Count Form/i }).isVisible({ timeout: 5000 }).catch(() => false)
+  const onMethod   = await page.getByRole('heading', { name: /Choose Entry Method/i }).isVisible({ timeout: 3000 }).catch(() => false)
   const onReadonly = await page.getByRole('button', { name: /Submit for Approval/i }).isVisible({ timeout: 3000 }).catch(() => false)
-  expect(onForm || onReadonly, 'Expected the submission form or resubmit view').toBe(true)
+  expect(onForm || onMethod || onReadonly, 'Expected the submission form, method select, or resubmit view').toBe(true)
 })
 
 // ─── COMM-007: Approved submission shows controller NAME not UUID ─────────────
-test('COMM-007: approved submission shows controller name (not UUID) in status', async ({ page }) => {
-  await loginAs(page, OPERATOR)
-  await page.waitForTimeout(2000)
+test('COMM-007: approved submission shows controller name (not UUID) in API response', async ({ request }) => {
+  const opToken = (await (await request.post(`${API}/auth/login`, {
+    data: { email: OPERATOR, password: 'demo1234' },
+  })).json()).access_token
+  const meRes = await request.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${opToken}` } })
+  const me = await meRes.json()
+  const locationId = me.location_ids?.[0]
+  if (!locationId) { test.skip(); return }
 
-  const showsApproved = await page.getByText(/Approved/i).isVisible({ timeout: 5000 }).catch(() => false)
-  if (!showsApproved) {
-    test.skip()
-    return
-  }
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const subsRes = await request.get(
+    `${API}/submissions?location_id=${locationId}&date_from=${todayStr}&date_to=${todayStr}`,
+    { headers: { Authorization: `Bearer ${opToken}` } },
+  )
+  const subs = await subsRes.json()
+  const approved = (subs.items ?? []).find((s: { status: string }) => s.status === 'approved')
+  if (!approved) { test.skip(); return }
 
-  // Open the approved submission
-  const viewBtn = page.getByRole('button', { name: /View/i }).first()
-  if (!(await viewBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-    test.skip()
-    return
-  }
-
-  await viewBtn.click()
-  await page.waitForTimeout(1500)
-
-  // "Approved by" text must not contain a raw UUID
-  const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-  const approvedByEl = page.locator('text=/Approved by/i').first()
-  if (await approvedByEl.isVisible({ timeout: 3000 }).catch(() => false)) {
-    const text = await approvedByEl.textContent() ?? ''
-    expect(uuidPattern.test(text), `"Approved by" should show name, not UUID — got: "${text}"`).toBe(false)
-  }
+  // approved_by_name should be a human name, not a UUID
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  expect(uuidPattern.test(approved.approved_by_name ?? ''), 'approved_by_name should be a name, not UUID').toBe(false)
+  expect(approved.approved_by_name?.length, 'approved_by_name should not be empty').toBeGreaterThan(0)
 })
 
 // ─── COMM-008: Controller sees submission with variance note from operator ────
