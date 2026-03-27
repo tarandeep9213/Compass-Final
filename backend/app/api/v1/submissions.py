@@ -109,11 +109,13 @@ def list_submissions(
     # Operators (and users with operator grant) see only their own submissions
     if current_user.role == UserRole.OPERATOR or _has_operator_grant(current_user):
         q = q.filter(Submission.operator_id == current_user.id)
-    elif current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
-        if current_user.location_ids:
-            q = q.filter(Submission.location_id.in_(current_user.location_ids))
-        # Controllers should not see operator drafts
+    else:
+        # Non-operators should never see drafts (they are operator-private)
         q = q.filter(Submission.status != SubmissionStatus.DRAFT)
+        # Controllers see only their assigned locations
+        if current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
+            if current_user.location_ids:
+                q = q.filter(Submission.location_id.in_(current_user.location_ids))
 
     if location_id:
         q = q.filter(Submission.location_id == location_id)

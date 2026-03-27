@@ -181,7 +181,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
           const map: Record<string, { status: string; id: string; totalCash: number }> = {}
-          arrays.flat().forEach(s => {
+          arrays.flat().filter(s => s.status !== 'draft').forEach(s => {
             map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash }
           })
           setApiSubsMap(map)
