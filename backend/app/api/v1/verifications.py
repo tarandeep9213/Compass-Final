@@ -112,7 +112,7 @@ def schedule_controller_visit(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != UserRole.CONTROLLER:
+    if current_user.role != UserRole.CONTROLLER and 'controller' not in (current_user.access_grants or []):
         raise HTTPException(403, "Only controllers can schedule controller visits")
 
     loc = db.get(Location, body.location_id)

@@ -28,6 +28,14 @@ router = APIRouter(tags=["Submissions"])
 _REVIEWER_ROLES = (UserRole.CONTROLLER, UserRole.DGM)
 
 
+def _has_operator_grant(user: User) -> bool:
+    return 'operator' in (user.access_grants or [])
+
+
+def _has_controller_grant(user: User) -> bool:
+    return 'controller' in (user.access_grants or [])
+
+
 def _fmt_currency(v: float) -> str:
     return f"£{v:,.2f}"
 
@@ -97,10 +105,10 @@ def list_submissions(
 ):
     q = db.query(Submission)
 
-    # Operators see only their own submissions
-    if current_user.role == UserRole.OPERATOR:
+    # Operators (and users with operator grant) see only their own submissions
+    if current_user.role == UserRole.OPERATOR or _has_operator_grant(current_user):
         q = q.filter(Submission.operator_id == current_user.id)
-    elif current_user.role == UserRole.CONTROLLER:
+    elif current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
         if current_user.location_ids:
             q = q.filter(Submission.location_id.in_(current_user.location_ids))
 
@@ -156,7 +164,7 @@ def create_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN):
+    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN) and not _has_operator_grant(current_user):
         raise HTTPException(403, "Only operators can create submissions")
 
     loc = db.get(Location, body.location_id)
@@ -350,7 +358,7 @@ def approve_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in _REVIEWER_ROLES:
+    if current_user.role not in _REVIEWER_ROLES and not _has_controller_grant(current_user):
         raise HTTPException(403, "Not authorised to approve submissions")
 
     s = db.get(Submission, submission_id)
@@ -406,7 +414,7 @@ def reject_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in _REVIEWER_ROLES:
+    if current_user.role not in _REVIEWER_ROLES and not _has_controller_grant(current_user):
         raise HTTPException(403, "Not authorised to reject submissions")
 
     s = db.get(Submission, submission_id)
