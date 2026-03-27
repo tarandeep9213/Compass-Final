@@ -512,7 +512,7 @@ export default function RcBizDash({ adminName }: Props) {
 
       {/* ── Core KPI Cards — real API data (Task 5) ─────────────────────── */}
       {kpiLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[1,2,3,4,5].map(i => (
             <div key={i} style={{ background: 'var(--ow)', border: '1.5px solid var(--ow2)', borderRadius: 12, padding: '14px 16px', height: 90 }}>
               <div style={{ width: '60%', height: 10, borderRadius: 4, background: '#e2e8f0', marginBottom: 10 }} />
@@ -521,7 +521,7 @@ export default function RcBizDash({ adminName }: Props) {
           ))}
         </div>
       ) : (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
         {(kpiCards ?? []).map(kpi => {
           const isRed   = kpi.redBelow   !== undefined && kpi.raw < kpi.redBelow
           const isAmber = kpi.amberBelow !== undefined && kpi.raw < kpi.amberBelow && !isRed
@@ -604,7 +604,7 @@ export default function RcBizDash({ adminName }: Props) {
       </div>
 
       {/* ── Trend + At-Risk ──────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 20 }}>
 
         {/* Trend chart — real API data (Task 1) */}
         <div className="card">
@@ -694,7 +694,7 @@ export default function RcBizDash({ adminName }: Props) {
           {opBehaviourLoading ? (
             <div style={{ textAlign: 'center', color: 'var(--ts)', fontSize: 13, padding: '20px 0' }}>Loading operator data…</div>
           ) : opBehaviour ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 20, marginBottom: 24 }}>
             <div style={{ padding: '12px 16px', background: opBehaviour.lateSubmitters > 0 ? '#fffbeb' : 'var(--ow)', border: `1.5px solid ${opBehaviour.lateSubmitters > 0 ? '#fcd34d' : 'var(--ow2)'}`, borderRadius: 10 }}>
               <div style={{ fontSize: 11, color: 'var(--ts)', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 Late submitters <TipBtn tip={TIPS.lateSubmitters} label="Late Submitters" align="right" />
@@ -726,7 +726,7 @@ export default function RcBizDash({ adminName }: Props) {
           {rejectionsLoading ? (
             <div style={{ textAlign: 'center', color: 'var(--ts)', fontSize: 13, padding: '20px 0' }}>Loading rejection data…</div>
           ) : rejections && (rejections.operators.length > 0 || rejections.reasons.length > 0) ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
             <div>
               <SectionTitle tip={TIPS.rejectedOperators} tipLabel="Most Rejected Operators">Most Rejected Operators</SectionTitle>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
