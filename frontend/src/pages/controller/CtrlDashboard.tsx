@@ -826,9 +826,10 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                           })}>
                                           👁 View & Approve
                                         </button>
-                                        {st === 'approved' && <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Approved</span>}
-                                        {st === 'rejected' && <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Rejected</span>}
-                                        {st === 'pending_approval' && <span style={{ fontSize: 11, color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Pending approval</span>}
+                                        <span style={{ fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+                                          color: st === 'approved' ? 'var(--g7)' : st === 'rejected' ? 'var(--red)' : st === 'pending_approval' ? '#b45309' : 'var(--ts)' }}>
+                                          {st === 'approved' ? '✅ Approved' : st === 'rejected' ? '❌ Rejected' : st === 'pending_approval' ? '⏳ Pending approval' : '📋 Submitted'}
+                                        </span>
                                       </>
                                     )
                                   })()}
