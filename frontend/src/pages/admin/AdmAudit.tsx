@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { AUDIT_EVENTS, LOCATIONS, todayStr } from '../../mock/data'
 import type { AuditEvent } from '../../mock/data'
 import { listAuditEvents } from '../../api/audit'
+import { listLocations } from '../../api/locations'
 import type { ApiAuditEvent } from '../../api/types'
 import * as XLSX from 'xlsx'
 
@@ -127,6 +128,7 @@ export default function AdmAudit({ adminName }: Props) {
   const [page, setPage] = useState(0)
 
   const [apiEvents, setApiEvents] = useState<AuditEvent[]>([])
+  const [apiLocations, setApiLocations] = useState<{ id: string; name: string; cost_center?: string }[]>([])
   const [fetchError, setFetchError] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
@@ -145,7 +147,12 @@ export default function AdmAudit({ adminName }: Props) {
           setFetchError(error.message || 'Failed to load audit events.')
         }
       })
+    listLocations()
+      .then(locs => setApiLocations(locs.map(l => ({ id: l.id, name: l.name, cost_center: l.cost_center }))))
+      .catch(() => { /* fall back to mock */ })
   }, [])
+
+  const allLocations = apiLocations.length > 0 ? apiLocations : LOCATIONS.map(l => ({ id: l.id, name: l.name, cost_center: (l as unknown as Record<string, string>).costCenter || (l as unknown as Record<string, string>).cost_center }))
 
   const sourceEvents = apiEvents.length > 0 ? apiEvents : AUDIT_EVENTS
 
@@ -178,8 +185,8 @@ export default function AdmAudit({ adminName }: Props) {
         )
         .map(e => e.locationId!)
     )
-    return LOCATIONS.filter(l => locIds.has(l.id))
-  }, [filterType, filterActor, sourceEvents])
+    return allLocations.filter(l => locIds.has(l.id))
+  }, [filterType, filterActor, sourceEvents, allLocations])
 
   // Auto-reset actor if it no longer appears in the narrowed actor list
   useEffect(() => {
@@ -219,7 +226,7 @@ export default function AdmAudit({ adminName }: Props) {
   }
 
   const getExportData = () => filtered.map(ev => {
-    const loc = LOCATIONS.find(l => l.id === ev.locationId)
+    const loc = allLocations.find(l => l.id === ev.locationId)
     const ts = new Date(ev.timestamp)
     return {
       Timestamp: `${ts.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} ${ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`,
@@ -347,7 +354,7 @@ export default function AdmAudit({ adminName }: Props) {
           <div style={{display:'flex',flexDirection:'column',gap:2}}>
             <select value={filterLoc} onChange={e=>setFilterLoc(e.target.value)} style={{...SEL, opacity: availableLocations.length===0 ? 0.5 : 1}} disabled={availableLocations.length===0}>
               <option value="all">{availableLocations.length===0 ? 'No locations (event has none)' : 'All Locations'}</option>
-              {availableLocations.map(l=><option key={l.id} value={l.id}>{l.name} (CC: {(l as unknown as { costCenter?: string; cost_center?: string }).costCenter || (l as unknown as { costCenter?: string; cost_center?: string }).cost_center || 'N/A'})</option>)}
+              {availableLocations.map(l=><option key={l.id} value={l.id}>{l.name} (CC: {l.cost_center || 'N/A'})</option>)}
             </select>
             {(filterType !== 'all' || filterActor !== 'all') && availableLocations.length > 0 && (
               <span style={{fontSize:10,color:'var(--ts)',paddingLeft:2}}>
@@ -414,7 +421,7 @@ export default function AdmAudit({ adminName }: Props) {
                 </thead>
                 <tbody>
                   {pageRows.map(ev => {
-                    const loc = LOCATIONS.find(l=>l.id===ev.locationId)
+                    const loc = allLocations.find(l=>l.id===ev.locationId)
                     const ts  = new Date(ev.timestamp)
                     return (
                       <tr key={ev.id}>
