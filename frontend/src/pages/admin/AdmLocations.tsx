@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { LOCATIONS, saveStored, formatCurrency } from '../../mock/data'
 import type { Location } from '../../mock/data'
-import { listLocations, createLocation, updateLocation, deactivateLocation, reactivateLocation } from '../../api/admin'
+import { listLocations, createLocation, updateLocation, deactivateLocation, reactivateLocation, getConfig, updateConfig } from '../../api/admin'
 import type { ApiLocation } from '../../api/types'
 
 function mapApiLocation(l: ApiLocation): Location {
@@ -37,27 +37,27 @@ const DEFAULTS_INIT: { tolerancePct: string; slaHours: string } = { tolerancePct
 export default function AdmLocations({ adminName }: Props) {
   const [locs,     setLocs]     = useState<Location[]>([...LOCATIONS])
 
-  useEffect(() => {
-    listLocations()
-      .then(r => setLocs(r.items.map(mapApiLocation)))
-      .catch(() => { /* fall back to mock */ })
-  }, [])
   const [mode,     setMode]     = useState<'add'|{id:string}|null>(null)
   const [form,     setForm]     = useState(EMPTY_FORM)
   const [errors,   setErrors]   = useState<Record<string,string>>({})
   const [confirm,  setConfirm]  = useState<string|null>(null)   // id awaiting deactivate confirm
   const [saved,    setSaved]    = useState('')
   const [page,     setPage]     = useState(0)
-  // setDefaults is removed from the array below because it is currently unused
-  const [defaults] = useState<{ tolerancePct: string; slaHours: string }>(() => {
-    // This runs every time the component mounts (e.g. when you navigate back to this tab)
+  const [defaults, setDefaults] = useState<{ tolerancePct: string; slaHours: string }>(() => {
     const saved = localStorage.getItem('compass_location_defaults')
     return saved ? JSON.parse(saved) : DEFAULTS_INIT
   })
-  
-  // Commented out unused state to fix ESLint/TS errors while Global Defaults UI is hidden
-  // const [defSaved, setDefSaved] = useState(false)
-  // const [defErrors, setDefErrors] = useState<Record<string, string>>({})
+  const [defSaved, setDefSaved] = useState(false)
+  const [defErrors, setDefErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    listLocations()
+      .then(r => setLocs(r.items.map(mapApiLocation)))
+      .catch(() => { /* fall back to mock */ })
+    getConfig()
+      .then(cfg => setDefaults(prev => ({ ...prev, tolerancePct: String(cfg.global.default_tolerance_pct) })))
+      .catch(() => { /* keep defaults */ })
+  }, [])
   const [filterLoc, setFilterLoc] = useState('')
 
   const filtered   = filterLoc
@@ -175,37 +175,22 @@ export default function AdmLocations({ adminName }: Props) {
     setTimeout(() => setSaved(''), 3000)
   }
 
-  /* Commented out while Global Defaults UI is hidden
   async function handleSaveDefaults() {
     const e: Record<string, string> = {}
-    
-    // Validation
     const tol = Number(defaults.tolerancePct)
-    if (!defaults.tolerancePct || isNaN(tol) || tol <= 0 || tol > 100) e.tolerancePct = 'Enter a valid % (1-100)'
-    
-    const sla = Number(defaults.slaHours)
-    if (!defaults.slaHours || isNaN(sla) || sla <= 0) e.slaHours = 'Enter valid hours'
-
-    if (Object.keys(e).length > 0) {
-      setDefErrors(e)
-      return
-    }
-
+    if (!defaults.tolerancePct || isNaN(tol) || tol <= 0 || tol > 20) e.tolerancePct = 'Enter 0.1–20%'
+    if (Object.keys(e).length > 0) { setDefErrors(e); return }
     setDefErrors({})
-    
     try {
-      // Simulate backend API request for saving global_settings
-      await new Promise(resolve => setTimeout(resolve, 400))
-      
-      // Persist to local storage to act as the settings/config database table
-      localStorage.setItem('compass_location_defaults', JSON.stringify(defaults))
+      await updateConfig({ default_tolerance_pct: tol })
+      const r = await listLocations()
+      setLocs(r.items.map(mapApiLocation))
       setDefSaved(true)
       setTimeout(() => setDefSaved(false), 3000)
     } catch {
       setDefErrors({ form: 'Failed to save defaults. Please try again.' })
     }
   }
-  */
 
   const F = (field: keyof typeof EMPTY_FORM) => (
     <input className="f-inp" value={form[field]}
@@ -367,7 +352,7 @@ export default function AdmLocations({ adminName }: Props) {
         </div>
       </div>
 
-      {/* ── Global Defaults ──
+      {/* ── Global Defaults ── */}
       <div className="card" style={{ marginTop: 24 }}>
         <div className="card-header">
           <span className="card-title">Global Defaults</span>
@@ -390,20 +375,6 @@ export default function AdmLocations({ adminName }: Props) {
               </div>
               {defErrors.tolerancePct && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{defErrors.tolerancePct}</div>}
             </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)', display: 'block', marginBottom: 4 }}>Approval SLA</label>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input
-                  className="f-inp"
-                  type="number"
-                  value={defaults.slaHours}
-                  onChange={e => { setDefaults(p => ({ ...p, slaHours: e.target.value })); setDefErrors(p => ({ ...p, slaHours: '' })) }}
-                  style={{ width: 80, fontSize: 13, borderColor: defErrors.slaHours ? 'var(--red)' : undefined }}
-                />
-                <span style={{ fontSize: 12, color: 'var(--ts)' }}>hours</span>
-              </div>
-              {defErrors.slaHours && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{defErrors.slaHours}</div>}
-            </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', alignSelf: 'center', marginTop: 14 }}>
               <button
                 className="btn btn-primary"
@@ -412,11 +383,11 @@ export default function AdmLocations({ adminName }: Props) {
               >
                 Save Defaults
               </button>
-              {defSaved && <span style={{ fontSize: 12, color: 'var(--g7)', fontWeight: 600 }}>✅ Saved successfully</span>}
+              {defSaved && <span style={{ fontSize: 12, color: 'var(--g7)', fontWeight: 600 }}>Saved successfully</span>}
             </div>
           </div>
         </div>
-      </div>*/}
+      </div>
     </div>
   )
 }
