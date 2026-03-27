@@ -319,7 +319,6 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const [submitError,  setSubmitError]  = useState('')
   const [submitting,   setSubmitting]   = useState(false)
   const [draftId,      setDraftId]      = useState<string | null>(ctx.draftId ?? null)
-  const [draftSaved,  setDraftSaved]   = useState(false)
   const [globalRejectReason, setGlobalRejectReason] = useState(() => SUBMISSIONS.find(s => s.id === ctx.submissionId)?.rejectionReason || '')
 
   const existingReview = ctx.submissionId ? SUBMISSION_REVIEWS[ctx.submissionId] : null
@@ -677,8 +676,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       sessionStorage.setItem(`denom_${newId}`, JSON.stringify(denomDetail))
       window.alert('Could not reach the server. Make sure the backend is running on port 8000.\n\nDraft saved to local session.')
     }
-    setDraftSaved(true)
-    setTimeout(() => setDraftSaved(false), 3000)
+    onNavigate(ctx.from || 'op-start')
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -699,7 +697,6 @@ export default function OpForm({ ctx, onNavigate }: Props) {
             🗑 Discard
           </button>
           <button className="btn btn-outline" onClick={handleSaveDraft}>💾 Save Draft</button>
-          {draftSaved && <span style={{ fontSize: 12, color: 'var(--g7)', fontWeight: 600 }}>Draft saved</span>}
         </div>
       </div>
 

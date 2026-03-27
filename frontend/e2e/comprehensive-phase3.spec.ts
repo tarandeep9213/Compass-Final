@@ -119,13 +119,9 @@ test.describe('Phase 3 — Operator Submission', () => {
     await page.keyboard.press('Tab')
     await page.waitForTimeout(300)
 
-    // Save Draft
+    // Save Draft — auto-navigates back to dashboard
     await page.getByRole('button', { name: /Save Draft/i }).first().click()
-    await page.waitForTimeout(1500)
-
-    // Go back to dashboard
-    await page.getByRole('button', { name: /← Back/i }).first().click()
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(2000)
 
     // Today card should show "Draft In Progress"
     const hasDraft = await page.getByText(/Draft In Progress/i).isVisible({ timeout: 5000 }).catch(() => false)
