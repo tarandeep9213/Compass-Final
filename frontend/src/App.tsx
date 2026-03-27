@@ -37,7 +37,6 @@ import OpDrafts      from './pages/operator/OpDrafts'
 import DGMDash        from './pages/dgm/DGMDash'
 import DGMLog         from './pages/dgm/DGMLog'
 import DGMHistory     from './pages/dgm/DGMHistory'
-import AdmCompliance  from './pages/admin/AdmCompliance'
 import AdmLocations   from './pages/admin/AdmLocations'
 import AdmUsers       from './pages/admin/AdmUsers'
 import AdmConfig      from './pages/admin/AdmConfig'
@@ -45,6 +44,7 @@ import AdmAudit       from './pages/admin/AdmAudit'
 import AdmReports     from './pages/admin/AdmReports'
 import AdmImport      from './pages/admin/AdmImport'
 import RcTrends       from './pages/regional-controller/RcTrends'
+import RcBizDash      from './pages/regional-controller/RcBizDash'
 import './index.css'
 
 interface AuthState { userId: string; role: Role; name: string; locationIds: string[] }
@@ -72,7 +72,7 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'import',    icon: '📥', label: 'Import Roster', panel: 'adm-import' },
     ]
     case 'regional-controller': return [
-      { id: 'compliance', icon: '📈', label: 'Compliance Dashboard', panel: 'adm-compliance' },
+      { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard',   panel: 'rc-biz-dash'   },
       { id: 'audit',      icon: '📑', label: 'Audit Trail',          panel: 'adm-audit' },
       { id: 'reports',    icon: '📊', label: 'Reports',              panel: 'adm-reports' },
       { id: 'trends',     icon: '📉', label: 'Cash Trends',          panel: 'rc-trends'   },
@@ -117,7 +117,6 @@ function ComingSoon({ panel }: { panel: string; role?: Role }) {
     'adm-locations': 'Screen 16: Admin — Locations',
     'adm-users':     'Screen 17: Admin — Users',
     'adm-config':    'Screen 18: Admin — Configuration',
-    'adm-compliance':'Screen 19: Unified Compliance Dashboard',
     'adm-audit':     'Screen 20: Audit Trail',
     'adm-reports':   'Screen 21: Weekly Reports',
   }
@@ -270,8 +269,10 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       case 'dgm-history': return <DGMHistory dgmName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
       case 'dgm-log':     return <DGMLog     dgmName={auth.name} locationIds={auth.locationIds} ctx={nav.ctx} onNavigate={navigate} />
 
+      // ── Regional Controller panels ──────────────────────────────────
+      case 'rc-biz-dash': return <RcBizDash adminName={auth.name} />
+
       // ── Admin panels ─────────────────────────────────────────────────
-      case 'adm-compliance': return <AdmCompliance adminName={auth.name} />
       case 'adm-locations':  return <AdmLocations  adminName={auth.name} />
       case 'adm-users':      return <AdmUsers      adminName={auth.name} />
       case 'adm-config':     return <AdmConfig     adminName={auth.name} />
@@ -295,7 +296,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
     // Controller schedule maps to dashboard (it's a sub-panel of dashboard)
     if (p === 'ctrl-schedule') return 'ctrl-dashboard'
     // Regional Controller reuses adm- panels — map back to the regional-controller nav ids
-    if (p === 'adm-compliance') return 'adm-compliance'
+    if (p === 'rc-biz-dash')    return 'biz-dash'
     if (p === 'adm-audit')      return 'adm-audit'
     if (p === 'adm-reports')    return 'adm-reports'
     return p
