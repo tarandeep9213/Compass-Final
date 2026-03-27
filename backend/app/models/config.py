@@ -18,7 +18,7 @@ class SystemConfig(Base):
     __tablename__ = "system_config"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    default_tolerance_pct: Mapped[float] = mapped_column(Float, default=5.0, nullable=False)
+    default_tolerance_pct: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
     approval_sla_hours: Mapped[int] = mapped_column(Integer, default=24, nullable=False)
     dow_lookback_weeks: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
     daily_reminder_time: Mapped[str] = mapped_column(String(5), default="08:00", nullable=False)

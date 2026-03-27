@@ -22,7 +22,7 @@ function mapApiLocation(l: ApiLocation): Location {
 
 interface Props { adminName: string }
 
-const EMPTY_FORM = { id: '', cost_center: '', name:'', expectedCash:'', tolerancePct:'' }
+const EMPTY_FORM = { id: '', cost_center: '', name:'', expectedCash:'9575', tolerancePct:'' }
 const PAGE_SIZE  = 10
 
 function pageNums(cur: number, total: number): (number | 'gap')[] {
@@ -32,7 +32,7 @@ function pageNums(cur: number, total: number): (number | 'gap')[] {
   return [0, 'gap', cur - 1, cur, cur + 1, 'gap', total - 1]
 }
 
-const DEFAULTS_INIT: { tolerancePct: string; slaHours: string } = { tolerancePct: '5', slaHours: '48' }
+const DEFAULTS_INIT: { tolerancePct: string; slaHours: string } = { tolerancePct: '0.5', slaHours: '48' }
 
 export default function AdmLocations({ adminName }: Props) {
   const [locs,     setLocs]     = useState<Location[]>([...LOCATIONS])

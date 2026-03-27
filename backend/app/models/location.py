@@ -25,7 +25,7 @@ class Location(Base):
     # Default tolerance from global config; may be overridden per location
     tolerance_pct_override: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    expected_cash: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    expected_cash: Mapped[float] = mapped_column(Float, default=9575.0, nullable=False)
     sla_hours: Mapped[int] = mapped_column(Integer, default=24, nullable=False)
 
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
