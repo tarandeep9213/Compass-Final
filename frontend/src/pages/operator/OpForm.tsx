@@ -553,6 +553,12 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       sessionStorage.setItem(`op_status_${submissionId}`, 'pending_approval')
       sessionStorage.setItem(`op_status_${ctx.locationId}_${ctx.date}`, 'pending_approval')
       sessionStorage.setItem(`denom_${submissionId}`, JSON.stringify(denomDetail))
+      // Remove draft from mock array so it doesn't linger in My Drafts
+      if (draftId) {
+        const dIdx = DRAFTS.findIndex(d => d.id === draftId)
+        if (dIdx >= 0) DRAFTS.splice(dIdx, 1)
+        sessionStorage.removeItem(`denom_${draftId}`)
+      }
       onNavigate(ctx.from || 'op-start') // Route to previous context or Dashboard
     } catch (err) {
       // Strict Fallback Rule: Only fallback to session storage if backend is unreachable (Network Error)
