@@ -55,7 +55,7 @@ def _get_config(db: Session) -> SystemConfig:
 
 
 def _check_dow(db: Session, location_id: str, visit_date: str, vtype: VerificationType, lookback_weeks: int) -> DowCheckResponse:
-    """Check if this location has been visited on the same weekday in the recent past."""
+    """Check if this location has been visited on the same weekday in the recent past (2-week lookback, threshold 1)."""
     d = dt_date.fromisoformat(visit_date)
     dow = d.weekday()
     day_name = DAY_NAMES[dow]
@@ -64,23 +64,25 @@ def _check_dow(db: Session, location_id: str, visit_date: str, vtype: Verificati
     past = db.query(Verification).filter(
         Verification.location_id == location_id,
         Verification.verification_type == vtype,
-        Verification.status != VerificationStatus.CANCELLED,
+        Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
     ).all()
 
+    # 2-week lookback, threshold 1 (any same-weekday visit triggers warning)
+    lookback_days = 14
     matching_dates = [
         v.verification_date for v in past
         if dt_date.fromisoformat(v.verification_date).weekday() == dow
-        and (d - dt_date.fromisoformat(v.verification_date)).days <= lookback_weeks * 7
+        and 0 < (d - dt_date.fromisoformat(v.verification_date)).days <= lookback_days
         and v.verification_date != visit_date
     ]
 
-    warning = len(matching_dates) >= 2
+    warning = len(matching_dates) >= 1
     return DowCheckResponse(
         warning=warning,
         day_name=day_name,
         match_count=len(matching_dates),
         previous_dates=sorted(matching_dates, reverse=True)[:5],
-        lookback_weeks=lookback_weeks,
+        lookback_weeks=2,
     )
 
 
@@ -121,6 +123,22 @@ def schedule_controller_visit(
 
     d = dt_date.fromisoformat(body.date)
     dow = d.weekday()
+
+    # 7-day block: no visit within 6 days of another visit for the same location
+    recent = db.query(Verification).filter(
+        Verification.location_id == body.location_id,
+        Verification.verification_type == VerificationType.CONTROLLER,
+        Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
+    ).all()
+    for rv in recent:
+        rv_date = dt_date.fromisoformat(rv.verification_date)
+        diff = (d - rv_date).days
+        if diff == 0:
+            raise HTTPException(400, f"A visit already exists for this location on {rv.verification_date}.")
+        if 0 < diff <= 6:
+            raise HTTPException(400, f"Too soon \u2014 a visit exists on {rv.verification_date}. Must wait 7 days between visits to the same location.")
+        if -6 <= diff < 0:
+            raise HTTPException(400, f"Too soon \u2014 a visit is already scheduled on {rv.verification_date}. Must wait 7 days between visits to the same location.")
 
     v = Verification(
         verification_type=VerificationType.CONTROLLER,

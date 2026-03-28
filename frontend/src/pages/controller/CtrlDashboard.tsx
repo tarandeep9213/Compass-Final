@@ -670,8 +670,33 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                           <div style={{ fontSize: 11, color: 'var(--ts)', fontFamily: 'monospace' }}>CC: {(loc as unknown as { costCenter?: string; cost_center?: string })?.costCenter || (loc as unknown as { costCenter?: string; cost_center?: string })?.cost_center || 'N/A'}</div>
                         </td>
 
-                        {/* Status */}
-                        <td><StatusBadge status={v.status} /></td>
+                        {/* Status + indicators */}
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <StatusBadge status={v.status} />
+                            {v.warningFlag && (
+                              <span style={{ fontSize: 10, color: '#92400e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                ⚠️ DOW Warning
+                              </span>
+                            )}
+                            {(() => {
+                              const vDate = new Date(v.date + 'T12:00:00')
+                              const _today = new Date()
+                              const todayDate = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate())
+                              const diff = Math.floor((todayDate.getTime() - vDate.getTime()) / 86400000)
+                              if ((v.status === 'scheduled' || v.status === 'completed') && diff >= 0 && diff < 7) {
+                                const unblockDate = new Date(vDate)
+                                unblockDate.setDate(vDate.getDate() + 7)
+                                return (
+                                  <span style={{ fontSize: 10, color: 'var(--ts)', display: 'flex', alignItems: 'center', gap: 3 }} title={`Location blocked until ${unblockDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}>
+                                    🔒 Block until {unblockDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                  </span>
+                                )
+                              }
+                              return null
+                            })()}
+                          </div>
+                        </td>
 
                         {/* Observed Total */}
                         <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 15 }}>

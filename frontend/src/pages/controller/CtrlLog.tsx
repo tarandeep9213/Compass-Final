@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { VERIFICATIONS, LOCATIONS, getLocation, todayStr } from '../../mock/data'
+import { getLocation, todayStr } from '../../mock/data'
+import { listLocations } from '../../api/locations'
 import type { VerificationRecord } from '../../mock/data'
 import { scheduleControllerVisit, listControllerVerifications } from '../../api/verifications'
 import type { ApiVerification } from '../../api/types'
@@ -61,10 +62,14 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   const [fetchError,   setFetchError]   = useState('')
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
+  const [apiLocs, setApiLocs] = useState<{id:string;name:string;cost_center?:string|null}[]>([])
   useEffect(() => {
     listControllerVerifications()
       .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
-      .catch(() => { /* fall back to mock */ })
+      .catch(() => {})
+    listLocations()
+      .then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: (l as unknown as {cost_center?:string|null}).cost_center ?? null }))))
+      .catch(() => {})
   }, [locationIds, refresh])
 
   // ── Calendar grid ──────────────────────────────────────────────────────
@@ -88,7 +93,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
       if (saved) sessionUpdates = JSON.parse(saved)
     } catch { /* ignore */ }
 
-    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
+    const sourceVerifs = apiVerifs
 
     sourceVerifs
       .filter(v => v.type === 'controller' && v.locationId === location)
@@ -105,7 +110,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   // ── Active visits for selected location ────────────────────────────────
   const activeVisits = useMemo(() => {
     if (!location) return []
-    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
+    const sourceVerifs = apiVerifs
     return sourceVerifs.filter(v =>
       v.type === 'controller' && v.locationId === location &&
       (v.status === 'completed' || v.status === 'scheduled')
@@ -113,14 +118,14 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, refresh, apiVerifs])
 
-  // Helper to get conflicts for a specific date (4-week lookback from that date)
+  // Helper to get DOW conflicts (2-week lookback, threshold 1)
   const getDowConflicts = useCallback((targetDateStr: string) => {
     const targetDateObj = new Date(targetDateStr + 'T12:00:00')
     const targetDow  = targetDateObj.getDay()
 
-    // Safe string-based lookback to prevent Daylight Saving Time (DST) shift bugs
+    // 2-week lookback to prevent same-weekday visits
     const cutoffObj = new Date(targetDateObj)
-    cutoffObj.setDate(cutoffObj.getDate() - 28)
+    cutoffObj.setDate(cutoffObj.getDate() - 14)
     const cutoffStr = padDate(cutoffObj.getFullYear(), cutoffObj.getMonth(), cutoffObj.getDate())
 
     return activeVisits.filter(v =>
@@ -128,6 +133,23 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
       v.date < targetDateStr &&
       v.date >= cutoffStr
     )
+  }, [activeVisits])
+
+  // Helper to get blocked dates (7-day rolling block per visit)
+  const blockedDates = useMemo<Map<string, { visitDate: string; daysLeft: number }>>(() => {
+    const map = new Map<string, { visitDate: string; daysLeft: number }>()
+    for (const v of activeVisits) {
+      const vDate = new Date(v.date + 'T12:00:00')
+      for (let i = 1; i <= 6; i++) {
+        const blocked = new Date(vDate)
+        blocked.setDate(vDate.getDate() + i)
+        const blockedStr = padDate(blocked.getFullYear(), blocked.getMonth(), blocked.getDate())
+        if (!map.has(blockedStr)) {
+          map.set(blockedStr, { visitDate: v.date, daysLeft: 7 - i })
+        }
+      }
+    }
+    return map
   }, [activeVisits])
 
   // ── DOW warning for currently selected date ────────────────────────────
@@ -168,6 +190,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   // ── Date cell click ────────────────────────────────────────────────────
   function handleDateSelect(dateStr: string) {
     if (dateStr < today) return          // past: not bookable (today IS allowed)
+    if (blockedDates.has(dateStr)) return // blocked by 7-day rule
     if (selectedDate === dateStr) { setSelectedDate(null); setSelectedTime(null); return }
     setSelectedDate(dateStr); setSelectedTime(null)
     setErrors(p => ({ ...p, date: '' }))
@@ -176,10 +199,10 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   // ── Validate + submit ──────────────────────────────────────────────────
   function validate() {
     const e: Record<string, string> = {}
-    if (!selectedDate)                     e.date = 'Please select a visit date from the calendar.'
-    else if (bookedMap.has(selectedDate))  e.date = 'This date is already booked for this location. Choose another.'
-    else if (!selectedTime)                e.time = 'Please select a time slot.'
-    // DOW warning is non-blocking, so no validation is needed here
+    if (!selectedDate)                        e.date = 'Please select a visit date from the calendar.'
+    else if (bookedMap.has(selectedDate))     e.date = 'This date is already booked for this location. Choose another.'
+    else if (blockedDates.has(selectedDate))  e.date = 'This date is blocked — must wait 7 days between visits to the same location.'
+    else if (!selectedTime)                   e.time = 'Please select a time slot.'
     return e
   }
 
@@ -220,9 +243,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
           setSaving(false);
           return;
         }
-        // Fallback: keep mock in sync
-        setFetchError('Could not reach the server. Make sure the backend is running on port 8000.')
-        VERIFICATIONS.push(rec)
+        setFetchError('Could not reach the server. Please check your connection.')
       }
     setSaving(false)
     setSubmitted(rec)
@@ -378,8 +399,10 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                 onBlur={e  => { e.currentTarget.style.borderColor = 'var(--ow2)'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)' }}
               >
                 {locationIds.map(id => {
-                  const loc = LOCATIONS.find(l => l.id === id)
-                  return <option key={id} value={id}>{loc?.name ?? id}{loc?.cost_center ? ` (CC: ${loc.cost_center})` : ''}</option>
+                  const loc = apiLocs.find(l => l.id === id) ?? getLocation(id)
+                  const name = loc?.name ?? id
+                  const cc = (loc as unknown as {cost_center?:string|null})?.cost_center
+                  return <option key={id} value={id}>{name}{cc ? ` (CC: ${cc})` : ''}</option>
                 })}
               </select>
             </div>
@@ -448,11 +471,14 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                     if (day === null) return <div key={`e-${idx}`} style={{ width: 40, height: 40 }} />
 
                     const dateStr    = padDate(calYear, calMonth, day)
-                    const isPast     = dateStr < today         // past = not bookable (today is allowed)
+                    const isPast     = dateStr < today
                     const isToday    = dateStr === today
                     const isSelected = selectedDate === dateStr
                     const isBooked   = bookedMap.has(dateStr)
-                    const isDowWarn  = !isPast && getDowConflicts(dateStr).length > 0
+                    const isBlocked  = !isPast && !isBooked && blockedDates.has(dateStr)
+                    const isDowWarn  = !isPast && !isBooked && !isBlocked && getDowConflicts(dateStr).length > 0
+                    const blockInfo  = blockedDates.get(dateStr)
+                    const notClickable = isPast || isBooked || isBlocked
 
                     // ── Cell styles ──
                     let bg     = 'transparent'
@@ -460,8 +486,10 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                     let border = 'none'
                     let fw     = 400
 
-                    if (isSelected && !isBooked) {
+                    if (isSelected && !isBooked && !isBlocked) {
                       bg = isDowWarn ? '#f59e0b' : '#1d4ed8'; color = '#fff'; fw = 700
+                    } else if (isBlocked) {
+                      bg = '#fef2f2'; color = '#b91c1c'; fw = 400
                     } else if (isBooked && !isPast) {
                       bg = 'var(--g0)'; color = 'var(--g7)'
                     } else if (isBooked && isPast) {
@@ -469,28 +497,35 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                     } else if (isToday) {
                       border = `2px solid var(--g4)`; color = 'var(--g7)'; fw = 600
                     } else if (isDowWarn) {
-                      bg = '#fffbeb'   // very soft amber
+                      bg = '#fffbeb'
+                    }
+
+                    // ── Tooltip ──
+                    let tooltip: string | undefined
+                    if (isPast && !isToday)          tooltip = 'Past date — cannot schedule'
+                    else if (isToday && !isBooked && !isBlocked) tooltip = 'Today'
+                    else if (isBooked)               tooltip = `Already booked — visit ${bookedMap.get(dateStr)?.status} on this date`
+                    else if (isBlocked && blockInfo)  tooltip = `Blocked — must wait 7 days after visit on ${new Date(blockInfo.visitDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${blockInfo.daysLeft} day${blockInfo.daysLeft !== 1 ? 's' : ''} remaining)`
+                    else if (isDowWarn) {
+                      const conflicts = getDowConflicts(dateStr)
+                      const lastVisit = [...conflicts].sort((a, b) => b.date.localeCompare(a.date))[0]
+                      const dayName = DOW_LABELS[new Date(dateStr + 'T12:00:00').getDay()]
+                      tooltip = `Caution — same weekday (${dayName}) visited on ${new Date(lastVisit.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Consider another day.`
                     }
 
                     return (
                       <div
                         key={day}
-                        title={
-                          isBooked && !isPast
-                            ? `Visit ${bookedMap.get(dateStr)?.status === 'scheduled' ? 'scheduled' : bookedMap.get(dateStr)?.status} — ${bookedMap.get(dateStr)?.scheduledTime ? TIME_DISPLAY[bookedMap.get(dateStr)!.scheduledTime!] ?? '' : 'see dashboard'}`
-                            : isDowWarn && !isPast
-                            ? `Same weekday visit detected in past 4 weeks`
-                            : undefined
-                        }
-                        onClick={() => !isPast && !isBooked && handleDateSelect(dateStr)}
+                        title={tooltip}
+                        onClick={() => !notClickable && handleDateSelect(dateStr)}
                         style={{
                           width: 40, height: 40,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           borderRadius: '50%', background: bg, color, border,
                           fontSize: 13, fontWeight: fw,
-                          cursor: isPast || isBooked ? 'default' : 'pointer',
+                          cursor: notClickable ? 'not-allowed' : 'pointer',
                           position: 'relative',
-                          opacity: isPast ? 0.4 : 1,
+                          opacity: isPast || isBlocked ? 0.4 : 1,
                           transition: 'background 0.1s, color 0.1s',
                           userSelect: 'none',
                         }}
@@ -507,8 +542,18 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                           }} />
                         )}
 
-                        {/* Amber dot — DOW pattern (only on unbooked days) */}
-                        {isDowWarn && !isBooked && !isSelected && (
+                        {/* Red dot — blocked by 7-day rule */}
+                        {isBlocked && !isSelected && (
+                          <span style={{
+                            position: 'absolute', bottom: 4, left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: 4, height: 4, borderRadius: '50%',
+                            background: '#dc2626',
+                          }} />
+                        )}
+
+                        {/* Amber dot — DOW pattern (only on unbooked, unblocked days) */}
+                        {isDowWarn && !isBooked && !isBlocked && !isSelected && (
                           <span style={{
                             position: 'absolute', bottom: 4, left: '50%',
                             transform: 'translateX(-50%)',
@@ -531,12 +576,12 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                     Booked
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
-                    DOW pattern
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
+                    Blocked (7-day)
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#fffbeb', border: '1px solid #fcd34d', display: 'inline-block' }} />
-                    Caution
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
+                    DOW warning
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
                     <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#1d4ed8', display: 'inline-block' }} />
@@ -670,7 +715,8 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                   background: 'var(--amb-bg)', border: '1px solid #fcd34d',
                   borderRadius: 9, padding: '14px 16px', fontSize: 12, color: '#92400e', lineHeight: 1.5,
                 }}>
-                  <strong>Caution:</strong> Please select another day to follow the compliance process. You have visited this location on the same day within the last 4 weeks.
+                  <strong>⚠️ Caution:</strong> This location was visited on a <strong>{dowWarning.dayLabel}</strong> as recently as <strong>{dowWarning.lastDate}</strong>.
+                  Consider selecting a different day to follow the compliance process.
                 </div>
               )}
             </div>
