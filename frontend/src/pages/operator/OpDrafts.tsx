@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { DRAFTS, getLocation, formatCurrency, IMPREST } from '../../mock/data'
+import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
 import { listSubmissions, deleteDraft } from '../../api/submissions'
 
 interface Props {
@@ -10,22 +10,23 @@ export default function OpDrafts({ onNavigate }: Props) {
   const [deletedIds, setDeletedIds] = useState<string[]>([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [apiDrafts, setApiDrafts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Secure Isolation: The backend listSubmissions endpoint automatically filters
-    // by the current operator's ID, ensuring they only see their own drafts.
+    setLoading(true)
     listSubmissions({ status: 'draft', page_size: 100 })
       .then(res => setApiDrafts(res.items))
-      .catch(() => { /* fallback to mock */ })
+      .catch(() => { /* API unreachable */ })
+      .finally(() => setLoading(false))
   }, [])
 
-  const activeDrafts = apiDrafts.length > 0
-    ? apiDrafts.filter(d => !deletedIds.includes(d.id)).map(d => ({
-        id: d.id, locationId: d.location_id, date: d.submission_date,
-        savedAt: d.updated_at || d.created_at, sections: d.sections || {},
-        totalSoFar: d.total_cash
-      }))
-    : DRAFTS.filter(d => !deletedIds.includes(d.id))
+  const activeDrafts = apiDrafts
+    .filter(d => !deletedIds.includes(d.id))
+    .map(d => ({
+      id: d.id, locationId: d.location_id, date: d.submission_date,
+      savedAt: d.updated_at || d.created_at, sections: d.sections || {},
+      totalSoFar: d.total_cash
+    }))
 
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this draft? This cannot be undone.")) return;
@@ -55,7 +56,13 @@ export default function OpDrafts({ onNavigate }: Props) {
         </div>
       </div>
 
-      {activeDrafts.length === 0 ? (
+      {loading ? (
+        <div className="card">
+          <div className="card-body" style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ts)' }}>Loading drafts...</div>
+          </div>
+        </div>
+      ) : activeDrafts.length === 0 ? (
         <div className="card">
           <div className="card-body" style={{ textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
