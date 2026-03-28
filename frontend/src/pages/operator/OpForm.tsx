@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { getLocation, formatCurrency, IMPREST, SUBMISSIONS, DRAFTS, todayStr, SUBMISSION_REVIEWS } from '../../mock/data'
+import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
 import { createSubmission, updateDraft, submitDraft, getSubmission } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
 import { api } from '../../api/client'
@@ -321,10 +321,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const [submitError,  setSubmitError]  = useState('')
   const [submitting,   setSubmitting]   = useState(false)
   const [draftId,      setDraftId]      = useState<string | null>(ctx.draftId ?? null)
-  const [globalRejectReason, setGlobalRejectReason] = useState(() => SUBMISSIONS.find(s => s.id === ctx.submissionId)?.rejectionReason || '')
-
-  const existingReview = ctx.submissionId ? SUBMISSION_REVIEWS[ctx.submissionId] : null
-  const REVIEW_SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
+  const [globalRejectReason, setGlobalRejectReason] = useState('')
 
   const [formLoading, setFormLoading] = useState(!!ctx.submissionId && ctx.fromExcel !== 'true')
   const [editingStatus, setEditingStatus] = useState<string | null>(null)
@@ -503,12 +500,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   async function handleSubmit() {
-    const existingSub = SUBMISSIONS.find(s => s.locationId === ctx.locationId && s.date === ctx.date)
-    if (ctx.date < todayStr() && existingSub && existingSub.status !== 'rejected') {
-      setSubmitError('Past date submissions cannot be modified.')
-      return
-    }
-    if (existingSub?.status === 'approved') {
+    if (editingStatus === 'approved') {
       setSubmitError('This submission has been approved and cannot be modified.')
       return
     }
@@ -576,50 +568,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         return;
       }
       
-      // Fallback: upsert into mock so the demo still works without a backend
-      const existingIdx = SUBMISSIONS.findIndex(s => s.locationId === ctx.locationId && s.date === ctx.date)
-      const newId = existingIdx >= 0 ? SUBMISSIONS[existingIdx].id : `SUB-${Date.now()}`
-      const newSub = {
-        id: newId, locationId: ctx.locationId, operatorName: 'A. Patel',
-        date: ctx.date, status: 'pending_approval' as const, source: (ctx.fromExcel === 'true' ? 'EXCEL' : 'FORM') as 'EXCEL' | 'FORM',
-        totalCash: Math.round(totalFund * 100) / 100,
-        expectedCash: location?.expected_cash ?? location?.expectedCash ?? IMPREST,
-        variance:  Math.round(variance * 100) / 100,
-        variancePct: Math.round(variancePct * 100) / 100,
-        submittedAt: new Date().toISOString(),
-        sections: { A: totA, B: totB, C: totC, D: totD, E: totE, F: totF, G: totG, H: totH, I: totI },
-        varianceException: requiresNote,
-        varianceNote: requiresNote ? varianceNote.trim() : undefined,
-      }
-      if (existingIdx >= 0) SUBMISSIONS[existingIdx] = newSub
-      else SUBMISSIONS.push(newSub)
-      
-      // Remove draft if exists so it doesn't linger in My Drafts
-      if (draftId) {
-        const dIdx = DRAFTS.findIndex(d => d.id === draftId)
-        if (dIdx >= 0) DRAFTS.splice(dIdx, 1)
-        sessionStorage.removeItem(`denom_${draftId}`)
-      }
-
-      // Remove stale rejection reviews from mock data
-      if (SUBMISSION_REVIEWS[newId]) {
-        delete SUBMISSION_REVIEWS[newId]
-        localStorage.setItem('compass_submission_reviews', JSON.stringify(SUBMISSION_REVIEWS))
-      }
-
-      sessionStorage.setItem(`op_status_${newId}`, 'pending_approval')
-
-      // Remove stale rejection reviews from mock data
-      if (SUBMISSION_REVIEWS[newId]) {
-        delete SUBMISSION_REVIEWS[newId]
-        localStorage.setItem('compass_submission_reviews', JSON.stringify(SUBMISSION_REVIEWS))
-      }
-
-      sessionStorage.setItem(`op_status_${newId}`, 'pending_approval')
-      sessionStorage.setItem(`op_status_${ctx.locationId}_${ctx.date}`, 'pending_approval')
-      sessionStorage.setItem(`denom_${newId}`, JSON.stringify(denomDetail))
-      window.alert('Could not reach the server. Make sure the backend is running on port 8000.\n\nProceeding with local session data.')
-      onNavigate(ctx.from || 'op-start') // Route to previous context or Dashboard
+      setSubmitError('Could not reach the server. Please check your connection and try again.')
     } finally {
       setSubmitting(false)
     }
@@ -664,30 +613,12 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       } else {
         const res = await createSubmission(body)
         setDraftId(res.id)
-        // Keep mock in sync
-        DRAFTS.push({ id: res.id, locationId: ctx.locationId, date: ctx.date, savedAt: new Date().toISOString(), sections: { A: totA, B: totB }, totalSoFar: totalFund })
         sessionStorage.setItem(`denom_${res.id}`, JSON.stringify(denomDetail))
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      const isNetworkError = error instanceof TypeError || error.message === 'Failed to fetch' || error.message === 'Network Error';
-      if (!isNetworkError) {
-        window.alert(error.message || 'Failed to save draft due to a server error.');
-        return;
-      }
-      // Fallback to mock
-      const idx = DRAFTS.findIndex(d => d.locationId === ctx.locationId && d.date === ctx.date)
-      const newId = idx >= 0 ? DRAFTS[idx].id : `DFT-${Date.now()}`
-      const draft = {
-        id: newId,
-        locationId: ctx.locationId, date: ctx.date,
-        savedAt: new Date().toISOString(),
-        sections: { A: totA, B: totB }, totalSoFar: totalFund,
-      }
-      if (idx >= 0) DRAFTS[idx] = draft; else DRAFTS.push(draft)
-      if (!draftId) setDraftId(newId)
-      sessionStorage.setItem(`denom_${newId}`, JSON.stringify(denomDetail))
-      window.alert('Could not reach the server. Make sure the backend is running on port 8000.\n\nDraft saved to local session.')
+      window.alert(error.message || 'Failed to save draft. Please check your connection.');
+      return;
     }
     onNavigate(ctx.from || 'op-start')
   }
@@ -757,42 +688,20 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         </div>
       )}
 
-      {existingReview && existingReview.outcome === 'rejected' && (
-        <div className="card" style={{ marginBottom: 18 }}>
-          <div className="card-header">
-            <span className="card-title">Controller Review</span>
-            <span className="badge badge-red">
-              <span className="bdot" />Rejected
-            </span>
-          </div>
-          <div className="card-body" style={{ padding: 0 }}>
-            <table className="dt" style={{ fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 100 }}>Section</th>
-                  <th style={{ width: 120 }}>Decision</th>
-                  <th>Comment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {REVIEW_SECTIONS.map(k => {
-                  const rev = existingReview.sections[k]
-                  return (
-                    <tr key={k} style={{ background: rev?.decision === 'reject' ? '#fff5f5' : undefined }}>
-                      <td style={{ fontWeight: 600 }}>Section {k}</td>
-                      <td>
-                        {rev?.decision === 'accept'
-                          ? <span style={{ color: 'var(--g7)', fontWeight: 600 }}>✓ Accepted</span>
-                          : <span style={{ color: 'var(--red)', fontWeight: 600 }}>✗ Rejected</span>}
-                      </td>
-                      <td style={{ fontSize: 12, color: rev?.decision === 'reject' ? 'var(--red)' : 'var(--ts)' }}>
-                        {rev?.note || '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {globalRejectReason && editingStatus === 'rejected' && (
+        <div style={{
+          display: 'flex', gap: 12, alignItems: 'flex-start',
+          padding: '14px 18px', borderRadius: 10, marginBottom: 18,
+          background: 'var(--red-bg)', border: '1px solid #fca5a5',
+        }}>
+          <span style={{ fontSize: 20 }}>❌</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--red)', marginBottom: 3 }}>
+              Submission Rejected
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--red)' }}>
+              Reason: {globalRejectReason}
+            </div>
           </div>
         </div>
       )}

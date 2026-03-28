@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { getLocation, USERS, EXPLAINED_MISSED, MISSED_EXPLANATIONS } from '../../mock/data'
-import { logMissedSubmission } from '../../api/submissions'
+import { useState, useEffect } from 'react'
+import { getLocation } from '../../mock/data'
+import { logMissedSubmission, listMissedSubmissions } from '../../api/submissions'
 import type { MissedReason } from '../../api/types'
 
 interface Props {
@@ -25,17 +25,34 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
   const [now] = useState(() => Date.now())
   const daysAgo = Math.floor((now - new Date(ctx.date + 'T12:00:00').getTime()) / 86400000)
 
-  // Auto-populate supervisor from the location's controller
-  const controller = USERS.find(u => u.role === 'controller' && u.locationIds.includes(ctx.locationId))
-
   const [reason, setReason] = useState('')
   const [detail, setDetail] = useState('')
-  const [supervisorName, setSupervisorName] = useState(controller?.name ?? '')
+  const [supervisorName, setSupervisorName] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
 
-  // View-only mode — explanation was already submitted
+  // View-only mode — load existing explanation from API
   const isViewOnly = ctx.viewOnly === 'true'
+  const [savedExplanation, setSavedExplanation] = useState<{ reason: string; detail: string; supervisor_name: string } | null>(null)
+  const [viewLoading, setViewLoading] = useState(isViewOnly)
+
+  useEffect(() => {
+    if (!isViewOnly) return
+    setViewLoading(true)
+    listMissedSubmissions({ location_id: ctx.locationId, date_from: ctx.date, date_to: ctx.date })
+      .then(res => {
+        const match = res.items.find(m => m.location_id === ctx.locationId && m.missed_date === ctx.date)
+        if (match) {
+          setSavedExplanation({
+            reason: match.reason,
+            detail: match.detail,
+            supervisor_name: match.supervisor_name,
+          })
+        }
+      })
+      .catch(() => { /* keep empty */ })
+      .finally(() => setViewLoading(false))
+  }, [isViewOnly, ctx.locationId, ctx.date])
 
   async function handleSubmit() {
     if (!reason) { setError('Please select a reason.'); return }
@@ -50,19 +67,24 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
         detail: detail.trim(),
         supervisor_name: supervisorName.trim(),
       })
-    } catch { /* API unavailable — show success in demo mode */ }
-    EXPLAINED_MISSED.add(`${ctx.locationId}|${ctx.date}`)
-    MISSED_EXPLANATIONS.set(`${ctx.locationId}|${ctx.date}`, {
-      reason, detail: detail.trim(), supervisorName: supervisorName.trim(),
-    })
-    setSubmitted(true)
+      setSubmitted(true)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit explanation.'
+      setError(msg)
+    }
   }
 
   if (isViewOnly) {
-    const saved = MISSED_EXPLANATIONS.get(`${ctx.locationId}|${ctx.date}`)
-    const savedReason = saved?.reason ?? ''
-    const savedDetail = saved?.detail ?? ''
-    const savedSupervisor = saved?.supervisorName ?? ''
+    if (viewLoading) {
+      return (
+        <div className="fade-up">
+          <div className="ph"><div><h2>Loading...</h2></div></div>
+        </div>
+      )
+    }
+    const savedReason = savedExplanation?.reason ?? ''
+    const savedDetail = savedExplanation?.detail ?? ''
+    const savedSupervisor = savedExplanation?.supervisor_name ?? ''
     return (
       <div className="fade-up">
         <div className="ph">
@@ -87,7 +109,6 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
             <span className="card-title">Submitted Explanation</span>
           </div>
           <div className="card-body" style={{ maxWidth: 540 }}>
-            {/* Location / Date */}
             <div className="f-row" style={{ marginBottom: 16 }}>
               <div className="f-field">
                 <label className="f-lbl">Location</label>
@@ -99,36 +120,23 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
               </div>
             </div>
 
-            {/* Reason (read-only) */}
             <div className="f-field" style={{ marginBottom: 16 }}>
               <label className="f-lbl">Reason for missed submission</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
                 {REASONS.map(r => (
                   <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, opacity: r.id === savedReason ? 1 : 0.4 }}>
-                    <input
-                      type="radio" name="reason-view" value={r.id}
-                      checked={r.id === savedReason}
-                      readOnly
-                      style={{ accentColor: 'var(--g7)' }}
-                    />
+                    <input type="radio" name="reason-view" value={r.id} checked={r.id === savedReason} readOnly style={{ accentColor: 'var(--g7)' }} />
                     {r.label}
                   </label>
                 ))}
               </div>
             </div>
 
-            {/* Detail (read-only) */}
             <div className="f-field" style={{ marginBottom: 16 }}>
               <label className="f-lbl">Additional details</label>
-              <textarea
-                className="f-ta" rows={4}
-                value={savedDetail}
-                disabled
-                style={{ resize: 'none' }}
-              />
+              <textarea className="f-ta" rows={4} value={savedDetail} disabled style={{ resize: 'none' }} />
             </div>
 
-            {/* Supervisor (read-only) */}
             <div className="f-field" style={{ marginBottom: 16 }}>
               <label className="f-lbl">Supervisor / Manager name</label>
               <input className="f-inp" value={savedSupervisor} disabled />
@@ -175,7 +183,6 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* Warning */}
       <div className="alert-warn" style={{ marginBottom: 20 }}>
         <span style={{ fontSize: 16 }}>⚠️</span>
         <div>
@@ -190,10 +197,8 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
       <div className="card">
         <div className="card-header">
           <span className="card-title">Explanation Form</span>
-          <span className="card-sub">Screen 8 of 22</span>
         </div>
         <div className="card-body" style={{ maxWidth: 540 }}>
-          {/* Location / Date (read-only) */}
           <div className="f-row" style={{ marginBottom: 16 }}>
             <div className="f-field">
               <label className="f-lbl">Location</label>
@@ -205,7 +210,6 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
             </div>
           </div>
 
-          {/* Reason selector */}
           <div className="f-field">
             <label className="f-lbl">Reason for missed submission <span style={{ color: 'var(--red)' }}>*</span></label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
@@ -223,22 +227,19 @@ export default function OpMissed({ ctx, onNavigate }: Props) {
             </div>
           </div>
 
-          {/* Detail */}
           <div className="f-field">
             <label className="f-lbl">
               {reason === 'other' ? 'Description' : 'Additional details'}
               <span style={{ color: 'var(--red)' }}> *</span>
             </label>
             <textarea
-              className="f-ta"
-              rows={4}
+              className="f-ta" rows={4}
               placeholder={reason === 'other' ? 'Please describe the reason in detail...' : 'Provide any relevant details...'}
               value={detail}
               onChange={e => { setDetail(e.target.value); setError('') }}
             />
           </div>
 
-          {/* Supervisor */}
           <div className="f-field">
             <label className="f-lbl">Supervisor / Manager name <span style={{ color: 'var(--red)' }}>*</span></label>
             <input

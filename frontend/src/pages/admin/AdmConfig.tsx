@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { LOCATIONS, formatCurrency } from '../../mock/data'
+import { formatCurrency } from '../../mock/data'
 import { getConfig, updateConfig, setLocationOverride, removeLocationOverride } from '../../api/admin'
+import { listLocations } from '../../api/locations'
 
 interface Props { adminName: string }
 
@@ -24,6 +25,11 @@ export default function AdmConfig({ adminName }: Props) {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [locations, setLocations] = useState<{id:string;name:string;active:boolean}[]>([])
+
+  useEffect(() => {
+    listLocations().then(locs => setLocations(locs.map(l => ({ id: l.id, name: l.name, active: l.active })))).catch(() => {})
+  }, [])
 
   // Load config from API on mount
   useEffect(() => {
@@ -76,7 +82,7 @@ export default function AdmConfig({ adminName }: Props) {
         data_retention_years:  Number(globals.retentionYears),
       })
       // Sync per-location overrides
-      await Promise.all(LOCATIONS.map(loc => {
+      await Promise.all(locations.map(loc => {
         const ov = locOverrides[loc.id]?.tolerancePct
         if (ov) return setLocationOverride(loc.id, Number(ov)).catch(() => {})
         return removeLocationOverride(loc.id).catch(() => {})
@@ -179,7 +185,7 @@ export default function AdmConfig({ adminName }: Props) {
               </tr>
             </thead>
             <tbody>
-              {LOCATIONS.map(loc => {
+              {locations.map(loc => {
                 const ov = locOverrides[loc.id]?.tolerancePct ?? ''
                 const effective = ov ? Number(ov) : Number(globals.tolerancePct)
                 return (
