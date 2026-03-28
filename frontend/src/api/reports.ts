@@ -37,7 +37,7 @@ export function getExceptionReport(
 
 export function getSectionTrends(params: {
   section: string
-  granularity?: 'weekly' | 'monthly' | 'quarterly'
+  granularity?: 'daily' | 'weekly' | 'monthly' | 'quarterly'
   periods?: number
   location_id?: string
 }): Promise<SectionTrends> {

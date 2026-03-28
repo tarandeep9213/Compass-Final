@@ -233,6 +233,16 @@ export default function OpExcel({ ctx, onNavigate }: Props) {
         </div>
       </div>
 
+      {/* Update mode banner */}
+      {ctx.submissionId && (
+        <div className="alert-info" style={{ marginBottom: 12, background: '#fffde7', border: '1px solid #fcd34d' }}>
+          <span style={{ fontSize: 16 }}>✏️</span>
+          <div style={{ fontSize: 13 }}>
+            <strong>Re-uploading for existing submission.</strong> The new spreadsheet data will replace your previous values.
+          </div>
+        </div>
+      )}
+
       {/* Template notice */}
       <div className="alert-info" style={{ marginBottom: 16, alignItems: 'center' }}>
         <span style={{ fontSize: 16 }}>📄</span>

@@ -312,7 +312,12 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                   onClick={() => onNavigate('op-readonly', { locationId, date: todayStr(), submissionId: todaySub.id, from: 'op-start' })}>
                   View →
                 </button>
-                {/* Update button intentionally omitted for 'pending_approval' to enforce View-only access */}
+                {todaySub.status === 'pending_approval' && (
+                  <button className="btn btn-primary"
+                    onClick={() => onNavigate('op-method', { locationId, date: todayStr(), submissionId: todaySub.id })}>
+                    Update →
+                  </button>
+                )}
                 {todaySub.status === 'rejected' && (
                   <button className="btn btn-primary"
                     onClick={() => onNavigate('op-method', { locationId, date: todayStr(), submissionId: todaySub.id })}>
@@ -614,7 +619,24 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                               <button
                                 className="btn btn-outline"
                                 style={{ fontSize: 11, padding: '4px 10px', color: 'var(--red)', borderColor: '#fca5a5' }}
-                                onClick={e => { e.stopPropagation(); onNavigate('op-form', { locationId, date: row.date, submissionId: row.sub!.id, from: 'op-start' }) }}
+                                onClick={e => { e.stopPropagation(); onNavigate('op-method', { locationId, date: row.date, submissionId: row.sub!.id, from: 'op-start' }) }}
+                              >
+                                Update
+                              </button>
+                            </div>
+                          ) : row.type === 'pending_approval' ? (
+                            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                              <button
+                                className="btn btn-ghost"
+                                style={{ fontSize: 11, padding: '4px 10px' }}
+                                onClick={e => { e.stopPropagation(); onNavigate('op-readonly', { locationId, date: row.date, submissionId: row.sub!.id, from: 'op-start' }) }}
+                              >
+                                View Details
+                              </button>
+                              <button
+                                className="btn btn-outline"
+                                style={{ fontSize: 11, padding: '4px 10px' }}
+                                onClick={e => { e.stopPropagation(); onNavigate('op-method', { locationId, date: row.date, submissionId: row.sub!.id, from: 'op-start' }) }}
                               >
                                 Update
                               </button>

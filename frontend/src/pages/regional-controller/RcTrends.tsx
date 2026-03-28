@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { LOCATIONS, formatCurrency } from '../../mock/data'
+import { formatCurrency, todayStr } from '../../mock/data'
 import { listLocations } from '../../api/locations'
 import { getSectionTrends } from '../../api/reports'
 import type { SectionTrends } from '../../api/types'
@@ -19,123 +19,21 @@ type Granularity = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 
 // Section labels matching the operator cash form (Sections A–L)
 const SECTIONS = [
-  { key: 'secA', label: 'Currency',                                      short: 'A', color: '#2563eb', base: 6100 },
-  { key: 'secB', label: 'Rolled Coin',                                   short: 'B', color: '#059669', base: 460  },
-  { key: 'secC', label: 'Coins in Counting Machines (Sorter/Counter)',   short: 'C', color: '#7c3aed', base: 470  },
-  { key: 'secD', label: 'Bagged Coin (Full for Bank)',                   short: 'D', color: '#db2777', base: 760  },
-  { key: 'secE', label: 'Unissued Changer Funds in Cashroom or Vault',   short: 'E', color: '#d97706', base: 920  },
-  { key: 'secF', label: 'Returned but Uncounted Manual Change',          short: 'F', color: '#64748b', base: 170  },
-  { key: 'secG', label: 'Mutilated Currency, Foreign, and/or Bent Coin', short: 'G', color: '#e11d48', base: 370  },
-  { key: 'secH', label: 'Changer Funds Outstanding',                     short: 'H', color: '#0891b2', base: 165  },
-  { key: 'secI', label: 'Net Unreimbursed Bill Changer',                 short: 'I', color: '#8b5cf6', base: 300  },
-  { key: 'secJ', label: 'Coin Purchase in transit to/from bank',         short: 'J', color: '#f59e0b', base: 250  },
-  { key: 'secK', label: "Total Cashier's Fund - TODAY",                  short: 'K', color: '#10b981', base: 8500 },
-  { key: 'secL', label: 'Variance - Short or (Over)',                    short: 'L', color: '#65a30d', base: 160  },
+  { key: 'secA', label: 'Currency',                                      short: 'A', color: '#2563eb' },
+  { key: 'secB', label: 'Rolled Coin',                                   short: 'B', color: '#059669' },
+  { key: 'secC', label: 'Coins in Counting Machines (Sorter/Counter)',   short: 'C', color: '#7c3aed' },
+  { key: 'secD', label: 'Bagged Coin (Full for Bank)',                   short: 'D', color: '#db2777' },
+  { key: 'secE', label: 'Unissued Changer Funds in Cashroom or Vault',   short: 'E', color: '#d97706' },
+  { key: 'secF', label: 'Returned but Uncounted Manual Change',          short: 'F', color: '#64748b' },
+  { key: 'secG', label: 'Mutilated Currency, Foreign, and/or Bent Coin', short: 'G', color: '#e11d48' },
+  { key: 'secH', label: 'Changer Funds Outstanding',                     short: 'H', color: '#0891b2' },
+  { key: 'secI', label: 'Net Unreimbursed Bill Changer',                 short: 'I', color: '#8b5cf6' },
+  { key: 'secJ', label: 'Coin Purchase in transit to/from bank',         short: 'J', color: '#f59e0b' },
+  { key: 'secK', label: "Total Cashier's Fund - TODAY",                  short: 'K', color: '#10b981' },
+  { key: 'secL', label: 'Variance - Short or (Over)',                    short: 'L', color: '#65a30d' },
 ]
 
-// Per-location cash volume multipliers
-const LOC_MULT: Record<string, number> = {
-  all:           1.00,
-  'LHR-T5-01':  1.08,
-  'LHR-ARR-03': 0.94,
-  'LHR-GC-07':  1.03,
-  'LHR-SC-02':  0.97,
-  'LHR-T3-EL':  0.99,
-}
-
-function rnd(seed: number): number {
-  const x = Math.sin(seed * 9301 + 49297) * 233280
-  return (x - Math.floor(x)) - 0.5
-}
-
 type DataPoint = { period: string; [key: string]: string | number }
-
-const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const TODAY = new Date(2026, 2, 5)
-
-function dailyPts(locId: string, n: number): DataPoint[] {
-  const mult = LOC_MULT[locId] ?? 1.0
-  const locSeed = locId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  return Array.from({ length: n }, (_, i) => {
-    const offset = n - 1 - i
-    const d = new Date(TODAY)
-    d.setDate(TODAY.getDate() - offset)
-    const m = d.getMonth(), day = d.getDate(), y = d.getFullYear()
-    const seed = y * 365 + m * 31 + day + locSeed
-    const pt: DataPoint = { period: `${MN[m]} ${day}` }
-    SECTIONS.forEach((s, ki) => {
-      pt[s.key] = Math.round(s.base * mult * (1 + rnd(seed + ki * 13) * 0.18))
-    })
-    return pt
-  })
-}
-
-function weeklyPts(locId: string, n: number): DataPoint[] {
-  const mult = LOC_MULT[locId] ?? 1.0
-  const locSeed = locId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  const curMon = new Date(TODAY)
-  curMon.setDate(TODAY.getDate() - ((TODAY.getDay() + 6) % 7))
-  return Array.from({ length: n }, (_, i) => {
-    const offset = n - 1 - i
-    const d = new Date(curMon)
-    d.setDate(curMon.getDate() - offset * 7)
-    const m = d.getMonth(), y = d.getFullYear()
-    const seasonal = m >= 5 && m <= 7 ? 0.96 : m === 11 ? 1.05 : 1.0
-    const trend    = 1 + i * 0.001
-    const weekNum  = Math.floor(d.getDate() / 7)
-    const seed     = y * 53 + m * 5 + weekNum + locSeed
-    const pt: DataPoint = { period: `${MN[m]} ${d.getDate()}` }
-    SECTIONS.forEach((s, ki) => {
-      pt[s.key] = Math.round(s.base * mult * seasonal * trend * (1 + rnd(seed + ki * 23) * 0.16))
-    })
-    return pt
-  })
-}
-
-function monthlyPts(locId: string, n: number): DataPoint[] {
-  const mult = LOC_MULT[locId] ?? 1.0
-  const locSeed = locId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  return Array.from({ length: n }, (_, i) => {
-    const offset = n - 1 - i
-    const d = new Date(TODAY.getFullYear(), TODAY.getMonth() - offset, 1)
-    const m = d.getMonth(), y = d.getFullYear()
-    const seasonal = m >= 5 && m <= 7 ? 0.96 : m === 11 ? 1.05 : 1.0
-    const trend    = 1 + i * 0.004
-    const seed     = y * 12 + m + locSeed
-    const pt: DataPoint = { period: `${MN[m]} ${y}` }
-    SECTIONS.forEach((s, ki) => {
-      pt[s.key] = Math.round(s.base * mult * seasonal * trend * (1 + rnd(seed + ki * 17) * 0.12))
-    })
-    return pt
-  })
-}
-
-function quarterlyPts(locId: string, n: number): DataPoint[] {
-  const mult = LOC_MULT[locId] ?? 1.0
-  const locSeed = locId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  const curQ = Math.floor(TODAY.getMonth() / 3)
-  return Array.from({ length: n }, (_, i) => {
-    const offset = n - 1 - i
-    let q = curQ - offset, y = TODAY.getFullYear()
-    while (q < 0) { q += 4; y-- }
-    q = ((q % 4) + 4) % 4
-    const seasonal = q === 1 ? 0.96 : q === 3 ? 1.04 : 1.0
-    const trend    = 1 + i * 0.012
-    const seed     = y * 4 + q + locSeed
-    const pt: DataPoint = { period: `${y}-Q${q + 1}` }
-    SECTIONS.forEach((s, ki) => {
-      pt[s.key] = Math.round(s.base * mult * seasonal * trend * (1 + rnd(seed + ki * 31) * 0.08))
-    })
-    return pt
-  })
-}
-
-function genPts(locId: string, granularity: Granularity, n: number): DataPoint[] {
-  if (granularity === 'daily')     return dailyPts(locId, n)
-  if (granularity === 'weekly')    return weeklyPts(locId, n)
-  if (granularity === 'quarterly') return quarterlyPts(locId, n)
-  return monthlyPts(locId, n)
-}
 
 // ── Period options ─────────────────────────────────────────────────────────
 const PERIOD_OPTIONS: Record<Granularity, { label: string; n: number }[]> = {
@@ -146,31 +44,24 @@ const PERIOD_OPTIONS: Record<Granularity, { label: string; n: number }[]> = {
 }
 
 // ── CSV export ─────────────────────────────────────────────────────────────
-function downloadCSV(chartData: DataPoint[], sectionKey: string, activeSecLabel: string, locationId: string, granularity: Granularity) {
+function downloadCSV(chartData: DataPoint[], sectionKey: string, activeSecLabel: string, locationId: string, granularity: Granularity, allLocs: {id:string;name:string}[]) {
   const locName = locationId === 'all' ? 'All Locations' : (allLocs.find(l => l.id === locationId)?.name || locationId)
-
-  // Header specifically targets the data actively being viewed
   const headers = ['Location', 'Period', 'Granularity', `Section ${activeSecLabel}`]
-
   const rows: string[][] = chartData.map(pt => {
     const val = pt[sectionKey] !== undefined ? String(pt[sectionKey]) : '0'
     return [locName, pt.period, granularity, val]
   })
-
   const csv = [headers, ...rows]
     .map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
     .join('\n')
-
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
-  a.download = `cash-trends-${granularity}-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `cash-trends-${granularity}-${todayStr()}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
-
-const TODAY_ISO = TODAY.toISOString().split('T')[0]
 
 function calcPeriodsFromRange(gran: Granularity, from: string, to: string): number {
   const ms   = new Date(to + 'T00:00:00').getTime() - new Date(from + 'T00:00:00').getTime()
@@ -183,23 +74,28 @@ function calcPeriodsFromRange(gran: Granularity, from: string, to: string): numb
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function RcTrends({ adminName }: Props) {
+  const today = todayStr()
+
   const [granularity,    setGranularity]    = useState<Granularity>('monthly')
   const [periodN,        setPeriodN]        = useState(6)
   const [useCustomRange, setUseCustomRange] = useState(false)
   const [customFrom,     setCustomFrom]     = useState('')
-  const [customTo,       setCustomTo]       = useState(TODAY_ISO)
+  const [customTo,       setCustomTo]       = useState(today)
   const [locationId,     setLocationId]     = useState('all')
   const [sectionKey,     setSectionKey]     = useState('secA')
   const [apiTrends,      setApiTrends]      = useState<SectionTrends | null>(null)
-  const [apiLocs,        setApiLocs]        = useState<{id:string;name:string;active:boolean}[]>([])
+  const [apiLocs,        setApiLocs]        = useState<{id:string;name:string;active:boolean;cost_center?:string|null}[]>([])
   const [fetchError,     setFetchError]     = useState('')
   const [isLoading,      setIsLoading]      = useState(false)
 
   useEffect(() => {
-    listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, active: l.active })))).catch(() => {})
+    listLocations().then(locs => setApiLocs(locs.map(l => ({
+      id: l.id, name: l.name, active: l.active,
+      cost_center: (l as unknown as {cost_center?:string|null}).cost_center ?? null,
+    })))).catch(() => {})
   }, [])
 
-  const allLocs = apiLocs.length > 0 ? apiLocs : LOCATIONS
+  const allLocs = apiLocs
 
   const activeSec = SECTIONS.find(s => s.key === sectionKey)!
 
@@ -214,54 +110,35 @@ export default function RcTrends({ adminName }: Props) {
   }
 
   useEffect(() => {
-    Promise.resolve().then(() => { setIsLoading(true); setFetchError(''); });
+    setIsLoading(true)
+    setFetchError('')
     getSectionTrends({
       section:     activeSec.short,
       granularity: granularity,
       periods:     effectivePeriodN,
       location_id: locationId === 'all' ? undefined : locationId,
     }).then(data => {
-      setApiTrends(data);
-      setIsLoading(false);
+      setApiTrends(data)
     }).catch((err) => {
-      setApiTrends(null);
-      setIsLoading(false);
-      const error = err instanceof Error ? err : new Error(String(err));
-      const isNetworkError = error instanceof TypeError || error.message === 'Failed to fetch' || error.message === 'Network Error';
-      if (isNetworkError) {
-        setFetchError('Could not reach the server. Make sure the backend is running on port 8000.')
-      } else {
-        setFetchError(error.message || 'Failed to load trends data.')
-      }
-    })
+      setApiTrends(null)
+      const error = err instanceof Error ? err : new Error(String(err))
+      setFetchError(error.message || 'Failed to load trends data.')
+    }).finally(() => setIsLoading(false))
   }, [sectionKey, granularity, effectivePeriodN, locationId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const mockData = useMemo((): DataPoint[] => genPts(locationId, granularity, effectivePeriodN),
-    [granularity, effectivePeriodN, locationId])
-
-  // Single source of truth for Chart and Cards:
   const chartData = useMemo((): DataPoint[] => {
-    if (fetchError) return mockData; 
-    
-    if (apiTrends && apiTrends.data) {
-      if (apiTrends.data.length === 0) {
-        return genPts(locationId, granularity, effectivePeriodN).map((p: DataPoint) => ({ period: p.period, [sectionKey]: p[sectionKey] ?? 0 }));
-      }
-      return apiTrends.data.map(p => ({ period: p.period, [sectionKey]: p.avg_total }))
-    }
-    
-    return mockData; 
-  }, [apiTrends, mockData, sectionKey, fetchError, locationId, granularity, effectivePeriodN]);
+    if (!apiTrends?.data?.length) return []
+    return apiTrends.data.map(p => ({ period: p.period, [sectionKey]: p.avg_total }))
+  }, [apiTrends, sectionKey])
 
-  // STRICTLY derive KPIs dynamically from the chart dataset (Ignore backend summaries)
-  const values    = chartData.map((r: DataPoint) => (r[sectionKey] as number | string | undefined) ?? 0).map(Number);
-  const latest    = values.length > 0 ? values[values.length - 1] : 0;
-  const prev      = values.length > 1 ? values[values.length - 2] : latest;
-  const avg       = values.length > 0 ? Math.round(values.reduce((a: number, b: number) => a + b, 0) / values.length) : 0;
-  const peak      = values.length > 0 ? Math.max(...values) : 0;
-  const total     = values.reduce((a: number, b: number) => a + b, 0);
-  const pctChange = prev > 0 ? ((latest - prev) / prev) * 100 : 0;
-  const changeUp  = pctChange >= 0;
+  const values    = chartData.map((r: DataPoint) => Number(r[sectionKey] ?? 0))
+  const latest    = values.length > 0 ? values[values.length - 1] : 0
+  const prev      = values.length > 1 ? values[values.length - 2] : latest
+  const avg       = values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0
+  const peak      = values.length > 0 ? Math.max(...values) : 0
+  const total     = values.reduce((a, b) => a + b, 0)
+  const pctChange = prev > 0 ? ((latest - prev) / prev) * 100 : 0
+  const changeUp  = pctChange >= 0
 
   const periodUnit = granularity === 'daily' ? 'days' : granularity === 'weekly' ? 'wks' : granularity === 'monthly' ? 'mo' : 'qtrs'
 
@@ -279,7 +156,7 @@ export default function RcTrends({ adminName }: Props) {
           <button
             className="btn btn-outline"
             style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}
-            onClick={() => downloadCSV(chartData, sectionKey, activeSec.label, locationId, granularity)}
+            onClick={() => downloadCSV(chartData, sectionKey, activeSec.label, locationId, granularity, allLocs)}
           >
             ↓ Download CSV
           </button>
@@ -292,7 +169,7 @@ export default function RcTrends({ adminName }: Props) {
           padding: '10px 14px', fontSize: 12, color: 'var(--red)', marginBottom: 18,
           display: 'flex', alignItems: 'center', gap: 8
         }}>
-          <span>⚠️</span> {fetchError} (Showing mock data)
+          <span>⚠️</span> {fetchError}
         </div>
       )}
 
@@ -329,11 +206,11 @@ export default function RcTrends({ adminName }: Props) {
               </button>
               {useCustomRange && (
                 <>
-                  <input type="date" className="f-inp" value={customFrom} max={customTo || TODAY_ISO}
+                  <input type="date" className="f-inp" value={customFrom} max={customTo || today}
                     onChange={e => setCustomFrom(e.target.value)}
                     style={{ fontSize: 12, width: 140 }} />
                   <span style={{ fontSize: 12, color: 'var(--ts)' }}>→</span>
-                  <input type="date" className="f-inp" value={customTo} max={TODAY_ISO}
+                  <input type="date" className="f-inp" value={customTo} max={today}
                     onChange={e => setCustomTo(e.target.value)}
                     style={{ fontSize: 12, width: 140 }} />
                   {customFrom && customTo && (
@@ -381,9 +258,7 @@ export default function RcTrends({ adminName }: Props) {
                 All
               </button>
               {allLocs.filter(l => l.active).map(l => {
-                const locData = l as unknown as { costCenter?: string; cost_center?: string; id: string };
-                const rawCC = locData.costCenter || locData.cost_center || locData.id;
-                const cc = formatCC(rawCC);
+                const cc = formatCC(l.cost_center);
                 return (
                   <button
                     key={l.id}
@@ -451,7 +326,7 @@ export default function RcTrends({ adminName }: Props) {
           tooltip={{
             what: "The most recent period's section total from the selected location and time range.",
             how: "Takes the last data point in the chart series. The % change shown below compares it to the immediately preceding period.",
-            formula: "current_period_value vs previous_period_value; change = (current − prev) ÷ prev × 100",
+            formula: "current_period_value vs previous_period_value; change = (current - prev) / prev x 100",
           }}
         />
         <KpiCard
@@ -461,7 +336,7 @@ export default function RcTrends({ adminName }: Props) {
           tooltip={{
             what: "Mean section total across all periods in the selected range.",
             how: "Sums all data points in the chart and divides by the number of periods.",
-            formula: "Σ(period values) ÷ COUNT(periods)",
+            formula: "sum(period values) / COUNT(periods)",
           }}
         />
         <KpiCard
@@ -482,7 +357,7 @@ export default function RcTrends({ adminName }: Props) {
           tooltip={{
             what: "Sum of the selected section's values across all periods in the range.",
             how: "Adds up every data point in the chart. Useful for understanding cumulative cash volume over time.",
-            formula: "Σ(all period values)",
+            formula: "sum(all period values)",
           }}
         />
         <KpiCard
@@ -491,7 +366,7 @@ export default function RcTrends({ adminName }: Props) {
           sub={activeSec.label}
           tooltip={{
             what: "The currently selected cash form section being charted.",
-            how: "Sections A–L correspond to different cash categories from the operator's daily submission form. Select a different section using the tabs above the chart.",
+            how: "Sections A-L correspond to different cash categories from the operator's daily submission form. Select a different section using the tabs above the chart.",
           }}
         />
       </div>
@@ -515,54 +390,61 @@ export default function RcTrends({ adminName }: Props) {
         </div>
         <div className="card-body" style={{ padding: '20px 12px 12px', position: 'relative', opacity: isLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
           {isLoading && <div style={{position:'absolute', top:'50%', left:'50%', transform:'translate(-50%, -50%)', fontWeight:600, color:'var(--ts)', zIndex:10}}>Loading data...</div>}
-          <ResponsiveContainer width="100%" height={380}>
-            <AreaChart data={chartData} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
-              <defs>
-                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={activeSec.color} stopOpacity={0.20} />
-                  <stop offset="95%" stopColor={activeSec.color} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-              <XAxis
-                dataKey="period"
-                tick={{ fontSize: 11, fill: '#888' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={v => {
-                  const num = v as number;
-                  return num < 0 ? `-$${(Math.abs(num) / 1000).toFixed(1)}k` : `$${(num / 1000).toFixed(1)}k`;
-                }}
-                tick={{ fontSize: 11, fill: '#888' }}
-                axisLine={false}
-                tickLine={false}
-                width={60}
-              />
-              <Tooltip
-                formatter={(value: unknown) => [formatCurrency(Number(value) || 0), activeSec.label]}
-                contentStyle={{
-                  fontSize: 12, borderRadius: 8,
-                  border: `1px solid ${activeSec.color}40`,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                }}
-                labelStyle={{ fontWeight: 600, marginBottom: 4 }}
-                cursor={{ stroke: activeSec.color, strokeWidth: 1, strokeDasharray: '4 2' }}
-              />
-              <Area
-                key={sectionKey}
-                type="monotone"
-                dataKey={sectionKey}
-                stroke={activeSec.color}
-                strokeWidth={2.5}
-                fill="url(#areaGrad)"
-                dot={{ r: 4, fill: activeSec.color, strokeWidth: 2, stroke: '#fff' }}
-                activeDot={{ r: 6, fill: activeSec.color, strokeWidth: 2, stroke: '#fff' }}
-                isAnimationActive={true}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {!isLoading && chartData.length === 0 && !fetchError && (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--ts)' }}>
+              No data available for this section and time range.
+            </div>
+          )}
+          {chartData.length > 0 && (
+            <ResponsiveContainer width="100%" height={380}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
+                <defs>
+                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={activeSec.color} stopOpacity={0.20} />
+                    <stop offset="95%" stopColor={activeSec.color} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis
+                  dataKey="period"
+                  tick={{ fontSize: 11, fill: '#888' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={v => {
+                    const num = v as number;
+                    return num < 0 ? `-$${(Math.abs(num) / 1000).toFixed(1)}k` : `$${(num / 1000).toFixed(1)}k`;
+                  }}
+                  tick={{ fontSize: 11, fill: '#888' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={60}
+                />
+                <Tooltip
+                  formatter={(value: unknown) => [formatCurrency(Number(value) || 0), activeSec.label]}
+                  contentStyle={{
+                    fontSize: 12, borderRadius: 8,
+                    border: `1px solid ${activeSec.color}40`,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  }}
+                  labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                  cursor={{ stroke: activeSec.color, strokeWidth: 1, strokeDasharray: '4 2' }}
+                />
+                <Area
+                  key={sectionKey}
+                  type="monotone"
+                  dataKey={sectionKey}
+                  stroke={activeSec.color}
+                  strokeWidth={2.5}
+                  fill="url(#areaGrad)"
+                  dot={{ r: 4, fill: activeSec.color, strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6, fill: activeSec.color, strokeWidth: 2, stroke: '#fff' }}
+                  isAnimationActive={true}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>

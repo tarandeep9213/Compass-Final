@@ -409,7 +409,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     closeExpand()
   }
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const _today = new Date()
+  const todayStr = `${_today.getFullYear()}-${String(_today.getMonth()+1).padStart(2,'0')}-${String(_today.getDate()).padStart(2,'0')}`
 
   return (
     <div className="fade-up">

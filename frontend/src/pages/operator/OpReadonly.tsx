@@ -381,9 +381,14 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           ) : (
             <>
               <button className="btn btn-outline" onClick={() => onNavigate('op-start')}>← Dashboard</button>
-              {sub.status === 'rejected' && isToday && (
-                <button className="btn btn-primary" onClick={() => onNavigate('op-method', { locationId: ctx.locationId, date: ctx.date })}>
+              {sub.status === 'rejected' && (
+                <button className="btn btn-primary" onClick={() => onNavigate('op-method', { locationId: ctx.locationId, date: ctx.date, submissionId: sub.id })}>
                   Resubmit →
+                </button>
+              )}
+              {sub.status === 'pending_approval' && !isManagerView && (
+                <button className="btn btn-primary" onClick={() => onNavigate('op-method', { locationId: ctx.locationId, date: ctx.date, submissionId: sub.id })}>
+                  Update →
                 </button>
               )}
             </>

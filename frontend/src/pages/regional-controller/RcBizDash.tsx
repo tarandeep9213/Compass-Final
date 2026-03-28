@@ -139,9 +139,11 @@ function HealthDot({ health }: { health: 'red' | 'amber' | 'green' }) {
 
 export default function RcBizDash({ adminName }: Props) {
   // Date range for API calls — current month + prior month for deltas
-  const today = new Date().toISOString().split('T')[0]
+  const _now = new Date()
+  const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`
   const monthStart = today.slice(0, 8) + '01'
-  const priorMonthEnd = new Date(new Date(monthStart).getTime() - 86400000).toISOString().split('T')[0]
+  const _priorEnd = new Date(new Date(monthStart + 'T12:00:00').getTime() - 86400000)
+  const priorMonthEnd = `${_priorEnd.getFullYear()}-${String(_priorEnd.getMonth()+1).padStart(2,'0')}-${String(_priorEnd.getDate()).padStart(2,'0')}`
   const priorMonthStart = priorMonthEnd.slice(0, 8) + '01'
 
   // ── Task 1: Compliance Trend from real API ──────────────────────────────

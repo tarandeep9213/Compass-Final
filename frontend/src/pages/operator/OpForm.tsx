@@ -326,12 +326,15 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const existingReview = ctx.submissionId ? SUBMISSION_REVIEWS[ctx.submissionId] : null
   const REVIEW_SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 
-  // ── Pre-fill from API when editing a rejected submission ───────────────────
+  const [formLoading, setFormLoading] = useState(!!ctx.submissionId && ctx.fromExcel !== 'true')
+  const [editingStatus, setEditingStatus] = useState<string | null>(null)
+
+  // ── Pre-fill from API when editing an existing submission ─────────────────
   useEffect(() => {
     if (!ctx.submissionId || ctx.fromExcel === 'true') return
-    const hasCache = !!sessionStorage.getItem(`denom_${ctx.submissionId}`)
-    
+    setFormLoading(true)
     getSubmission(ctx.submissionId).then(sub => {
+      setEditingStatus(sub.status)
       interface ParsedSections {
         A?: { ones?: number; twos?: number; fives?: number; tens?: number; twenties?: number; fifties?: number; hundreds?: number; other?: number };
         B?: { dollar?: number; halves?: number; quarters?: number; dimes?: number; nickels?: number; pennies?: number };
@@ -350,7 +353,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       const emptyQA5 = (): QARow[] => [emptyQA(), emptyQA(), emptyQA(), emptyQA(), emptyQA()]
       const emptyQA4 = (): QARow[] => [emptyQA(), emptyQA(), emptyQA(), emptyQA()]
 
-      if (!hasCache) {
+      {
         const a = s.A ?? {}
         setAQty({
         ones:     a.ones     ? String(a.ones)     : '',
@@ -424,6 +427,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         setGlobalRejectReason((sub as any).rejection_reason)
       }
     }).catch(() => { /* keep empty if fetch fails */ })
+      .finally(() => setFormLoading(false))
   }, [ctx.submissionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Totals (formula cells) ─────────────────────────────────────────────────
@@ -689,6 +693,14 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  if (formLoading) {
+    return (
+      <div className="fade-up">
+        <div className="ph"><div><h2>Loading Submission…</h2></div></div>
+      </div>
+    )
+  }
+
   return (
     <div className="fade-up">
 
@@ -705,7 +717,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
           <button className="btn btn-outline" style={{ color: 'var(--red)', borderColor: '#fca5a5' }} onClick={handleDiscard}>
             🗑 Discard
           </button>
-          <button className="btn btn-outline" onClick={handleSaveDraft}>💾 Save Draft</button>
+          <button className="btn btn-outline" onClick={handleSaveDraft}>{editingStatus === 'pending_approval' ? '💾 Save Changes' : '💾 Save Draft'}</button>
         </div>
       </div>
 
@@ -1416,7 +1428,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
               ✓ Submit for Approval
             </button>
             <button className="btn btn-outline" onClick={handleSaveDraft}>
-              💾 Save Draft
+              {editingStatus === 'pending_approval' ? '💾 Save Changes' : '💾 Save Draft'}
             </button>
             <button className="btn btn-outline" style={{ color: 'var(--red)', borderColor: '#fca5a5' }} onClick={handleDiscard}>
               🗑 Discard

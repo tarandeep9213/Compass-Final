@@ -50,6 +50,16 @@ export default function OpMethod({ ctx, onNavigate }: Props) {
         </div>
       </div>
 
+      {/* Update mode banner */}
+      {ctx.submissionId && (
+        <div className="alert-info" style={{ marginBottom: 12, background: '#fffde7', border: '1px solid #fcd34d' }}>
+          <span style={{ fontSize: 16 }}>✏️</span>
+          <div style={{ fontSize: 13 }}>
+            <strong>Updating existing submission.</strong> Choose your entry method — your previous data will be replaced with the new values.
+          </div>
+        </div>
+      )}
+
       {/* Summary bar */}
       <div className="alert-info" style={{ marginBottom: 20 }}>
         <span style={{ fontSize: 16 }}>ℹ️</span>

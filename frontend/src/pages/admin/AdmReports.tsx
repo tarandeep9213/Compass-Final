@@ -31,11 +31,11 @@ function rangeLabel(range: string) {
   }
   if (range==='week') {
     const start = new Date(today); start.setDate(today.getDate()-6)
-    return { start: start.toISOString().split('T')[0], end: todayStr() }
+    return { start: `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`, end: todayStr() }
   }
   if (range==='month') {
     const start = new Date(today); start.setDate(1)
-    return { start: start.toISOString().split('T')[0], end: todayStr() }
+    return { start: `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`, end: todayStr() }
   }
   return null
 }

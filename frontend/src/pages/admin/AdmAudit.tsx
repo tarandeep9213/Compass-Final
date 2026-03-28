@@ -109,11 +109,14 @@ const SEL: React.CSSProperties = {
   backgroundRepeat:'no-repeat', backgroundPosition:'right 9px center',
 }
 
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 function rangeStart(range: string): string {
   const today = new Date()
   if (range === 'today') return todayStr()
-  if (range === 'week')  { const d = new Date(today); d.setDate(today.getDate()-6); return d.toISOString().split('T')[0] }
-  if (range === 'month') { const d = new Date(today); d.setDate(1); return d.toISOString().split('T')[0] }
+  if (range === 'week')  { const d = new Date(today); d.setDate(today.getDate()-6); return localDateStr(d) }
+  if (range === 'month') { const d = new Date(today); d.setDate(1); return localDateStr(d) }
   return ''
 }
 
