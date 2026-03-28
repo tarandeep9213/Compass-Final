@@ -341,10 +341,17 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const sc = statusConfig[effStatus] ?? statusConfig['pending_approval']
 
   const s = sub.sections
+  // Read intermediate values from sections JSON (stored by backend at submission time)
+  const sectionsRaw = s as unknown as Record<string, unknown>
+  const holdoverAmt = Number(sectionsRaw.holdover ?? 0)
+  const coinTransitAmt = Number(sectionsRaw.coinTransit ?? sectionsRaw.coin_transit ?? 0)
+  // "Total Cash" = A+B+C+D+E+F+G minus holdover (intermediate subtotal before H, I, J, K)
+  const calcTotalCash = s.A + s.B + s.C + s.D + s.E + s.F + s.G - holdoverAmt
+  // All totals come from API — single source of truth
   const calcTotalFund = sub.totalCash
-  const calcExpectedCash = sub.expectedCash || location?.expectedCash || 0
-  const calcVariance = sub.variance ?? (calcTotalFund - calcExpectedCash)
-  const calcVariancePct = sub.variancePct ?? (calcExpectedCash > 0 ? (calcVariance / calcExpectedCash) * 100 : 0)
+  const calcExpectedCash = sub.expectedCash || 0
+  const calcVariance = sub.variance
+  const calcVariancePct = sub.variancePct
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const locAny = location as any
   const tolerance = realTolerance ?? locAny?.tolerance_pct_override ?? locAny?.effective_tolerance_pct ?? locAny?.tolerance_pct ?? location?.tolerancePct ?? 0.5
