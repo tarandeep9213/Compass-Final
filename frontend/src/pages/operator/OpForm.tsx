@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
-import { createSubmission, updateDraft, submitDraft, getSubmission } from '../../api/submissions'
+import { createSubmission, updateDraft, submitDraft, deleteDraft, getSubmission } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
 import { api } from '../../api/client'
 
@@ -574,9 +574,13 @@ export default function OpForm({ ctx, onNavigate }: Props) {
     }
   }
 
-  function handleDiscard() {
+  async function handleDiscard() {
     if (!window.confirm("Are you sure you want to discard this form? Any unsaved progress will be lost.")) return;
     const targetId = draftId || ctx.submissionId;
+    // Delete the draft from the backend if it exists and is a draft
+    if (targetId && (!editingStatus || editingStatus === 'draft')) {
+      try { await deleteDraft(targetId) } catch { /* ignore — may not be a draft */ }
+    }
     if (targetId) sessionStorage.removeItem(`denom_${targetId}`);
     sessionStorage.removeItem(`excel_prefill_${ctx.locationId}_${ctx.date}`);
     onNavigate(ctx.from || 'op-start');

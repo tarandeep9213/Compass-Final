@@ -33,9 +33,9 @@ export default function OpDrafts({ onNavigate }: Props) {
     try {
       await deleteDraft(id)
       setDeletedIds(prev => [...prev, id])
-    } catch {
-      // fallback for mock mode
-      setDeletedIds(prev => [...prev, id])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete draft.'
+      window.alert(msg)
     }
   }
 
