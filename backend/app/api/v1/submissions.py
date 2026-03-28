@@ -173,7 +173,8 @@ def create_submission(
 
     cfg = _get_config(db)
     tolerance = loc.tolerance_pct_override if loc.tolerance_pct_override is not None else cfg.default_tolerance_pct
-    totals = _calc_totals(body.sections, 0.0, tolerance)
+    expected = loc.expected_cash or 0.0
+    totals = _calc_totals(body.sections, expected, tolerance)
 
     s = Submission(
         location_id=body.location_id,
@@ -185,7 +186,7 @@ def create_submission(
         source=SubmissionSource(body.source),
         sections=body.sections,
         variance_note=body.variance_note,
-        expected_cash=0.0,
+        expected_cash=expected,
         **totals,
     )
     if not body.save_as_draft:

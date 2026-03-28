@@ -1,6 +1,6 @@
 // Base HTTP client — JWT token management + fetch wrapper
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000/v1'
+const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8001/v1'
 
 let _token: string | null = null
 

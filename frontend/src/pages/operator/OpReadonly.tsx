@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { SUBMISSIONS, SUBMISSION_REVIEWS, saveSubmissionReview, getLocation, formatCurrency, todayStr } from '../../mock/data'
+import { SUBMISSION_REVIEWS, saveSubmissionReview, getLocation, formatCurrency, todayStr } from '../../mock/data'
 import type { Submission, SubmissionReview } from '../../mock/data'
 import { getSubmission, approveSubmission, rejectSubmission } from '../../api/submissions'
 import { api } from '../../api/client'
@@ -85,22 +85,21 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   // regardless of prior approval — treated as an independent review (don't pre-populate)
   //const forceReview = ctx.fromPanel === 'ctrl-dashboard' && ctx.expandAction === 'complete'
 
-  const mockSub = SUBMISSIONS.find(s => s.id === ctx.submissionId) ??
-                  SUBMISSIONS.find(s => s.locationId === ctx.locationId && s.date === ctx.date)
   const [apiSub, setApiSub] = useState<Submission | null>(null)
+  const [apiLoading, setApiLoading] = useState(true)
   const [realTolerance, setRealTolerance] = useState<number | null>(null)
 
   useEffect(() => {
     interface ConfigResponse {
-      global?: { default_tolerance_pct?: number };
+      global_config?: { default_tolerance_pct?: number };
       location_overrides?: Array<{ location_id: string; tolerance_pct: number }>;
     }
     api.get<ConfigResponse>('/config').then(conf => {
       const override = conf.location_overrides?.find(o => o.location_id === ctx.locationId)
       if (override && override.tolerance_pct !== undefined) {
         setRealTolerance(override.tolerance_pct)
-      } else if (conf.global && conf.global.default_tolerance_pct !== undefined) {
-        setRealTolerance(conf.global.default_tolerance_pct)
+      } else if (conf.global_config && conf.global_config.default_tolerance_pct !== undefined) {
+        setRealTolerance(conf.global_config.default_tolerance_pct)
       }
     }).catch(() => {})
   }, [ctx.locationId])
@@ -117,7 +116,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   })
 
   useEffect(() => {
-    if (!ctx.submissionId) return
+    if (!ctx.submissionId) { setApiLoading(false); return }
+    setApiLoading(true)
     getSubmission(ctx.submissionId)
       .then(s => {
         const forceUTC = (d?: string | null) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
@@ -161,9 +161,10 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         if (Object.keys(detail).length > 0) setDenomDetail(prev => ({ ...prev, ...detail }))
       })
       .catch(() => { /* keep sessionStorage data */ })
+      .finally(() => setApiLoading(false))
   }, [ctx.submissionId])
 
-  const sub = apiSub ?? mockSub
+  const sub = apiSub
   const location = getLocation(ctx.locationId)
 
   const [localAction, setLocalAction] = useState<'approved' | 'rejected' | null>(null)
@@ -197,6 +198,14 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   })
 
   const isManagerView = ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard' || ctx.fromPanel === 'dgm-dash'
+
+  if (apiLoading) {
+    return (
+      <div className="fade-up">
+        <div className="ph"><div><h2>Loading Submission…</h2></div></div>
+      </div>
+    )
+  }
 
   if (!sub) {
     return (
@@ -341,7 +350,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const calcVariancePct = calcExpectedCash > 0 ? (calcVariance / calcExpectedCash) * 100 : 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const locAny = location as any
-  const tolerance = realTolerance ?? locAny?.tolerance_pct_override ?? locAny?.effective_tolerance_pct ?? locAny?.tolerance_pct ?? location?.tolerancePct ?? 5
+  const tolerance = realTolerance ?? locAny?.tolerance_pct_override ?? locAny?.effective_tolerance_pct ?? locAny?.tolerance_pct ?? location?.tolerancePct ?? 0.5
   const exceedsTolerance = Math.abs(calcVariancePct) > tolerance
   const varColor = Math.abs(calcVariancePct) > 5 ? 'var(--red)' : Math.abs(calcVariancePct) > 2 ? 'var(--amb)' : 'var(--g7)'
 
