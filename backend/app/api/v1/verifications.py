@@ -280,15 +280,39 @@ def miss_controller_visit(
 # DGM VERIFICATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@router.get("/dgm/check-dow", response_model=DowCheckResponse)
-def check_dow_dgm(
+@router.get("/dgm/check-dom", response_model=DowCheckResponse)
+def check_dom_dgm(
     location_id: str = Query(...),
     date: str = Query(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    cfg = _get_config(db)
-    return _check_dow(db, location_id, date, VerificationType.DGM, cfg.dow_lookback_weeks)
+    """Check if this location has been visited on the same day-of-month in the past 3 months."""
+    d = dt_date.fromisoformat(date)
+    dom = d.day
+
+    past = db.query(Verification).filter(
+        Verification.location_id == location_id,
+        Verification.verification_type == VerificationType.DGM,
+        Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
+    ).all()
+
+    # 3-month lookback: warn if same day-of-month visited
+    matching_dates = [
+        v.verification_date for v in past
+        if dt_date.fromisoformat(v.verification_date).day == dom
+        and 0 < (d - dt_date.fromisoformat(v.verification_date)).days <= 92  # ~3 months
+        and v.verification_date != date
+    ]
+
+    warning = len(matching_dates) >= 1
+    return DowCheckResponse(
+        warning=warning,
+        day_name=f"{dom}{'th' if 11 <= dom <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(dom % 10, 'th')}",
+        match_count=len(matching_dates),
+        previous_dates=sorted(matching_dates, reverse=True)[:5],
+        lookback_weeks=13,  # ~3 months
+    )
 
 
 @router.post("/dgm", response_model=VerificationOut, status_code=201)
@@ -308,6 +332,16 @@ def schedule_dgm_visit(
     d = dt_date.fromisoformat(body.date)
     dow = d.weekday()
     month_year = body.date[:7]  # YYYY-MM
+
+    # Monthly block: only 1 visit per location per calendar month
+    existing_in_month = db.query(Verification).filter(
+        Verification.location_id == body.location_id,
+        Verification.verification_type == VerificationType.DGM,
+        Verification.month_year == month_year,
+        Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
+    ).first()
+    if existing_in_month:
+        raise HTTPException(400, f"A DGM visit already exists for this location in {month_year} (on {existing_in_month.verification_date}). Only one visit per month is allowed.")
 
     v = Verification(
         verification_type=VerificationType.DGM,
