@@ -237,16 +237,12 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       return
     }
 
-    {/*if (ctx.fromPanel === 'ctrl-dashboard') {
-      // Re-open the completion panel so the controller can click Confirm Completion
+    if (ctx.fromPanel === 'ctrl-dashboard') {
+      // Re-open the completion panel so the controller lands back in context
       const vid = ctx.visitId || ctx.verificationId
       onNavigate('ctrl-dashboard', vid ? { expandVisitId: vid, expandAction: 'complete' } : {})
       return
-    }*/}
-    if (ctx.fromPanel === 'ctrl-dashboard') {
-        onNavigate('ctrl-dashboard')
-        return
-      }
+    }
     if (ctx.fromPanel === 'dgm-dash') {
       const vid = ctx.visitId || ctx.verificationId
       onNavigate('dgm-dash', vid ? { expandVisitId: vid, expandAction: 'complete' } : {})

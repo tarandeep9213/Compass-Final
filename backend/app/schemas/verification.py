@@ -61,7 +61,7 @@ class ScheduleDgmBody(BaseModel):
 
 
 class CompleteVerificationBody(BaseModel):
-    observed_total: float
+    observed_total: float = 0.0
     signature_data: str
     notes: Optional[str] = None
     dow_warning_reason: Optional[str] = None

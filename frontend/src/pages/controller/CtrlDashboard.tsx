@@ -117,7 +117,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   }
 
   // Complete inline form
-  const [cObs,        setCObs]        = useState('')
+  const [cVisitOutcome, setCVisitOutcome] = useState<'approve' | 'reject' | null>(null)
   const [cNotes,      setCNotes]      = useState('')
   const [cWarnReason, setCWarnReason] = useState('')
   const [cSig,        setCSig]        = useState('')
@@ -245,7 +245,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
   function closeExpand() {
     setExpandedId(null); setExpandAction(null)
-    setCObs(''); setCNotes(''); setCWarnReason(''); setCSig(''); setCErrors({})
+    setCVisitOutcome(null); setCNotes(''); setCWarnReason(''); setCSig(''); setCErrors({})
     setMReason(''); setMNotes(''); setMErrors({})
   }
 
@@ -358,27 +358,26 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   // ── Handle Complete ──────────────────────────────────────────────────────
   async function handleComplete(id: string) {
     const e: Record<string, string> = {}
-    
-    // 1. Check if the submission is approved
-    const rec = allRecords.find(r => r.id === id)
-    if (rec && getSubStatus(rec.locationId, rec.date) !== 'approved') {
-      e.approval = "The submission must be approved before confirming visit completion. Please open the form using 'View' and approve it first."
-    }
 
-    // Fallback to 0 so we don't throw NaN validation errors when the input is hidden
-    const obs = Number(cObs) || 0 
-
+    if (!cVisitOutcome)                   e.outcome = 'Please select a visit outcome.'
     if (dowWarning && !cWarnReason)       e.warn = 'Please select a reason to proceed.'
     if (!cSig)                            e.sig  = 'Please sign before confirming.'
     if (Object.keys(e).length) { setCErrors(e); return }
 
+    const outcomeNote = cVisitOutcome === 'approve' ? '[VISIT APPROVED]' : '[VISIT REJECTED]'
+    const fullNotes = [outcomeNote, cNotes.trim()].filter(Boolean).join(' — ')
+
     try {
-      await completeControllerVisit(id, { observed_total: obs, signature_data: cSig, notes: cNotes.trim() || undefined })
-    } catch { /* demo mode — fall back to local session update */ }
+      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
+      setCErrors({ api: msg })
+      return
+    }
 
     setSessionUpdates(prev => ({
       ...prev,
-      [id]: { status: 'completed', observedTotal: obs, notes: cNotes.trim(), warningFlag: !!dowWarning, signatureData: cSig },
+      [id]: { status: 'completed', observedTotal: 0, notes: fullNotes, warningFlag: !!dowWarning, signatureData: cSig },
     }))
     closeExpand()
   }
@@ -771,7 +770,12 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                       </tr>
 
                       {/* ── Expand: Complete Visit ── */}
-                      {isExpanded && expandAction === 'complete' && (
+                      {isExpanded && expandAction === 'complete' && (() => {
+                        const subStatus = getSubStatus(v.locationId, v.date)
+                        const subApproved = subStatus === 'approved'
+                        const canConfirm = subApproved && !!cVisitOutcome && !!cSig
+
+                        return (
                         <tr>
                           <td colSpan={8} style={{ padding: 0, borderBottom: '1px solid var(--ow2)' }}>
                             <div style={{
@@ -785,187 +789,177 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                 </span>
                               </div>
 
-                              {/* DOW warning */}
-                              {dowWarning && (
+                              {/* Gate: submission must be approved in Daily Review first */}
+                              {!subApproved && (
                                 <div style={{
-                                  background: 'var(--amb-bg)', border: '1px solid #fcd34d',
-                                  borderRadius: 8, padding: '12px 16px',
+                                  background: '#fff5f5', border: '1px solid #fca5a5',
+                                  borderRadius: 8, padding: '16px 20px',
                                 }}>
-                                  <div style={{ fontWeight: 700, fontSize: 12, color: '#92400e', marginBottom: 4 }}>
-                                    ⚠️ Day-of-week pattern detected
+                                  <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>
+                                    🔒 Submission not yet approved
                                   </div>
-                                  <div style={{ fontSize: 12, color: 'var(--td)', marginBottom: 10, lineHeight: 1.55 }}>
-                                    This location was verified on a <strong>{dowWarning.dayLabel}</strong> as recently
-                                    as <strong>{dowWarning.lastDate}</strong>
-                                    {dowWarning.count > 1 ? ` (${dowWarning.count}× in past 6 weeks)` : ''}.
-                                    Consider varying the day of visit to maintain unpredictable patterns.
+                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55, marginBottom: 12 }}>
+                                    The operator's cash count submission must be <strong>approved</strong> in the Daily Review Dashboard before this visit can be completed.
+                                    {subStatus === 'pending_approval' && ' The submission is currently pending your review.'}
+                                    {subStatus === 'rejected' && ' The submission was rejected — the operator needs to resubmit.'}
+                                    {!subStatus && ' The operator has not yet submitted a cash count for this date.'}
                                   </div>
-                                  <select
-                                    className="f-inp"
-                                    value={cWarnReason}
-                                    onChange={e => { setCWarnReason(e.target.value); setCErrors(p => ({ ...p, warn: '' })) }}
-                                    style={{ fontSize: 12, width: 360 }}
-                                  >
-                                    <option value="">— Select reason to proceed —</option>
-                                    <option value="operational">Operational necessity — only available day</option>
-                                    <option value="requested">Requested by location / area management</option>
-                                    <option value="followup">Follow-up visit after a discrepancy</option>
-                                    <option value="other">Other (documented separately)</option>
-                                  </select>
-                                  {cErrors.warn && (
-                                    <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>{cErrors.warn}</div>
-                                  )}
+                                  <button className="btn btn-outline" style={{ fontSize: 12 }}
+                                    onClick={() => onNavigate('ctrl-dashboard')}>
+                                    ← Go to Daily Review
+                                  </button>
                                 </div>
                               )}
 
-                              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'stretch' }}>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                  {(() => {
-                                    const st = getSubStatus(v.locationId, v.date)
-                                    if (!st) return (
-                                      <span style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>
-                                        ⏳ Waiting for operator to submit
-                                      </span>
-                                    )
-                                    return (
-                                      <>
-                                        <button className="btn btn-ghost"
-                                          style={{ fontSize: 11, padding: '6px 12px', height: 'fit-content' }}
-                                          onClick={() => onNavigate('op-readonly', {
-                                            locationId: v.locationId,
-                                            date: v.date,
-                                            submissionId: getSubId(v.locationId, v.date) ?? '',
-                                            visitId: v.id,
-                                            fromPanel: 'ctrl-dashboard',
-                                            expandVisitId: v.id,
-                                            expandAction: 'complete'
-                                          })}>
-                                          👁 View & Approve
-                                        </button>
-                                        {st === 'approved' && <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Approved</span>}
-                                        {st === 'rejected' && <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Rejected</span>}
-                                        {st === 'pending_approval' && <span style={{ fontSize: 11, color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Pending approval</span>}
-                                      </>
-                                    )
-                                  })()}
-                                </div>
-                                {/* Observed total
-                                <div style={{ flex: '0 0 220px' }}>
-                                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 5 }}>
-                                    Observed Total Cash *
-                                  </label>
-                                  <div style={{ position: 'relative' }}>
-                                    <span style={{
-                                      position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                                      fontSize: 13, fontWeight: 600, color: 'var(--ts)', pointerEvents: 'none',
-                                    }}>$</span>
-                                    <input
-                                      type="number"
-                                      className="f-inp"
-                                      placeholder="0.00"
-                                      value={cObs}
-                                      min={0}
-                                      step={0.01}
-                                      onChange={e => { setCObs(e.target.value); setCErrors(p => ({ ...p, obs: '' })) }}
-                                      style={{ paddingLeft: 24, width: '100%' }}
-                                    />
+                              {/* Full completion form — only when submission is approved */}
+                              {subApproved && (
+                                <>
+                                  {/* Visit Verification Decision (inline) */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 8 }}>
+                                      Visit Outcome *
+                                    </label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                      <button
+                                        onClick={() => { setCVisitOutcome('approve'); setCErrors(p => ({ ...p, outcome: '' })) }}
+                                        style={{
+                                          padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                                          cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s',
+                                          border: cVisitOutcome === 'approve' ? '2px solid var(--g4)' : '1.5px solid var(--ow2)',
+                                          background: cVisitOutcome === 'approve' ? 'var(--g7)' : '#fff',
+                                          color: cVisitOutcome === 'approve' ? '#fff' : 'var(--g7)',
+                                        }}
+                                      >
+                                        ✓ Approve
+                                      </button>
+                                      <button
+                                        onClick={() => { setCVisitOutcome('reject'); setCErrors(p => ({ ...p, outcome: '' })) }}
+                                        style={{
+                                          padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                                          cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s',
+                                          border: cVisitOutcome === 'reject' ? '2px solid #fca5a5' : '1.5px solid var(--ow2)',
+                                          background: cVisitOutcome === 'reject' ? 'var(--red)' : '#fff',
+                                          color: cVisitOutcome === 'reject' ? '#fff' : 'var(--red)',
+                                        }}
+                                      >
+                                        ✗ Reject
+                                      </button>
+                                    </div>
+                                    {cErrors.outcome && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{cErrors.outcome}</div>}
                                   </div>
-                                  {cErrors.obs && (
-                                    <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>{cErrors.obs}</div>
-                                  )}
-                                  {liveVariance && (() => {
-                                    const c = Math.abs(liveVariance.pct) > 5 ? 'var(--red)'
-                                            : Math.abs(liveVariance.pct) > 2 ? 'var(--amb)' : 'var(--g7)'
-                                    return (
-                                      <div style={{ fontSize: 11, color: c, marginTop: 5, fontWeight: 500 }}>
-                                        Variance:&nbsp;
-                                        {liveVariance.v >= 0 ? '+' : ''}{formatCurrency(liveVariance.v)}&nbsp;
-                                        ({liveVariance.pct >= 0 ? '+' : ''}{liveVariance.pct.toFixed(2)}%)
+
+                                  {/* DOW warning */}
+                                  {dowWarning && (
+                                    <div style={{
+                                      background: 'var(--amb-bg)', border: '1px solid #fcd34d',
+                                      borderRadius: 8, padding: '12px 16px',
+                                    }}>
+                                      <div style={{ fontWeight: 700, fontSize: 12, color: '#92400e', marginBottom: 4 }}>
+                                        ⚠️ Day-of-week pattern detected
                                       </div>
-                                    )
-                                  })()}
-                                </div>*/}
+                                      <div style={{ fontSize: 12, color: 'var(--td)', marginBottom: 10, lineHeight: 1.55 }}>
+                                        This location was verified on a <strong>{dowWarning.dayLabel}</strong> as recently
+                                        as <strong>{dowWarning.lastDate}</strong>
+                                        {dowWarning.count > 1 ? ` (${dowWarning.count}× in past 2 weeks)` : ''}.
+                                      </div>
+                                      <select
+                                        className="f-inp"
+                                        value={cWarnReason}
+                                        onChange={e => { setCWarnReason(e.target.value); setCErrors(p => ({ ...p, warn: '' })) }}
+                                        style={{ fontSize: 12, width: 360 }}
+                                      >
+                                        <option value="">— Select reason to proceed —</option>
+                                        <option value="operational">Operational necessity — only available day</option>
+                                        <option value="requested">Requested by location / area management</option>
+                                        <option value="followup">Follow-up visit after a discrepancy</option>
+                                        <option value="other">Other (documented separately)</option>
+                                      </select>
+                                      {cErrors.warn && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>{cErrors.warn}</div>}
+                                    </div>
+                                  )}
 
-                                {/* Notes */}
-                                <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column' }}>
-                                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 5 }}>
-                                    Notes <span style={{ fontWeight: 400, color: 'var(--ts)' }}>(optional)</span>
-                                  </label>
-                                  <textarea
-                                    className="f-inp"
-                                    placeholder="e.g. All sections verified. Minor coin discrepancy in Section B."
-                                    value={cNotes}
-                                    onChange={e => setCNotes(e.target.value)}
-                                    style={{ width: '100%', height: 80, resize: 'none', fontSize: 12, flexGrow: 1 }}
-                                  />
-                                </div>
+                                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'stretch' }}>
+                                    {/* Notes */}
+                                    <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column' }}>
+                                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 5 }}>
+                                        Notes <span style={{ fontWeight: 400, color: 'var(--ts)' }}>(optional)</span>
+                                      </label>
+                                      <textarea
+                                        className="f-inp"
+                                        placeholder="e.g. All sections verified. Minor coin discrepancy in Section B."
+                                        value={cNotes}
+                                        onChange={e => setCNotes(e.target.value)}
+                                        style={{ width: '100%', height: 80, resize: 'none', fontSize: 12, flexGrow: 1 }}
+                                      />
+                                    </div>
 
-                                {/* Digital Signature */}
-                                <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)' }}>Digital Signature *</label>
+                                    {/* Digital Signature */}
+                                    <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)' }}>Digital Signature *</label>
+                                        <button type="button" onClick={clearSig}
+                                          style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--ow2)', background: '#fff', color: 'var(--ts)', cursor: 'pointer', fontFamily: 'inherit' }}
+                                        >Clear</button>
+                                      </div>
+                                      <div style={{ position: 'relative', height: 80, flexGrow: 1 }}>
+                                        <canvas
+                                          ref={cSigRef}
+                                          width={240} height={80}
+                                          onMouseDown={sigMouseDown} onMouseMove={sigMouseMove}
+                                          onMouseUp={sigEnd} onMouseLeave={sigEnd}
+                                          onTouchStart={sigTouchStart} onTouchMove={sigTouchMove} onTouchEnd={sigEnd}
+                                          style={{
+                                            display: 'block', width: '100%', height: 80,
+                                            border: `1px dashed ${cErrors.sig ? 'var(--red)' : 'var(--g3)'}`,
+                                            borderRadius: 6, background: '#fff',
+                                            cursor: 'crosshair', touchAction: 'none',
+                                          }}
+                                        />
+                                        {!cSig && (
+                                          <div style={{
+                                            position: 'absolute', inset: 0, display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center',
+                                            pointerEvents: 'none', fontSize: 11, color: '#bbb', userSelect: 'none',
+                                          }}>
+                                            Sign here
+                                          </div>
+                                        )}
+                                      </div>
+                                      {cErrors.sig && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>{cErrors.sig}</div>}
+                                    </div>
+                                  </div>
+
+                                  {/* Confirm button + helper */}
+                                  {cErrors.api && (
+                                    <div style={{ fontSize: 11, color: 'var(--red)', fontWeight: 500 }}>{cErrors.api}</div>
+                                  )}
+
+                                  {!canConfirm && (
+                                    <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>
+                                      Please select a visit outcome and sign before confirming.
+                                    </div>
+                                  )}
+
+                                  <div style={{ display: 'flex', gap: 8 }}>
                                     <button
-                                      type="button"
-                                      onClick={clearSig}
-                                      style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--ow2)', background: '#fff', color: 'var(--ts)', cursor: 'pointer', fontFamily: 'inherit' }}
-                                    >Clear</button>
+                                      className="btn btn-primary"
+                                      style={{ fontSize: 12, padding: '7px 20px', opacity: canConfirm ? 1 : 0.5 }}
+                                      onClick={() => handleComplete(v.id)}
+                                      disabled={!canConfirm}
+                                    >
+                                      ✓ Confirm Completion
+                                    </button>
+                                    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>
+                                      Cancel
+                                    </button>
                                   </div>
-                                  <div style={{ position: 'relative', height: 80, flexGrow: 1 }}>
-                                    <canvas
-                                      ref={cSigRef}
-                                      width={240} height={80}
-                                      onMouseDown={sigMouseDown}
-                                      onMouseMove={sigMouseMove}
-                                      onMouseUp={sigEnd}
-                                      onMouseLeave={sigEnd}
-                                      onTouchStart={sigTouchStart}
-                                      onTouchMove={sigTouchMove}
-                                      onTouchEnd={sigEnd}
-                                      style={{
-                                        display: 'block', width: '100%', height: 80,
-                                        border: `1px dashed ${cErrors.sig ? 'var(--red)' : 'var(--g3)'}`,
-                                        borderRadius: 6, background: '#fff',
-                                        cursor: 'crosshair', touchAction: 'none',
-                                      }}
-                                    />
-                                    {!cSig && (
-                                      <div style={{
-                                        position: 'absolute', inset: 0, display: 'flex',
-                                        alignItems: 'center', justifyContent: 'center',
-                                        pointerEvents: 'none', fontSize: 11, color: '#bbb', userSelect: 'none',
-                                      }}>
-                                        Sign here
-                                      </div>
-                                    )}
-                                  </div>
-                                  {cErrors.sig && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>{cErrors.sig}</div>}
-                                </div>
-                              </div>
-
-                              {/* Validation Error Message */}
-                              {cErrors.approval && (
-                                <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: -10, fontWeight: 500 }}>
-                                  {cErrors.approval}
-                                </div>
+                                </>
                               )}
-
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                <button
-                                  className="btn btn-primary"
-                                  style={{ fontSize: 12, padding: '7px 20px' }}
-                                  onClick={() => handleComplete(v.id)}
-                                >
-                                  ✓ Confirm Completion
-                                </button>
-                                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>
-                                  Cancel
-                                </button>
-                              </div>
                             </div>
                           </td>
                         </tr>
-                      )}
+                        )
+                      })()}
 
                       {/* ── Expand: Mark Missed ── */}
                       {isExpanded && expandAction === 'miss' && (
