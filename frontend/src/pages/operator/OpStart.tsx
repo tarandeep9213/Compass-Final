@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
-  SUBMISSIONS, DRAFTS, formatCurrency, IMPREST, todayStr, EXPLAINED_MISSED,
+  SUBMISSIONS, formatCurrency, IMPREST, todayStr, EXPLAINED_MISSED,
 } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
@@ -112,8 +112,8 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
   }, [apiSubs])
 
   // ── Today ──────────────────────────────────────────────────────────────
-  const todaySub = sourceSubs.find(s => s.locationId === locationId && s.date === todayStr())
-  const todayDraft = DRAFTS.find(d => d.locationId === locationId && d.date === todayStr())
+  const todaySub = sourceSubs.find(s => s.locationId === locationId && s.date === todayStr() && s.status !== 'draft')
+  const todayDraft = sourceSubs.find(s => s.locationId === locationId && s.date === todayStr() && s.status === 'draft')
   const todaySubmitted = !!todaySub
 
   // ── Build history rows (last 90 days, including today) ──
@@ -206,7 +206,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
-  const draftCount = DRAFTS.length
+  const draftCount = sourceSubs.filter(s => s.status === 'draft').length
 
   return (
     <div className="fade-up">
@@ -335,7 +335,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ts)', marginBottom: 4 }}>Draft In Progress</div>
                 <div style={{ fontFamily: 'DM Serif Display,serif', fontSize: 20, marginBottom: 4 }}>
-                  {formatCurrency(todayDraft.totalSoFar)} counted so far
+                  {formatCurrency(todayDraft.totalCash)} counted so far
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--ts)' }}>Not yet submitted for approval</div>
               </div>
