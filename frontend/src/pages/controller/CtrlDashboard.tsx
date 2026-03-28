@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
-import { VERIFICATIONS, SUBMISSIONS, formatCurrency, IMPREST, getLocation } from '../../mock/data'
+import { formatCurrency, IMPREST, getLocation } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
 import { listControllerVerifications, completeControllerVisit, missControllerVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
@@ -224,29 +224,20 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     }
   }, [locationIds, locIdsJoined]) 
 
-  // Helper function to get submission status dynamically
+  // Helper function to get submission status from API data
   function getSubStatus(locId: string, date: string): string | null {
     const key = `${locId}_${date}`
-    if (apiSubsMap[key]) return apiSubsMap[key].status
-    const mockSub = SUBMISSIONS.find(s => s.locationId === locId && s.date === date)
-    if (mockSub) {
-      const override = sessionStorage.getItem(`op_status_${mockSub.id}`) || sessionStorage.getItem(`op_status_${locId}_${date}`)
-      if (override) return override
-      return mockSub.status
-    }
-    return null
+    return apiSubsMap[key]?.status ?? null
   }
 
   function getSubId(locId: string, date: string): string | undefined {
     const key = `${locId}_${date}`
-    if (apiSubsMap[key]) return apiSubsMap[key].id
-    return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.id
+    return apiSubsMap[key]?.id
   }
 
   function getSubTotalCash(locId: string, date: string): number | null {
     const key = `${locId}_${date}`
-    if (apiSubsMap[key]) return apiSubsMap[key].totalCash
-    return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.totalCash ?? null
+    return apiSubsMap[key]?.totalCash ?? null
   }
 
   // FIX: Removed useEffect to prevent cascading render errors. Resetting state happens inside the click/change handlers now.
@@ -265,7 +256,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     setExpandAction(action)
   }
 
-  const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS.filter(v => v.type === 'controller' && locationIds.includes(v.locationId))
+  const sourceVerifs = apiVerifs
 
   // All controller records for my locations, merged with session overrides
   const allRecords = useMemo<VerificationRecord[]>(() =>

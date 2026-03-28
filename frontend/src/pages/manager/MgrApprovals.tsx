@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
-import { SUBMISSIONS, getLocation, formatCurrency, IMPREST } from '../../mock/data'
-import type { Submission, SubmissionReview } from '../../mock/data'
+import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
+import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
 import type { ApiSubmission, ApiLocation } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 
 function mapApiSub(s: ApiSubmission): Submission {
   return {
@@ -71,15 +70,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
   useEffect(() => {
     listLocations().then(setApiLocations).catch(() => {})
   }, [])
-  // Load persisted submission reviews from localStorage
-  const [reviews] = useState<Record<string, SubmissionReview>>(() => {
-    try {
-      const raw = localStorage.getItem('compass_submission_reviews')
-      return raw ? JSON.parse(raw) : {}
-    } catch { return {} }
-  })
-
-  // API-fetched submissions — overlay over mock data
+  // API-fetched submissions
   const [apiSubs, setApiSubs] = useState<Submission[]>([])
   useEffect(() => {
     const key = locationIds.join(',')
@@ -101,7 +92,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
   }, [dateRange])
 
   const sourceSubs = useMemo(() => {
-    const base = apiSubs.length > 0 ? apiSubs : SUBMISSIONS
+    const base = apiSubs
     return base.map(s => {
       const loc = getLocation(s.locationId)
       const expCash = Number(s.expectedCash || (loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
@@ -118,10 +109,9 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
     ),
   [sourceSubs, locationIds, locationFilter])
 
-  // Effective status: pending_approval from recent resubmit takes precedence over stale reviews
+  // Use API status as source of truth
   const effectiveStatus = (s: Submission): 'draft' | 'pending_approval' | 'approved' | 'rejected' => {
-    if (s.status === 'pending_approval') return 'pending_approval'
-    return (reviews[s.id]?.outcome ?? s.status) as 'draft' | 'pending_approval' | 'approved' | 'rejected'
+    return s.status as 'draft' | 'pending_approval' | 'approved' | 'rejected'
   }
 
   // Pending always shown (regardless of date range — they need action)
@@ -147,7 +137,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allMgrSubs, statusFilter, cutoff, reviews])
+  }, [allMgrSubs, statusFilter, cutoff])
 
   // ── KPI calculations ────────────────────────────────────────────────────
   const pendingRows   = allMgrSubs.filter(s => effectiveStatus(s) === 'pending_approval')
@@ -382,8 +372,6 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
                   const loc     = apiLocations.find(l => l.id === sub.locationId)
                   const eff     = effectiveStatus(sub)
                   const isOver  = eff === 'pending_approval' && Date.now() - new Date(sub.submittedAt).getTime() > 48 * 3600000
-                  const review  = eff === 'pending_approval' ? null : (reviews[sub.id] ?? null)
-
                   const expCash = sub.expectedCash || loc?.expected_cash || 0
                   const calcVariance = sub.totalCash - expCash
                   const calcVariancePct = expCash > 0 ? (calcVariance / expCash) * 100 : 0
@@ -425,34 +413,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
                           </div>
                         </td>
                         <td>
-                          {review ? (
-                            // Has a completed review — show badge + action button
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                {review.outcome === 'approved'
-                                  ? <span className="badge badge-green"><span className="bdot" />Approved</span>
-                                  : <span className="badge badge-red"><span className="bdot" />Rejected</span>}
-                                <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}
-                                  onClick={goReview}>
-                                  View →
-                                </button>
-                              </div>
-                              {review.outcome === 'rejected' && (() => {
-                                const rejSecs = SECTIONS.filter(k => review.sections[k]?.decision === 'reject')
-                                return rejSecs.length > 0 ? (
-                                  <div style={{ fontSize: 11, color: 'var(--red)', maxWidth: 220 }}>
-                                    {/* {rejSecs.map(k => (
-                                       <span key={k} title={review.sections[k]?.note}
-                                        style={{ marginRight: 6, cursor: review.sections[k]?.note ? 'help' : 'default' }}>
-                                        §{k}{review.sections[k]?.note ? '*' : ''}
-                                      </span>
-                                    ))}
-                                     <span style={{ color: 'var(--ts)', fontStyle: 'italic' }}>(hover for notes)</span> */}
-                                  </div>
-                                ) : null
-                              })()}
-                            </div>
-                          ) : eff === 'pending_approval' ? (
+                          {eff === 'pending_approval' ? (
                             // No review yet — show Complete Review button
                             <button className="btn btn-primary" style={{ fontSize: 12, padding: '5px 16px' }}
                               onClick={goReview}>

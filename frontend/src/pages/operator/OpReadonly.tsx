@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
-import { SUBMISSION_REVIEWS, saveSubmissionReview, getLocation, formatCurrency, todayStr } from '../../mock/data'
-import type { Submission, SubmissionReview } from '../../mock/data'
+import { useState, useEffect } from 'react'
+import { getLocation, formatCurrency, todayStr } from '../../mock/data'
+import type { Submission } from '../../mock/data'
 import { getSubmission, approveSubmission, rejectSubmission } from '../../api/submissions'
 import { api } from '../../api/client'
 import KpiCard from '../../components/KpiCard'
@@ -172,30 +172,12 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const [verifyChecked, setVerifyChecked] = useState(false)
   const [dgmVerified, setDgmVerified] = useState(() => sessionStorage.getItem(`dgm_verified_${ctx.visitId}`) === 'true')
 
-  // Load existing review for pre-populating section decisions (same-day editing)
-  const existingReview: SubmissionReview | null = useMemo(() => {
-    const id = ctx.submissionId
-    if (!id) return null
-    return SUBMISSION_REVIEWS[id] ?? null
-  }, [ctx.submissionId])
-
-  const [secDecisions, setSecDecisions] = useState<Record<string, 'accept' | 'reject' | null>>(() => {
-    // forceReview = independent fresh review; never pre-populate from previous decision
-    //if (!forceReview && ctx.submissionId) {
-      if (ctx.submissionId) {
-      const rev = SUBMISSION_REVIEWS[ctx.submissionId]
-      if (rev) return Object.fromEntries(SECTIONS.map(k => [k, rev.sections[k]?.decision ?? null]))
-    }
-    return Object.fromEntries(SECTIONS.map(k => [k, null]))
-  })
-  const [secNotes, setSecNotes] = useState<Record<string, string>>(() => {
-    //if (!forceReview && ctx.submissionId) {
-      if (ctx.submissionId) {
-      const rev = SUBMISSION_REVIEWS[ctx.submissionId]
-      if (rev) return Object.fromEntries(SECTIONS.map(k => [k, rev.sections[k]?.note ?? '']))
-    }
-    return Object.fromEntries(SECTIONS.map(k => [k, '']))
-  })
+  const [secDecisions, setSecDecisions] = useState<Record<string, 'accept' | 'reject' | null>>(
+    () => Object.fromEntries(SECTIONS.map(k => [k, null]))
+  )
+  const [secNotes, setSecNotes] = useState<Record<string, string>>(
+    () => Object.fromEntries(SECTIONS.map(k => [k, '']))
+  )
 
   const isManagerView = ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard' || ctx.fromPanel === 'dgm-dash'
 
@@ -249,21 +231,11 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         const rejectNote = Object.values(sections).find(s => s.decision === 'reject')?.note ?? 'Rejected by controller.'
         await rejectSubmission(sub.id, { reason: rejectNote })
       }
-    } catch {
-      // Fall back to local-only if API unreachable
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit review.'
+      window.alert(msg)
+      return
     }
-
-    saveSubmissionReview({
-      submissionId: sub.id,
-      outcome,
-      reviewedAt: new Date().toISOString(),
-      reviewedBy: ctx.reviewedBy ?? 'Controller',
-      sections,
-    })
-
-    // Update session storage override so the dashboard sees the new status immediately
-    sessionStorage.setItem(`op_status_${sub.id}`, outcome)
-    sessionStorage.setItem(`op_status_${sub.locationId}_${sub.date}`, outcome)
 
     {/*if (ctx.fromPanel === 'ctrl-dashboard') {
       // Re-open the completion panel so the controller can click Confirm Completion
@@ -545,43 +517,24 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         />
       </div>
 
-      {/* Controller review breakdown (View mode) */}
-      {!showSecReview && existingReview && existingReview.outcome === sub.status && (
+      {/* Controller review result (from API status) */}
+      {!showSecReview && (effStatus === 'approved' || effStatus === 'rejected') && sub.approvedByName && (
         <div className="card" style={{ marginBottom: 18 }}>
           <div className="card-header">
             <span className="card-title">Controller Review</span>
-            <span className={`badge ${existingReview.outcome === 'approved' ? 'badge-green' : 'badge-red'}`}>
-              <span className="bdot" />{existingReview.outcome}
+            <span className={`badge ${effStatus === 'approved' ? 'badge-green' : 'badge-red'}`}>
+              <span className="bdot" />{effStatus === 'approved' ? 'Approved' : 'Rejected'}
             </span>
           </div>
-          <div className="card-body" style={{ padding: 0 }}>
-            <table className="dt" style={{ fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 100 }}>Section</th>
-                  <th style={{ width: 120 }}>Decision</th>
-                  <th>Comment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {SECTIONS.map(k => {
-                  const rev = existingReview.sections[k]
-                  return (
-                    <tr key={k} style={{ background: rev?.decision === 'reject' ? '#fff5f5' : undefined }}>
-                      <td style={{ fontWeight: 600 }}>Section {k}</td>
-                      <td>
-                        {rev?.decision === 'accept'
-                          ? <span style={{ color: 'var(--g7)', fontWeight: 600 }}>✓ Accepted</span>
-                          : <span style={{ color: 'var(--red)', fontWeight: 600 }}>✗ Rejected</span>}
-                      </td>
-                      <td style={{ fontSize: 12, color: rev?.decision === 'reject' ? 'var(--red)' : 'var(--ts)' }}>
-                        {rev?.note || '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="card-body">
+            <div style={{ fontSize: 13, color: 'var(--td)' }}>
+              <strong>Reviewed by:</strong> {sub.approvedByName}
+            </div>
+            {sub.rejectionReason && (
+              <div style={{ fontSize: 13, color: 'var(--red)', marginTop: 8 }}>
+                <strong>Reason:</strong> {sub.rejectionReason}
+              </div>
+            )}
           </div>
         </div>
       )}
