@@ -44,16 +44,22 @@ function createCashroomExcel(): string {
   ws['E11'] = { v: 0,  t: 'n' }  // nickels
   ws['E12'] = { v: 0,  t: 'n' }  // pennies
 
-  // Section C: Coins in Counting Machines (col H = No.1, col I = No.2, rows 8–13)
+  // Section C: Coins in Counting Machines (col I = No.1, col K = No.2, rows 8–13)
   for (let r = 8; r <= 13; r++) {
-    ws[`H${r}`] = { v: 0, t: 'n' }
     ws[`I${r}`] = { v: 0, t: 'n' }
+    ws[`K${r}`] = { v: 0, t: 'n' }
   }
 
-  // Section D: Bagged Coin (col L, rows 8–13)
-  for (let r = 8; r <= 13; r++) {
+  // Section C totals (col L)
+  for (let r = 8; r <= 14; r++) {
     ws[`L${r}`] = { v: 0, t: 'n' }
   }
+
+  // Section D: Bagged Coin (col B = bag count, col C = totals, rows 19–22)
+  ws['B19'] = { v: 0, t: 'n' }
+  ws['B20'] = { v: 0, t: 'n' }
+  ws['B21'] = { v: 0, t: 'n' }
+  ws['B22'] = { v: 0, t: 'n' }
 
   // Sections E–I: zeros
   // E (rows 18–27, cols B/C/E/F)
@@ -63,7 +69,21 @@ function createCashroomExcel(): string {
   // I rows 42–43
   // The parser handles missing cells gracefully (returns 0)
 
-  ws['!ref'] = 'A1:M50'
+  // Section totals (col L, rows 40–50) — must match what parser reads
+  ws['L40'] = { v: 7500, t: 'n' }  // A: Currency
+  ws['L41'] = { v: 75,   t: 'n' }  // B: Rolled Coin
+  ws['L42'] = { v: 0,    t: 'n' }  // C: Coins in Machines
+  ws['L43'] = { v: 0,    t: 'n' }  // D: Bagged Coin
+  ws['L44'] = { v: 0,    t: 'n' }  // E: Unissued Changers
+  ws['L45'] = { v: 0,    t: 'n' }  // F: Uncounted/Returned
+  ws['L46'] = { v: 0,    t: 'n' }  // G: Mutilated
+  ws['L49'] = { v: 0,    t: 'n' }  // H: Outstanding Funds
+  ws['L50'] = { v: 0,    t: 'n' }  // I: Net Unreimbursed
+
+  // Total Cash (L48)
+  ws['L48'] = { v: 7575, t: 'n' }
+
+  ws['!ref'] = 'A1:M56'
 
   XLSX.utils.book_append_sheet(wb, ws, 'CashRoom Form')
 

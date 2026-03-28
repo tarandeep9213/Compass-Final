@@ -23,6 +23,7 @@ interface ExcelPrefill {
   totalFund: number
   fileName: string
   holdover?: number
+  replenishment?: number
   coinTransit?: number
   varianceNote?: string
 }
@@ -199,15 +200,15 @@ export default function OpForm({ ctx, onNavigate }: Props) {
 
     // Fetch config to get the exact admin-set tolerance override
     interface ConfigResponse {
-      global?: { default_tolerance_pct?: number };
+      global_config?: { default_tolerance_pct?: number };
       location_overrides?: Array<{ location_id: string; tolerance_pct: number }>;
     }
     api.get<ConfigResponse>('/config').then(conf => {
       const override = conf.location_overrides?.find(o => o.location_id === ctx.locationId)
       if (override && override.tolerance_pct !== undefined) {
         setRealTolerance(override.tolerance_pct)
-      } else if (conf.global && conf.global.default_tolerance_pct !== undefined) {
-        setRealTolerance(conf.global.default_tolerance_pct)
+      } else if (conf.global_config && conf.global_config.default_tolerance_pct !== undefined) {
+        setRealTolerance(conf.global_config.default_tolerance_pct)
       }
     }).catch(() => {})
   }, [ctx.locationId])
@@ -313,8 +314,9 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const [hVal,       setHVal]       = useState(() => { const pf = getExcelPrefill(ctx); return pf?.denomDetail.H?.value      ? String(pf.denomDetail.H.value)      : '' })
   const [iYest,      setIYest]      = useState(() => { const pf = getExcelPrefill(ctx); return pf?.denomDetail.I?.yesterday  ? String(pf.denomDetail.I.yesterday)  : '' })
   const [iToday,     setIToday]     = useState(() => { const pf = getExcelPrefill(ctx); return pf?.denomDetail.I?.today      ? String(pf.denomDetail.I.today)      : '' })
-  const [holdover,   setHoldover]   = useState(() => { const pf = getExcelPrefill(ctx); return pf?.holdover !== undefined ? String(pf.holdover) : '' })
-  const [coinTransit,setCoinTransit]= useState(() => { const pf = getExcelPrefill(ctx); return pf?.coinTransit !== undefined ? String(pf.coinTransit) : '' })
+  const [holdover,     setHoldover]    = useState(() => { const pf = getExcelPrefill(ctx); return pf?.holdover !== undefined ? String(pf.holdover) : '' })
+  const [replenishment,setReplenishment]= useState(() => { const pf = getExcelPrefill(ctx); return pf?.replenishment !== undefined ? String(pf.replenishment) : '' })
+  const [coinTransit,  setCoinTransit] = useState(() => { const pf = getExcelPrefill(ctx); return pf?.coinTransit !== undefined ? String(pf.coinTransit) : '' })
   const [varianceNote, setVarianceNote] = useState(() => { const pf = getExcelPrefill(ctx); return pf?.varianceNote ? String(pf.varianceNote) : '' })
   const [submitError,  setSubmitError]  = useState('')
   const [submitting,   setSubmitting]   = useState(false)
@@ -407,6 +409,9 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       if (s.holdover !== undefined && s.holdover !== null) {
         setHoldover(prev => prev === '' ? String(s.holdover) : prev)
       }
+      if (s.replenishment !== undefined && s.replenishment !== null) {
+        setReplenishment(prev => prev === '' ? String(s.replenishment) : prev)
+      }
       if (s.coin_transit !== undefined && s.coin_transit !== null) {
         setCoinTransit(prev => prev === '' ? String(s.coin_transit) : prev)
       }
@@ -440,13 +445,14 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const totG        = (parseFloat(gCurr) || 0) + (parseFloat(gCoin) || 0)
   const totH        = parseFloat(hVal) || 0
   const totI        = (parseFloat(iYest) || 0) + (parseFloat(iToday) || 0)
-  const holdoverAmt = parseFloat(holdover) || 0
-  const coinTransAmt= parseFloat(coinTransit) || 0
-  const totalCash   = totA + totB + totC + totD + totE + totF + totG - holdoverAmt
-  const totalFund   = totalCash + totH + totI + coinTransAmt
+  const holdoverAmt    = parseFloat(holdover) || 0
+  const replenishAmt   = parseFloat(replenishment) || 0
+  const coinTransAmt   = parseFloat(coinTransit) || 0
+  const totalCash      = totA + totB + totC + totD + totE + totF + totG - holdoverAmt
+  const totalFund      = totalCash + totH + totI + replenishAmt + coinTransAmt
 
   const expectedCash = location?.expected_cash ?? location?.expectedCash ?? IMPREST
-  const tolerance    = realTolerance ?? location?.tolerance_pct_override ?? location?.effective_tolerance_pct ?? location?.tolerancePct ?? 5
+  const tolerance    = realTolerance ?? location?.tolerance_pct_override ?? location?.effective_tolerance_pct ?? location?.tolerancePct ?? 0.5
   const variance     = totalFund - expectedCash
   const variancePct  = expectedCash > 0 ? (variance / expectedCash) * 100 : 0
   const requiresNote = Math.abs(variancePct) > tolerance
@@ -486,6 +492,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       H: { total: totH, value: parseFloat(hVal)||0 },
       I: { total: totI, yesterday: parseFloat(iYest)||0, today: parseFloat(iToday)||0 },
       holdover: holdoverAmt,
+      replenishment: replenishAmt,
       coin_transit: coinTransAmt,
     }
   }
@@ -518,6 +525,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       H: { value: parseFloat(hVal)||0 },
       I: { yesterday: parseFloat(iYest)||0, today: parseFloat(iToday)||0 },
       holdover: holdoverAmt,
+      replenishment: replenishAmt,
       coinTransit: coinTransAmt,
       varianceNote: requiresNote ? varianceNote.trim() : ''
     }
@@ -639,6 +647,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       H: { value: parseFloat(hVal)||0 },
       I: { yesterday: parseFloat(iYest)||0, today: parseFloat(iToday)||0 },
       holdover: holdoverAmt,
+      replenishment: replenishAmt,
       coinTransit: coinTransAmt,
       varianceNote: varianceNote.trim()
     }
@@ -1311,6 +1320,15 @@ export default function OpForm({ ctx, onNavigate }: Props) {
               {/* J */}
               <tr style={{ borderBottom: '1px solid var(--ow2)' }}>
                 <td style={{ padding: '7px 0', color: 'var(--g7)', fontWeight: 700, fontSize: 13 }}>J</td>
+                <td style={{ padding: '7px 8px', fontSize: 13, color: 'var(--td)' }}>Replenishment in Transit</td>
+                <td style={{ textAlign: 'right', padding: '7px 0' }}>
+                  <NumInput val={replenishment} onChange={setReplenishment} step="0.01" width={110} />
+                </td>
+              </tr>
+
+              {/* K */}
+              <tr style={{ borderBottom: '1px solid var(--ow2)' }}>
+                <td style={{ padding: '7px 0', color: 'var(--g7)', fontWeight: 700, fontSize: 13 }}>K</td>
                 <td style={{ padding: '7px 8px', fontSize: 13, color: 'var(--td)' }}>Coin Purchase in Transit to / from Bank</td>
                 <td style={{ textAlign: 'right', padding: '7px 0' }}>
                   <NumInput val={coinTransit} onChange={setCoinTransit} step="0.01" width={110} />

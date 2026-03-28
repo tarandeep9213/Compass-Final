@@ -35,6 +35,9 @@ export interface ExcelPrefillData {
   sections: { A: number; B: number; C: number; D: number; E: number; F: number; G: number; H: number; I: number }
   totalFund: number
   fileName: string
+  holdover?: number
+  replenishment?: number
+  coinTransit?: number
 }
 
 function cv(ws: Record<string, { v?: unknown }>, addr: string): number {
@@ -70,14 +73,14 @@ function parseSheet(fileBuffer: ArrayBuffer): ExcelPrefillData & { rows: { secti
     pennies:  cv(ws, 'E12'),
   }
 
-  // ── Section C: Coins in Counting Machines (col H=No.1, col I=No.2, rows 8–13) ──
+  // ── Section C: Coins in Counting Machines (col I=No.1, col K=No.2, rows 8–14) ──
   const denomC: Record<string, { m1: number; m2: number }> = {
-    cDollar:   { m1: cv(ws,'H8'),  m2: cv(ws,'I8')  },
-    cHalves:   { m1: cv(ws,'H9'),  m2: cv(ws,'I9')  },
-    cQuarters: { m1: cv(ws,'H10'), m2: cv(ws,'I10') },
-    cDimes:    { m1: cv(ws,'H11'), m2: cv(ws,'I11') },
-    cNickels:  { m1: cv(ws,'H12'), m2: cv(ws,'I12') },
-    cPennies:  { m1: cv(ws,'H13'), m2: cv(ws,'I13') },
+    cDollar:   { m1: cv(ws,'I8'),  m2: cv(ws,'K8')  },
+    cHalves:   { m1: cv(ws,'I9'),  m2: cv(ws,'K9')  },
+    cQuarters: { m1: cv(ws,'I10'), m2: cv(ws,'K10') },
+    cDimes:    { m1: cv(ws,'I11'), m2: cv(ws,'K11') },
+    cNickels:  { m1: cv(ws,'I12'), m2: cv(ws,'K12') },
+    cPennies:  { m1: cv(ws,'I13'), m2: cv(ws,'K13') },
   }
 
   // ── Section D: Bagged Coin (col B = bag count, rows 19–22) ─────────────
@@ -99,9 +102,9 @@ function parseSheet(fileBuffer: ArrayBuffer): ExcelPrefillData & { rows: { secti
     .map(r => ({ qty: cv(ws,`I${r}`), amount: cv(ws,`K${r}`) }))
     .filter(r => r.qty > 0 || r.amount > 0)
 
-  // ── Section F: Returned Uncounted Funds (col A = qty, col C = amount, rows 29–32) ──
+  // ── Section F: Returned Uncounted Funds (col A = qty, col E = amount, rows 29–32) ──
   const denomFRows = ['29','30','31','32']
-    .map(r => ({ qty: cv(ws,`A${r}`), amount: cv(ws,`C${r}`) }))
+    .map(r => ({ qty: cv(ws,`A${r}`), amount: cv(ws,`E${r}`) }))
     .filter(r => r.qty > 0 || r.amount > 0)
 
   // ── Section G: Mutilated/Foreign/Bent ───────────────────────────────────
@@ -115,23 +118,35 @@ function parseSheet(fileBuffer: ArrayBuffer): ExcelPrefillData & { rows: { secti
   const iYesterday = cv(ws, 'E51')
   const iToday     = cv(ws, 'E53')
 
-  // ── Section totals (summary col I, rows 40–50) ──────────────────────────
+  // ── Holdover (row 47 area — "Deduct Holdover if any") ────────────────────
+  const holdover = cv(ws, 'L47')
+
+  // ── Section totals (summary col L, rows 40–50) ──────────────────────────
   const s = {
-    A: cv(ws,'I40'), B: cv(ws,'I41'), C: cv(ws,'I42'),
-    D: cv(ws,'I43'), E: cv(ws,'I44'), F: cv(ws,'I45'),
-    G: cv(ws,'I46'), H: cv(ws,'I49'), I: cv(ws,'I50'),
+    A: cv(ws,'L40'), B: cv(ws,'L41'), C: cv(ws,'L42'),
+    D: cv(ws,'L43'), E: cv(ws,'L44'), F: cv(ws,'L45'),
+    G: cv(ws,'L46'), H: cv(ws,'L49'), I: cv(ws,'L50'),
   }
+
+  // ── Section J: Replenishment in Transit (L51) ───────────────────────────
+  const replenishment = cv(ws, 'L51')
+
+  // ── Section K: Coin Purchase in Transit to/from Bank (L52) ──────────────
+  const coinTransit = cv(ws, 'L52')
 
   const nonZero = Object.values(s).filter(v => v !== 0).length
   if (nonZero < 1 && !denomA.ones && !denomB.dollar) {
     throw new Error('Could not read section totals. Please upload the correct "Final Cashroom Form" spreadsheet.')
   }
 
-  const totalFund = cv(ws, 'I52') || Object.values(s).reduce((a, b) => a + b, 0)
+  const totalFund = cv(ws, 'L48') || Object.values(s).reduce((a, b) => a + b, 0)
 
   return {
     sections: s,
     totalFund,
+    holdover: holdover || undefined,
+    replenishment: replenishment || undefined,
+    coinTransit: coinTransit || undefined,
     fileName: '',
     denomDetail: {
       A: denomA,
