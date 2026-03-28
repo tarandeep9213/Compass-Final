@@ -42,11 +42,15 @@ def _fmt_currency(v: float) -> str:
 
 def _calc_totals(sections: dict, expected_cash: float, tolerance_pct: float) -> dict:
     """Sum all section totals and compute variance fields."""
-    total = sum(
+    section_sum = sum(
         float(sec.get("total", 0))
         for sec in sections.values()
         if isinstance(sec, dict)
     )
+    holdover = float(sections.get("holdover", 0) or 0)
+    replenishment = float(sections.get("replenishment", 0) or 0)
+    coin_transit = float(sections.get("coin_transit", 0) or 0)
+    total = section_sum - holdover + replenishment + coin_transit
     variance = total - expected_cash
     variance_pct = (variance / expected_cash * 100) if expected_cash else 0.0
     variance_exception = abs(variance_pct) > tolerance_pct

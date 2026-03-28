@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test'
 import { loginAs } from './helpers/auth'
 
-const API = 'http://localhost:8001/v1'
+const API = 'http://localhost:8002/v1'
 
 async function getToken(
   request: import('@playwright/test').APIRequestContext,

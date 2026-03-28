@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test'
 import { loginAs } from './helpers/auth'
 
-const API = 'http://localhost:8001/v1'
+const API = 'http://localhost:8002/v1'
 
 function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`

@@ -341,13 +341,10 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const sc = statusConfig[effStatus] ?? statusConfig['pending_approval']
 
   const s = sub.sections
-  const holdoverAmt = (s as unknown as Record<string, number>).holdover || 0
-  const coinTransitAmt = (s as unknown as Record<string, number>).coinTransit || 0
-  const calcTotalCash = s.A + s.B + s.C + s.D + s.E + s.F + s.G - holdoverAmt
-  const calcTotalFund = calcTotalCash + s.H + s.I + coinTransitAmt
+  const calcTotalFund = sub.totalCash
   const calcExpectedCash = sub.expectedCash || location?.expectedCash || 0
-  const calcVariance = calcTotalFund - calcExpectedCash
-  const calcVariancePct = calcExpectedCash > 0 ? (calcVariance / calcExpectedCash) * 100 : 0
+  const calcVariance = sub.variance ?? (calcTotalFund - calcExpectedCash)
+  const calcVariancePct = sub.variancePct ?? (calcExpectedCash > 0 ? (calcVariance / calcExpectedCash) * 100 : 0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const locAny = location as any
   const tolerance = realTolerance ?? locAny?.tolerance_pct_override ?? locAny?.effective_tolerance_pct ?? locAny?.tolerance_pct ?? location?.tolerancePct ?? 0.5
