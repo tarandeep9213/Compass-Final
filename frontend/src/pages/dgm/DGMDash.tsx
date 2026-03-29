@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
-import { VERIFICATIONS, SUBMISSIONS, getLocation, formatCurrency, IMPREST, todayStr } from '../../mock/data'
+import { getLocation, formatCurrency, IMPREST, todayStr } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
-import { listDgmVerifications, completeDgmVisit, missDgmVisit } from '../../api/verifications'
+import { listDgmVerifications, listControllerVerifications, completeDgmVisit, missDgmVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
 import type { ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
@@ -98,7 +98,9 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
 
   const [cNotes,  setCNotes]  = useState('')
   const [cSig,    setCSig]    = useState('')
+  const [cVisitOutcome, setCVisitOutcome] = useState<'approve' | 'reject' | null>(null)
   const [cErrors, setCErrors] = useState<Record<string, string>>({})
+  const [ctrlVerifs, setCtrlVerifs] = useState<{locationId:string;date:string;status:string;notes:string}[]>([])
 
   const cSigRef    = useRef<HTMLCanvasElement | null>(null)
   const isDrawing  = useRef(false)
@@ -174,7 +176,15 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     // 1. Fetch Verifications
     listDgmVerifications({ page_size: 100 })
       .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
-      .catch(() => { /* fall back to mock */ })
+      .catch(() => {})
+
+    // Fetch controller verifications to check completion gate
+    listControllerVerifications({ page_size: 200 })
+      .then(r => setCtrlVerifs(r.items.map(v => ({
+        locationId: v.location_id, date: v.verification_date,
+        status: v.status, notes: v.notes ?? '',
+      }))))
+      .catch(() => {})
 
     // 2. Fetch Submissions to check approval status + get IDs for navigation
     if (locationIds.length > 0) {
@@ -190,33 +200,27 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     }
   }, [locationIds, locIdsJoined])
 
-  function getSubStatus(locId: string, date: string): string | null {
-    const key = `${locId}_${date}`
-    if (apiSubsMap[key]) return apiSubsMap[key].status
-    const mockSub = SUBMISSIONS.find(s => s.locationId === locId && s.date === date)
-    if (mockSub) {
-      const override = sessionStorage.getItem(`op_status_${mockSub.id}`) || sessionStorage.getItem(`op_status_${locId}_${date}`)
-      if (override) return override
-      return mockSub.status
-    }
-    return null
+  // Check if controller has completed + approved visit for this location+date
+  function isControllerVisitApproved(locId: string, date: string): boolean {
+    return ctrlVerifs.some(v =>
+      v.locationId === locId && v.date === date &&
+      v.status === 'completed' && v.notes.includes('[VISIT APPROVED]')
+    )
   }
 
   function getSubId(locId: string, date: string): string | undefined {
     const key = `${locId}_${date}`
-    if (apiSubsMap[key]) return apiSubsMap[key].id
-    return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.id
+    return apiSubsMap[key]?.id
   }
 
   function getSubTotalCash(locId: string, date: string): number | null {
     const key = `${locId}_${date}`
-    if (apiSubsMap[key]) return apiSubsMap[key].totalCash
-    return SUBMISSIONS.find(s => s.locationId === locId && s.date === date)?.totalCash ?? null
+    return apiSubsMap[key]?.totalCash ?? null
   }
 
   function closeExpand() {
     setExpandedId(null); setExpandAction(null)
-    setCNotes(''); setCSig(''); setCErrors({})
+    setCNotes(''); setCSig(''); setCVisitOutcome(null); setCErrors({})
     setMReason(''); setMNotes(''); setMErrors({})
   }
 
@@ -227,7 +231,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     setExpandAction(action)
   }
 
-  const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS.filter(v => v.type === 'dgm' && locationIds.includes(v.locationId))
+  const sourceVerifs = apiVerifs
 
   // ── All DGM visits merged with session overrides & overdue logic ───────
   const allRecords = useMemo<DashRecord[]>(() =>
@@ -326,28 +330,22 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
 
   async function handleComplete(id: string) {
     const e: Record<string, string> = {}
-    
-    // 1. Check if the submission is approved and verified
-    const rec = allRecords.find(r => r.id === id)
-    if (rec && getSubStatus(rec.locationId, rec.date) !== 'approved') {
-      e.approval = "The submission must be approved before verification. Please open the form using 'View & Verify' and verify it first."
-    } else {
-      const isVerified = sessionStorage.getItem(`dgm_verified_${id}`) === 'true'
-      if (!isVerified) {
-        e.approval = 'You have not yet verified this submission. Please click on "View and Verify" button and verify this submission first.';
-      }
-    }
 
-    if (!cSig) e.sig = 'Please sign before confirming.'
+    if (!cVisitOutcome)  e.outcome = 'Please select a visit outcome.'
+    if (!cSig)           e.sig = 'Please sign before confirming.'
     if (Object.keys(e).length) { setCErrors(e); return }
 
-    // Fallback to 0 since observed cash is tracked via the submission form itself now
-    const obs = 0 
+    const outcomeNote = cVisitOutcome === 'approve' ? '[VISIT APPROVED]' : '[VISIT REJECTED]'
+    const fullNotes = [outcomeNote, cNotes.trim()].filter(Boolean).join(' — ')
 
     try {
-      await completeDgmVisit(id, { observed_total: obs, signature_data: cSig, notes: cNotes.trim() || undefined })
-    } catch { /* demo mode */ }
-    setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: obs, notes: cNotes.trim(), signatureData: cSig } }))
+      await completeDgmVisit(id, { signature_data: cSig, notes: fullNotes || undefined })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
+      setCErrors({ api: msg })
+      return
+    }
+    setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: 0, notes: fullNotes, signatureData: cSig } }))
     closeExpand()
   }
 
@@ -610,7 +608,11 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                       </tr>
 
                       {/* Expand: Complete */}
-                      {isExpanded && expandAction === 'complete' && (
+                      {isExpanded && expandAction === 'complete' && (() => {
+                        const ctrlApproved = isControllerVisitApproved(v.locationId, v.date)
+                        const canConfirm = ctrlApproved && !!cVisitOutcome && !!cSig
+
+                        return (
                         <tr>
                           <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid var(--ow2)' }}>
                             <div style={{ background: 'var(--g0)', borderLeft: '4px solid var(--g4)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -618,108 +620,80 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                 ✓ Complete Visit — {loc?.name ?? v.locationId}
                                 <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ts)', marginLeft: 10 }}>{dateLabel}</span>
                               </div>
-                              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'stretch' }}>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                  {(() => {
-                                    const st  = getSubStatus(v.locationId, v.date)
-                                    const sid = getSubId(v.locationId, v.date)
-                                    if (!sid) return (
-                                      <span style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>
-                                        ⏳ Waiting for operator to submit
-                                      </span>
-                                    )
-                                    return (
-                                      <>
-                                        <button className="btn btn-ghost"
-                                          style={{ fontSize: 11, padding: '6px 12px', height: 'fit-content' }}
-                                          onClick={() => onNavigate('op-readonly', {
-                                            locationId: v.locationId,
-                                            date: v.date,
-                                            submissionId: sid,
-                                            visitId: v.id,
-                                            fromPanel: 'dgm-dash',
-                                            expandVisitId: v.id,
-                                            expandAction: 'complete'
-                                          })}>
-                                          👁 View & Verify
-                                        </button>
-                                        {st === 'approved'         && <span style={{ fontSize: 11, color: 'var(--g7)',  fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ {sessionStorage.getItem(`dgm_verified_${v.id}`) === 'true' ? 'Approved & Verified' : 'Approved'}</span>}
-                                        {st === 'rejected'         && <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Rejected</span>}
-                                        {st === 'pending_approval' && <span style={{ fontSize: 11, color: '#b45309',   fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Pending approval</span>}
-                                      </>
-                                    )
-                                  })()}
-                                </div>
-
-                                <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column' }}>
-                                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 5 }}>
-                                    Notes <span style={{ fontWeight: 400, color: 'var(--ts)' }}>(optional)</span>
-                                  </label>
-                                  <textarea
-                                    className="f-inp"
-                                    placeholder="e.g. All sections verified. Minor coin discrepancy noted."
-                                    value={cNotes} onChange={e => setCNotes(e.target.value)}
-                                    style={{ width: '100%', height: 80, resize: 'none', fontSize: 12, flexGrow: 1 }}
-                                  />
-                                </div>
-
-                                <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)' }}>Digital Signature *</label>
-                                    <button
-                                      type="button"
-                                      onClick={clearSig}
-                                      style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--ow2)', background: '#fff', color: 'var(--ts)', cursor: 'pointer', fontFamily: 'inherit' }}
-                                    >Clear</button>
+                              {/* Gate: controller must have completed + approved visit */}
+                              {!ctrlApproved && (
+                                <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8, padding: '16px 20px' }}>
+                                  <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>
+                                    🔒 Controller visit not yet completed
                                   </div>
-                                  <div style={{ position: 'relative', height: 80, flexGrow: 1 }}>
-                                    <canvas
-                                      ref={cSigRef}
-                                      width={240} height={80}
-                                      onMouseDown={sigMouseDown}
-                                      onMouseMove={sigMouseMove}
-                                      onMouseUp={sigEnd}
-                                      onMouseLeave={sigEnd}
-                                      onTouchStart={sigTouchStart}
-                                      onTouchMove={sigTouchMove}
-                                      onTouchEnd={sigEnd}
-                                      style={{
-                                        display: 'block', width: '100%', height: 80,
-                                        border: `1px dashed ${cErrors.sig ? 'var(--red)' : 'var(--g3)'}`,
-                                        borderRadius: 6, background: '#fff',
-                                        cursor: 'crosshair', touchAction: 'none',
-                                      }}
-                                    />
-                                    {!cSig && (
-                                      <div style={{
-                                        position: 'absolute', inset: 0, display: 'flex',
-                                        alignItems: 'center', justifyContent: 'center',
-                                        pointerEvents: 'none', fontSize: 11, color: '#bbb', userSelect: 'none',
-                                      }}>
-                                        Sign here
-                                      </div>
-                                    )}
+                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55 }}>
+                                    A controller must complete their verification visit with an <strong>Approve</strong> outcome for this location and date before the DGM visit can be completed.
                                   </div>
-                                  {cErrors.sig && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>{cErrors.sig}</div>}
-                                </div>
-                              </div>
-
-                              {/* Validation Error Message */}
-                              {cErrors.approval && (
-                                <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: -10, fontWeight: 500 }}>
-                                  {cErrors.approval}
                                 </div>
                               )}
 
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn btn-primary" style={{ fontSize: 12, padding: '7px 20px' }} onClick={() => handleComplete(v.id)}>✓ Confirm Completion</button>
-                                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Cancel</button>
-                              </div>
+                              {/* Full completion form — only when controller visit is approved */}
+                              {ctrlApproved && (
+                                <>
+                                  {/* Visit Outcome (inline) */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 8 }}>Visit Outcome *</label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                      <button onClick={() => { setCVisitOutcome('approve'); setCErrors(p => ({ ...p, outcome: '' })) }}
+                                        style={{ padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s',
+                                          border: cVisitOutcome === 'approve' ? '2px solid var(--g4)' : '1.5px solid var(--ow2)',
+                                          background: cVisitOutcome === 'approve' ? 'var(--g7)' : '#fff',
+                                          color: cVisitOutcome === 'approve' ? '#fff' : 'var(--g7)',
+                                        }}>✓ Approve</button>
+                                      <button onClick={() => { setCVisitOutcome('reject'); setCErrors(p => ({ ...p, outcome: '' })) }}
+                                        style={{ padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s',
+                                          border: cVisitOutcome === 'reject' ? '2px solid #fca5a5' : '1.5px solid var(--ow2)',
+                                          background: cVisitOutcome === 'reject' ? 'var(--red)' : '#fff',
+                                          color: cVisitOutcome === 'reject' ? '#fff' : 'var(--red)',
+                                        }}>✗ Reject</button>
+                                    </div>
+                                    {cErrors.outcome && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{cErrors.outcome}</div>}
+                                  </div>
+
+                                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'stretch' }}>
+                                    <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column' }}>
+                                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 5 }}>
+                                        Notes <span style={{ fontWeight: 400, color: 'var(--ts)' }}>(optional)</span>
+                                      </label>
+                                      <textarea className="f-inp" placeholder="e.g. All sections verified." value={cNotes} onChange={e => setCNotes(e.target.value)}
+                                        style={{ width: '100%', height: 80, resize: 'none', fontSize: 12, flexGrow: 1 }} />
+                                    </div>
+                                    <div style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)' }}>Digital Signature *</label>
+                                        <button type="button" onClick={clearSig} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--ow2)', background: '#fff', color: 'var(--ts)', cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
+                                      </div>
+                                      <div style={{ position: 'relative', height: 80, flexGrow: 1 }}>
+                                        <canvas ref={cSigRef} width={240} height={80}
+                                          onMouseDown={sigMouseDown} onMouseMove={sigMouseMove} onMouseUp={sigEnd} onMouseLeave={sigEnd}
+                                          onTouchStart={sigTouchStart} onTouchMove={sigTouchMove} onTouchEnd={sigEnd}
+                                          style={{ display: 'block', width: '100%', height: 80, border: `1px dashed ${cErrors.sig ? 'var(--red)' : 'var(--g3)'}`, borderRadius: 6, background: '#fff', cursor: 'crosshair', touchAction: 'none' }} />
+                                        {!cSig && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', fontSize: 11, color: '#bbb', userSelect: 'none' }}>Sign here</div>}
+                                      </div>
+                                      {cErrors.sig && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 3 }}>{cErrors.sig}</div>}
+                                    </div>
+                                  </div>
+
+                                  {cErrors.api && <div style={{ fontSize: 11, color: 'var(--red)', fontWeight: 500 }}>{cErrors.api}</div>}
+                                  {!canConfirm && <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>Please select a visit outcome and sign before confirming.</div>}
+
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn btn-primary" style={{ fontSize: 12, padding: '7px 20px', opacity: canConfirm ? 1 : 0.5 }} onClick={() => handleComplete(v.id)} disabled={!canConfirm}>✓ Confirm Completion</button>
+                                    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Cancel</button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
-                      )}
+                        )
+                      })()}
 
                       {/* Expand: View completed visit (readonly) */}
                       {isExpanded && expandAction === 'view' && v.status === 'completed' && (

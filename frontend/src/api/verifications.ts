@@ -52,6 +52,10 @@ export function missControllerVisit(id: string, body: MissVerificationBody): Pro
 
 // ── DGM verifications ─────────────────────────────────────────────────────────
 
+export function checkDomDgm(location_id: string, date: string): Promise<DowCheckResponse> {
+  return api.get<DowCheckResponse>(`/verifications/dgm/check-dom?location_id=${location_id}&date=${date}`)
+}
+
 export function scheduleDgmVisit(body: ScheduleDgmBody): Promise<ApiVerification> {
   return api.post<ApiVerification>('/verifications/dgm', body)
 }

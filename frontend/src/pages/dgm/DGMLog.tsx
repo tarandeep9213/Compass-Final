@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { VERIFICATIONS, LOCATIONS, getLocation, todayStr } from '../../mock/data'
+import { getLocation, todayStr } from '../../mock/data'
+import { listLocations } from '../../api/locations'
 import type { VerificationRecord } from '../../mock/data'
 import { scheduleDgmVisit, listDgmVerifications } from '../../api/verifications'
 import type { ApiVerification } from '../../api/types'
@@ -55,10 +56,14 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
   const [fetchError,   setFetchError]   = useState('')
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
+  const [apiLocs, setApiLocs] = useState<{id:string;name:string;cost_center?:string|null}[]>([])
   useEffect(() => {
     listDgmVerifications()
       .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
-      .catch(() => { /* fall back to mock */ })
+      .catch(() => {})
+    listLocations()
+      .then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: (l as unknown as {cost_center?:string|null}).cost_center ?? null }))))
+      .catch(() => {})
   }, [locationIds, refresh])
 
   // ── Calendar grid ──────────────────────────────────────────────────────
@@ -69,31 +74,6 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     for (let d = 1; d <= daysInMonth; d++) cells.push(d)
     return cells
   }, [calYear, calMonth])
-
-  // ── Last Completed Visit (for DOM Warning) ─────────────────────────────
-  const lastCompletedVisit = useMemo(() => {
-    if (!location) return null
-
-    // 1. Read session overrides to include recently completed visits from the dashboard
-    let sessionUpdates: Record<string, { status: string }> = {}
-    try {
-      const saved = sessionStorage.getItem('dgm_session_updates')
-      if (saved) sessionUpdates = JSON.parse(saved)
-    } catch { /* ignore */ }
-
-    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
-
-    // 2. Filter and merge statuses
-    const completed = sourceVerifs
-      .filter(v => v.type === 'dgm' && v.locationId === location)
-      .map(v => ({ ...v, status: sessionUpdates[v.id]?.status || v.status }))
-      .filter(v => v.status === 'completed')
-
-    // 3. Sort descending by date to get the most recent one
-    completed.sort((a, b) => b.date.localeCompare(a.date))
-    return completed[0] || null
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, refresh, apiVerifs])
 
 // -- Booked months for selected location --------------------------------
   // DGM rule: ONE visit per location per calendar month.
@@ -110,7 +90,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
       // ignore parse errors
     }
 
-    const sourceVerifs = apiVerifs.length > 0 ? apiVerifs : VERIFICATIONS
+    const sourceVerifs = apiVerifs
 
     sourceVerifs.forEach(v => {
       if (v.type !== 'dgm' || v.locationId !== location) return
@@ -161,18 +141,45 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     setErrors(p => ({ ...p, date: '' }))
   }
 
-  // ── DOM Warning Check ──────────────────────────────────────────────────
+  // ── DOM Warning Check (3-month lookback) ────────────────────────────────
   const domWarning = useMemo(() => {
-    // Only proceed if a date is selected and there is a history of a completed visit
-    if (!selectedDate || !lastCompletedVisit) return false
-    
-    // Extract the day of the month (1-31) for comparison
-    const selectedDOM = new Date(selectedDate + 'T12:00:00').getDate()
-    const lastDOM = new Date(lastCompletedVisit.date + 'T12:00:00').getDate()
-    
-    // Return true if the days match, triggering the non-blocking warning
-    return selectedDOM === lastDOM
-  }, [selectedDate, lastCompletedVisit])
+    if (!selectedDate) return null
+    const selDate = new Date(selectedDate + 'T12:00:00')
+    const selDOM = selDate.getDate()
+
+    // Look for any visit in past 3 months (~92 days) on the same day-of-month
+    const activeVisits = apiVerifs.filter(v =>
+      v.type === 'dgm' && v.locationId === location &&
+      (v.status === 'completed' || v.status === 'scheduled')
+    )
+    const matches = activeVisits.filter(v => {
+      const vDate = new Date(v.date + 'T12:00:00')
+      const diff = (selDate.getTime() - vDate.getTime()) / 86400000
+      return vDate.getDate() === selDOM && diff > 0 && diff <= 92 && v.date !== selectedDate
+    })
+
+    if (matches.length === 0) return null
+    const last = [...matches].sort((a, b) => b.date.localeCompare(a.date))[0]
+    return {
+      dayOfMonth: selDOM,
+      lastDate: new Date(last.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      count: matches.length,
+    }
+  }, [selectedDate, apiVerifs, location])
+
+  // Helper to check DOM conflict for any date (for calendar indicators)
+  function getDomConflict(dateStr: string): boolean {
+    const d = new Date(dateStr + 'T12:00:00')
+    const dom = d.getDate()
+    return apiVerifs.some(v =>
+      v.type === 'dgm' && v.locationId === location &&
+      (v.status === 'completed' || v.status === 'scheduled') &&
+      new Date(v.date + 'T12:00:00').getDate() === dom &&
+      (d.getTime() - new Date(v.date + 'T12:00:00').getTime()) / 86400000 > 0 &&
+      (d.getTime() - new Date(v.date + 'T12:00:00').getTime()) / 86400000 <= 92 &&
+      v.date !== dateStr
+    )
+  }
 
   // ── Validate + submit ──────────────────────────────────────────────────
   function validate() {
@@ -183,17 +190,13 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
       const my = monthYearOf(selectedDate)
       const existing = bookedMonths.get(my)
 
-      // 1. Check for Day-of-Month (DOM) compliance conflict
-      if (domWarning) {
-        e.date = `Compliance Error: You cannot visit on the ${new Date(selectedDate + 'T12:00:00').getDate()}th as it matches the date of your last completed visit.`
-      }
-      
-      // 2. If a visit exists and it's not a reschedule (different date), block it
-      else if (existing && (existing.status === 'scheduled' || existing.status === 'completed')) {
+      // Monthly block: if a visit exists and it's not a reschedule (different date), block it
+      if (existing && (existing.status === 'scheduled' || existing.status === 'completed')) {
         if (existing.date !== selectedDate) {
           e.date = `This month already has a ${existing.status} visit on ${new Date(existing.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.`
         }
       }
+      // DOM warning is non-blocking — no validation error
     }
     return e
   }
@@ -217,7 +220,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
       existing.date = selectedDate!
       existing.notes = notes.trim()
       existing.dayOfWeek = dow
-      existing.warningFlag = domWarning
+      existing.warningFlag = !!domWarning
       setSaving(false)
       setSubmitted({ ...existing, _isReschedule: true } as VerificationRecord & { _isReschedule?: boolean })
     } else {
@@ -232,7 +235,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
         notes:        notes.trim(),
         dayOfWeek:    dow,
         // The warningFlag is saved as true if the DOM matches the last completed visit
-        warningFlag:  domWarning, 
+        warningFlag:  !!domWarning,
         status:       'scheduled',
       }
       try {
@@ -251,9 +254,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
           setSaving(false);
           return;
         }
-        // Fallback: keep mock in sync
-        setFetchError('Could not reach the server. Make sure the backend is running on port 8000.')
-        VERIFICATIONS.push(rec)
+        setFetchError('Could not reach the server. Please check your connection.')
       }
       setSaving(false)
       setSubmitted(rec)
@@ -412,8 +413,10 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                 onBlur={e  => { e.currentTarget.style.borderColor = 'var(--ow2)'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)' }}
               >
                 {locationIds.map(id => {
-                  const loc = LOCATIONS.find(l => l.id === id)
-                  return <option key={id} value={id}>{loc?.name ?? id}{loc?.cost_center ? ` (CC: ${loc.cost_center})` : ''}</option>
+                  const loc = apiLocs.find(l => l.id === id) ?? getLocation(id)
+                  const name = loc?.name ?? id
+                  const cc = (loc as unknown as {cost_center?:string|null})?.cost_center
+                  return <option key={id} value={id}>{name}{cc ? ` (CC: ${cc})` : ''}</option>
                 })}
               </select>
             </div>
@@ -508,52 +511,55 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                     if (day === null) return <div key={`e-${idx}`} style={{ width: 40, height: 40 }} />
 
                     const dateStr    = padDate(calYear, calMonth, day)
-                    const isPast     = dateStr < today       // past: not schedulable (today IS allowed)
+                    const isPast     = dateStr < today
                     const isToday    = dateStr === today
                     const isSelected = selectedDate === dateStr
                     const my         = monthYearOf(dateStr)
                     const monthTaken = bookedMonths.has(my)
                     const existingForMonth = bookedMonths.get(my)
-                    // Only block past dates; allow interaction with the current/future months 
-                    // to see compliance warnings (Caution)
-                    const isBlocked  = isPast 
                     const visitDate  = existingForMonth?.date
-                    const isVisitDay = visitDate === dateStr  // highlight the exact visit day
+                    const isVisitDay = visitDate === dateStr
+                    const isMonthBlocked = !isPast && monthTaken && !isVisitDay
+                    const isDomWarn  = !isPast && !monthTaken && getDomConflict(dateStr)
+                    const notClickable = isPast || isMonthBlocked
 
                     let bg     = 'transparent'
-                    let color  = isBlocked ? '#c8c8c8' : 'var(--td)'
+                    let color  = isPast ? '#c8c8c8' : 'var(--td)'
                     let border = 'none'
                     let fw     = 400
 
-                    if (isSelected && !monthTaken) {
-                      bg = '#1d4ed8'; color = '#fff'; fw = 700
+                    if (isSelected && !isMonthBlocked) {
+                      bg = isDomWarn ? '#f59e0b' : '#1d4ed8'; color = '#fff'; fw = 700
                     } else if (isVisitDay) {
                       bg = 'var(--g0)'; color = 'var(--g7)'; fw = 600
-                    } else if (monthTaken && !isPast) {
-                      bg = '#f0fdf4'   // very soft green tint for all days in visited month
+                    } else if (isMonthBlocked) {
+                      bg = '#f3f4f6'; color = '#9ca3af'
                     } else if (isToday) {
                       border = `2px solid var(--g4)`; color = 'var(--g7)'; fw = 600
+                    } else if (isDomWarn) {
+                      bg = '#fffbeb'
                     }
 
-                    const tooltip = monthTaken
-                      ? `${my} already visited/scheduled`
-                      : isPast
-                      ? 'Past date — not schedulable'
-                      : undefined
+                    let tooltip: string | undefined
+                    if (isPast && !isToday)        tooltip = 'Past date — cannot schedule'
+                    else if (isToday && !monthTaken) tooltip = 'Today'
+                    else if (isVisitDay)           tooltip = `Visit ${existingForMonth?.status} on this date`
+                    else if (isMonthBlocked)        tooltip = `Blocked — visit already ${existingForMonth?.status} on ${new Date(visitDate! + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} this month`
+                    else if (isDomWarn)            tooltip = `Caution — same day-of-month (${day}) visited recently. Consider a different date.`
 
                     return (
                       <div
                         key={day}
                         title={tooltip}
-                        onClick={() => !isBlocked && handleDateSelect(dateStr)}
+                        onClick={() => !notClickable && handleDateSelect(dateStr)}
                         style={{
                           width: 40, height: 40,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           borderRadius: '50%', background: bg, color, border,
                           fontSize: 13, fontWeight: fw,
-                          cursor: isBlocked ? 'default' : 'pointer',
+                          cursor: notClickable ? 'not-allowed' : 'pointer',
                           position: 'relative',
-                          opacity: isPast ? 0.4 : 1,
+                          opacity: isPast || isMonthBlocked ? 0.4 : 1,
                           transition: 'background 0.1s, color 0.1s',
                           userSelect: 'none',
                         }}
@@ -562,12 +568,12 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
 
                         {/* Green dot on the actual visit day */}
                         {isVisitDay && !isSelected && (
-                          <span style={{
-                            position: 'absolute', bottom: 4, left: '50%',
-                            transform: 'translateX(-50%)',
-                            width: 4, height: 4, borderRadius: '50%',
-                            background: 'var(--g7)',
-                          }} />
+                          <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: 'var(--g7)' }} />
+                        )}
+
+                        {/* Amber dot — DOM pattern */}
+                        {isDomWarn && !isVisitDay && !isSelected && (
+                          <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: '#d97706' }} />
                         )}
                       </div>
                     )
@@ -645,10 +651,11 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                       <span style={{ fontSize: 16 }}>⚠️</span>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 2 }}>
-                          Caution
+                          Caution — Same day-of-month pattern
                         </div>
                         <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
-                          Selected date matches the day of the previous visit ({new Date(lastCompletedVisit!.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}). This will be marked as a compliance exception.
+                          This location was visited on the <strong>{domWarning.dayOfMonth}th</strong> as recently as <strong>{domWarning.lastDate}</strong>.
+                          Consider selecting a different date to vary your visit pattern.
                         </div>
                       </div>
                     </div>

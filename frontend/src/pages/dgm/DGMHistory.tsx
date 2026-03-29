@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { VERIFICATIONS, getLocation, LOCATIONS, formatCurrency, IMPREST } from '../../mock/data'
+import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
+import { listLocations } from '../../api/locations'
 import type { VerificationRecord } from '../../mock/data'
 import { listDgmVerifications } from '../../api/verifications'
 import type { ApiVerification } from '../../api/types'
@@ -59,6 +60,11 @@ interface Props {
 }
 
 export default function DGMHistory({ dgmName, locationIds, onNavigate }: Props) {
+  const [apiLocs, setApiLocs] = useState<{id:string;name:string}[]>([])
+  useEffect(() => {
+    listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name })))).catch(() => {})
+  }, [])
+
   const [filterLoc,      setFilterLoc]      = useState('all')
   const [filterYear,     setFilterYear]     = useState('all')
   const [filterMonth,    setFilterMonth]    = useState('all')
@@ -87,39 +93,13 @@ export default function DGMHistory({ dgmName, locationIds, onNavigate }: Props) 
     setFilterStatus('all'); setFilterVariance('all')
   }
 
-  const mockVisits = useMemo(() =>
-    VERIFICATIONS.filter(v => v.type === 'dgm' && locationIds.includes(v.locationId))
-      .sort((a, b) => b.date.localeCompare(a.date)),
-  [locationIds])
-
   const allVisits = useMemo(() => {
-    // 1. Read session overrides from Dashboard
-    let sessionUpdates: Record<string, { status: string; notes?: string; observedTotal?: number }> = {}
-    try {
-      const saved = sessionStorage.getItem('dgm_session_updates')
-      if (saved) sessionUpdates = JSON.parse(saved)
-    } catch { 
-      // ignore parse errors
-    }
-
-    const base = apiVerifs.length > 0 ? apiVerifs : mockVisits
+    const base = apiVerifs
 
     return base
-      .map(v => {
-        const upd = sessionUpdates[v.id]
-        if (!upd) return v
-        // 2. Merge status and data from session storage so table shows "Completed"
-        return { 
-          ...v, 
-          status: upd.status,
-          notes: upd.notes ?? v.notes,
-          observedTotal: upd.observedTotal !== undefined ? upd.observedTotal : v.observedTotal
-        }
-      })
-      // 3. Filter out cancelled visits so they don't show in history
       .filter(v => v.status !== 'cancelled')
       .sort((a, b) => b.date.localeCompare(a.date))
-  }, [apiVerifs, mockVisits])
+  }, [apiVerifs])
 
   const historyYears = useMemo(() => {
     const seen = new Set<string>()
@@ -162,7 +142,7 @@ export default function DGMHistory({ dgmName, locationIds, onNavigate }: Props) 
   const fromEntry   = filtered.length === 0 ? 0 : pageClamped * PAGE_SIZE + 1
   const toEntry     = Math.min((pageClamped + 1) * PAGE_SIZE, filtered.length)
 
-  const myLocations = LOCATIONS.filter(l => locationIds.includes(l.id))
+  const myLocations = apiLocs.filter(l => locationIds.includes(l.id))
 
   return (
     <div className="fade-up">
