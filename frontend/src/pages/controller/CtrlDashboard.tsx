@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
 import { formatCurrency, IMPREST, getLocation } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
-import { listControllerVerifications, completeControllerVisit, missControllerVisit } from '../../api/verifications'
+import { listControllerVerifications, completeControllerVisit, missControllerVisit, cancelControllerVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
 import type { ApiVerification, ApiLocation } from '../../api/types'
@@ -56,7 +56,7 @@ function pageNums(cur: number, total: number): (number | 'gap')[] {
 type StatusFilter = 'all' | 'scheduled' | 'completed' | 'missed'
 
 type SessionUpdate = {
-  status: 'completed' | 'missed'
+  status: 'completed' | 'missed' | 'cancelled'
   observedTotal?: number
   missedReason?: string
   notes?: string
@@ -401,6 +401,18 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
       [id]: { status: 'missed', missedReason: mReason, notes: mNotes.trim() },
     }))
     closeExpand()
+  }
+
+  async function handleCancelVisit(id: string) {
+    if (!confirm('Are you sure you want to cancel this scheduled visit?')) return
+    try {
+      await cancelControllerVisit(id)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to cancel visit.'
+      window.alert(msg)
+      return
+    }
+    setSessionUpdates(prev => ({ ...prev, [id]: { status: 'cancelled' } }))
   }
 
   const _today = new Date()
@@ -759,6 +771,13 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                 onClick={() => openExpand(v.id, 'miss')}
                               >
                                 Mark as Missed
+                              </button>
+                              <button
+                                className="btn btn-ghost"
+                                style={{ fontSize: 11, padding: '4px 12px', color: 'var(--ts)' }}
+                                onClick={() => handleCancelVisit(v.id)}
+                              >
+                                ⊘ Cancel
                               </button>
                             </div>
                           ) : v.status === 'completed' ? (

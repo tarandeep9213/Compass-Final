@@ -70,3 +70,7 @@ class CompleteVerificationBody(BaseModel):
 class MissVerificationBody(BaseModel):
     missed_reason: str
     notes: Optional[str] = None
+
+
+class CancelVerificationBody(BaseModel):
+    notes: Optional[str] = None

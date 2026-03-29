@@ -86,3 +86,11 @@ export function completeDgmVisit(
 export function missDgmVisit(id: string, body: MissVerificationBody): Promise<ApiVerification> {
   return api.patch<ApiVerification>(`/verifications/dgm/${id}/miss`, body)
 }
+
+export function cancelControllerVisit(id: string, body: { notes?: string } = {}): Promise<ApiVerification> {
+  return api.patch<ApiVerification>(`/verifications/controller/${id}/cancel`, body)
+}
+
+export function cancelDgmVisit(id: string, body: { notes?: string } = {}): Promise<ApiVerification> {
+  return api.patch<ApiVerification>(`/verifications/dgm/${id}/cancel`, body)
+}

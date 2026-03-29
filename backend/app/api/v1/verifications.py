@@ -13,7 +13,7 @@ from app.models.config import SystemConfig
 from app.schemas.verification import (
     VerificationOut, PaginatedVerifications, DowCheckResponse,
     ScheduleControllerBody, ScheduleDgmBody,
-    CompleteVerificationBody, MissVerificationBody,
+    CompleteVerificationBody, MissVerificationBody, CancelVerificationBody,
 )
 from app.services.email import send_visit_scheduled_background, send_visit_completed_background
 
@@ -278,6 +278,32 @@ def miss_controller_visit(
     return _to_out(v)
 
 
+@router.patch("/controller/{visit_id}/cancel", response_model=VerificationOut)
+def cancel_controller_visit(
+    visit_id: str,
+    body: CancelVerificationBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    v = db.get(Verification, visit_id)
+    if not v or v.verification_type != VerificationType.CONTROLLER:
+        raise HTTPException(404, "Visit not found")
+    if v.verifier_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(403, "Access denied")
+    if v.status != VerificationStatus.SCHEDULED:
+        raise HTTPException(400, "Only scheduled visits can be cancelled")
+
+    v.status = VerificationStatus.CANCELLED
+    v.notes = body.notes or v.notes
+    log_event(db, current_user, "VERIFICATION_CANCELLED",
+              f"Controller visit to {v.location_name} on {v.verification_date} cancelled",
+              location_id=v.location_id, location_name=v.location_name,
+              entity_id=v.id, entity_type="Verification")
+    db.commit()
+    db.refresh(v)
+    return _to_out(v)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # DGM VERIFICATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -458,6 +484,32 @@ def complete_dgm_visit(
             notes=body.notes or "",
         )
 
+    return _to_out(v)
+
+
+@router.patch("/dgm/{visit_id}/cancel", response_model=VerificationOut)
+def cancel_dgm_visit(
+    visit_id: str,
+    body: CancelVerificationBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    v = db.get(Verification, visit_id)
+    if not v or v.verification_type != VerificationType.DGM:
+        raise HTTPException(404, "Visit not found")
+    if v.verifier_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(403, "Access denied")
+    if v.status != VerificationStatus.SCHEDULED:
+        raise HTTPException(400, "Only scheduled visits can be cancelled")
+
+    v.status = VerificationStatus.CANCELLED
+    v.notes = body.notes or v.notes
+    log_event(db, current_user, "VERIFICATION_CANCELLED",
+              f"DGM visit to {v.location_name} on {v.verification_date} cancelled",
+              location_id=v.location_id, location_name=v.location_name,
+              entity_id=v.id, entity_type="Verification")
+    db.commit()
+    db.refresh(v)
     return _to_out(v)
 
 

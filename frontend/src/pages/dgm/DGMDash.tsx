@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
 import { getLocation, formatCurrency, IMPREST, todayStr } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
-import { listDgmVerifications, listControllerVerifications, completeDgmVisit, missDgmVisit } from '../../api/verifications'
+import { listDgmVerifications, listControllerVerifications, completeDgmVisit, missDgmVisit, cancelDgmVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
 import type { ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
@@ -362,9 +362,14 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
 
   async function handleCancel(id: string) {
     if (!confirm('Are you sure you want to cancel this scheduled visit?')) return
-    // Demo mode: Mark as cancelled in local session
+    try {
+      await cancelDgmVisit(id)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to cancel visit.'
+      window.alert(msg)
+      return
+    }
     setSessionUpdates(prev => ({ ...prev, [id]: { status: 'cancelled' } }))
-    closeExpand()
   }
 
   return (
