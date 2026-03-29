@@ -114,9 +114,8 @@ def list_submissions(
     if is_operator:
         q = q.filter(Submission.operator_id == current_user.id)
     else:
-        # Non-operators should not see draft submissions (operator work-in-progress)
-        if not status:
-            q = q.filter(Submission.status != SubmissionStatus.DRAFT)
+        # Non-operators should NEVER see draft submissions (operator work-in-progress)
+        q = q.filter(Submission.status != SubmissionStatus.DRAFT)
         # Controllers scoped to assigned locations
         if current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
             if current_user.location_ids:
