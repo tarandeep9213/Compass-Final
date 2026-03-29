@@ -233,6 +233,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
   const defaultPanel = items[0]?.panel ?? 'op-start'
   const [nav, setNav] = useState<NavCtx>({ panel: defaultPanel, ctx: {} })
   const [showChangePw, setShowChangePw] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const initials = auth.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
@@ -304,8 +305,11 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
 
   return (
     <div className="app-layout">
+      {/* ── Mobile overlay ── */}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
       {/* ── Sidebar ── */}
-      <nav className="sidebar">
+      <nav className={`sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
         <div className="sb-logo">
           <div className="sb-logo-name">CashRoom</div>
           <div className="sb-logo-tag">Compliance System</div>
@@ -337,7 +341,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
             <div
               key={item.id}
               className={`nav-item${activeSidebarPanel === item.panel ? ' active' : ''}`}
-              onClick={() => navigate(item.panel)}
+              onClick={() => { navigate(item.panel); setSidebarOpen(false) }}
             >
               <span className="nav-icon">{item.icon}</span>
               {item.label}
@@ -358,6 +362,15 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
           display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
           padding: '12px 32px', background: '#fff', borderBottom: '1px solid var(--ow2)', flexShrink: 0
         }}>
+          {/* Hamburger — visible only on mobile via CSS */}
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen(o => !o)}
+            aria-label="Toggle menu"
+          >
+            {sidebarOpen ? '✕' : '☰'}
+          </button>
+          <div style={{ flex: 1 }} />
           <button
             onClick={() => setShowChangePw(true)}
             style={{
