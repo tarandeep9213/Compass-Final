@@ -361,6 +361,7 @@ export interface ReportSummary {
   pending: number
   approval_rate_pct: number
   variance_exceptions: number
+  cash_at_risk: number
   avg_variance_pct: number
   controller_verifications: number
   dgm_visits: number

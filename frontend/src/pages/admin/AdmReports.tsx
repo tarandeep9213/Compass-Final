@@ -57,7 +57,7 @@ export default function AdmReports({ adminName }: Props) {
   const [fetchError, setFetchError] = useState('')
 
   useEffect(() => {
-    listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: l.cost_center, active: l.active })))).catch(() => {})
+    listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: l.cost_center ?? undefined, active: l.active })))).catch(() => {})
   }, [])
 
   const allLocs = apiLocs.length > 0 ? apiLocs : LOCATIONS

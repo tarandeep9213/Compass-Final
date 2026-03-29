@@ -151,7 +151,7 @@ export default function AdmAudit({ adminName }: Props) {
         }
       })
     listLocations()
-      .then(locs => setApiLocations(locs.map(l => ({ id: l.id, name: l.name, cost_center: l.cost_center }))))
+      .then(locs => setApiLocations(locs.map(l => ({ id: l.id, name: l.name, cost_center: l.cost_center ?? undefined }))))
       .catch(() => { /* fall back to mock */ })
   }, [])
 
