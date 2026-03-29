@@ -180,6 +180,15 @@ def create_submission(
     if not loc:
         raise HTTPException(404, "Location not found")
 
+    # One submission per location per date (excluding drafts being replaced)
+    existing = db.query(Submission).filter(
+        Submission.location_id == body.location_id,
+        Submission.submission_date == body.submission_date,
+        Submission.status != SubmissionStatus.DRAFT,
+    ).first()
+    if existing and not body.save_as_draft:
+        raise HTTPException(409, f"A submission already exists for this location on {body.submission_date}. Use the Update feature instead.")
+
     cfg = _get_config(db)
     tolerance = loc.tolerance_pct_override if loc.tolerance_pct_override is not None else cfg.default_tolerance_pct
     expected = loc.expected_cash or 0.0
