@@ -157,6 +157,10 @@ def schedule_controller_visit(
         notes=body.notes or "",
     )
     db.add(v)
+    log_event(db, current_user, "VERIFICATION_SCHEDULED",
+              f"Controller visit to {loc.name} scheduled for {body.date}",
+              location_id=body.location_id, location_name=loc.name,
+              entity_id=v.id, entity_type="Verification")
     db.commit()
     db.refresh(v)
 
@@ -235,6 +239,10 @@ def complete_controller_visit(
     v.notes = body.notes or v.notes
     if body.dow_warning_reason:
         v.warning_reason = body.dow_warning_reason
+    log_event(db, current_user, "VERIFICATION_COMPLETED",
+              f"Controller visit to {v.location_name} on {v.verification_date} completed",
+              location_id=v.location_id, location_name=v.location_name,
+              entity_id=v.id, entity_type="Verification")
     db.commit()
     db.refresh(v)
 
@@ -274,6 +282,10 @@ def miss_controller_visit(
     v.status = VerificationStatus.MISSED
     v.missed_reason = body.missed_reason
     v.notes = body.notes or v.notes
+    log_event(db, current_user, "VERIFICATION_MISSED",
+              f"Controller visit to {v.location_name} on {v.verification_date} missed: {body.missed_reason}",
+              location_id=v.location_id, location_name=v.location_name,
+              entity_id=v.id, entity_type="Verification")
     db.commit()
     db.refresh(v)
     return _to_out(v)
@@ -388,6 +400,10 @@ def schedule_dgm_visit(
         month_year=month_year,
     )
     db.add(v)
+    log_event(db, current_user, "VERIFICATION_SCHEDULED",
+              f"DGM visit to {loc.name} scheduled for {body.date}",
+              location_id=body.location_id, location_name=loc.name,
+              entity_id=v.id, entity_type="Verification")
     db.commit()
     db.refresh(v)
 
@@ -467,6 +483,10 @@ def complete_dgm_visit(
     v.observed_total = body.observed_total
     v.signature_data = body.signature_data
     v.notes = body.notes or v.notes
+    log_event(db, current_user, "VERIFICATION_COMPLETED",
+              f"DGM visit to {v.location_name} on {v.verification_date} completed",
+              location_id=v.location_id, location_name=v.location_name,
+              entity_id=v.id, entity_type="Verification")
     db.commit()
     db.refresh(v)
 
@@ -532,6 +552,10 @@ def miss_dgm_visit(
     v.status = VerificationStatus.MISSED
     v.missed_reason = body.missed_reason
     v.notes = body.notes or v.notes
+    log_event(db, current_user, "VERIFICATION_MISSED",
+              f"DGM visit to {v.location_name} on {v.verification_date} missed: {body.missed_reason}",
+              location_id=v.location_id, location_name=v.location_name,
+              entity_id=v.id, entity_type="Verification")
     db.commit()
     db.refresh(v)
     return _to_out(v)
