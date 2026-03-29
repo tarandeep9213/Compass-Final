@@ -297,12 +297,16 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   const missedCount        = allRecords.filter(v => v.status === 'missed').length
 
   const avgGap = useMemo(() => {
-    const done = allRecords.filter(v => v.status === 'completed')
+    // Only consider completed visits within the last 6 months for a meaningful average
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    const cutoff = sixMonthsAgo.toISOString().split('T')[0]
+    const done = allRecords.filter(v => v.status === 'completed' && v.date >= cutoff)
     if (done.length < 2) return null
     const sorted = [...done].sort((a, b) => a.date.localeCompare(b.date))
     let total = 0
     for (let i = 1; i < sorted.length; i++) {
-      total += (new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime()) / 86400000
+      total += (new Date(sorted[i].date + 'T12:00:00').getTime() - new Date(sorted[i - 1].date + 'T12:00:00').getTime()) / 86400000
     }
     return Math.round(total / (sorted.length - 1))
   }, [allRecords])
@@ -611,7 +615,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                   <th>Day</th>
                   <th>Location</th>
                   <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Observed Total</th>
+                  <th style={{ textAlign: 'right' }}>Total Cash</th>
                   <th style={{ textAlign: 'right' }}>vs Imprest</th>
                   <th>Notes / Reason</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
@@ -646,7 +650,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                         {/* Date */}
                         <td>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{dateLabel}</div>
-                          {isFuture && (
+                          {isFuture && v.status === 'scheduled' && (
                             <div style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 700, marginTop: 2 }}>
                               UPCOMING
                             </div>
@@ -740,6 +744,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {v.status === 'scheduled' ? (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              {!isFuture && (
                               <button
                                 className="btn btn-primary"
                                 style={{ fontSize: 11, padding: '4px 12px' }}
@@ -747,6 +752,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                               >
                                 Mark as Completed
                               </button>
+                              )}
                               <button
                                 className="btn btn-ghost"
                                 style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)' }}

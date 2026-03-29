@@ -546,7 +546,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                       }}>
                         <td>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{dateLabel}</div>
-                          {isFuture && <div style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 700, marginTop: 2 }}>UPCOMING</div>}
+                          {isFuture && v.status === 'scheduled' && <div style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 700, marginTop: 2 }}>UPCOMING</div>}
                         </td>
                         <td>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{loc?.name ?? v.locationId}</div>
@@ -597,7 +597,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                             <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--g7)', fontWeight: 600 }} onClick={() => openExpand(v.id, 'view')}>✅ Completed</button>
                           ) : v.status === 'scheduled' ? (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => openExpand(v.id, 'complete')}>Mark as Completed</button>
+                              {!isFuture && <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => openExpand(v.id, 'complete')}>Mark as Completed</button>}
                               <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)' }} onClick={() => openExpand(v.id, 'miss')}>Mark as Missed</button>
                               <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--ts)' }} onClick={() => handleCancel(v.id)}>⊘ Cancel</button>
                             </div>

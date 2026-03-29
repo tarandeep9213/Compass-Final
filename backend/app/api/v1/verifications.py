@@ -225,6 +225,8 @@ def complete_controller_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
+    if dt_date.fromisoformat(v.verification_date) > dt_date.today():
+        raise HTTPException(400, "Cannot complete a future visit. The visit date has not arrived yet.")
 
     v.status = VerificationStatus.COMPLETED
     v.observed_total = body.observed_total
@@ -431,6 +433,8 @@ def complete_dgm_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
+    if dt_date.fromisoformat(v.verification_date) > dt_date.today():
+        raise HTTPException(400, "Cannot complete a future visit. The visit date has not arrived yet.")
 
     v.status = VerificationStatus.COMPLETED
     v.observed_total = body.observed_total
