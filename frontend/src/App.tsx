@@ -482,11 +482,16 @@ export default function App() {
         if (appRole === 'admin' || appRole === 'regional-controller') {
           syncUsers()
         }
+        // DGM, RC, Admin have access to all locations but location_ids may be empty
+        const allAccessRoles = ['dgm', 'regional-controller', 'admin', 'auditor']
+        const effectiveLocIds = (allAccessRoles.includes(appRole) && (!user.location_ids || user.location_ids.length === 0))
+          ? LOCATIONS.map(l => l.id)
+          : user.location_ids
         setAuth({
         userId: user.id,
         role: appRole,
         name: user.name,
-        locationIds: user.location_ids,
+        locationIds: effectiveLocIds,
       })
 
       const token = getToken()
