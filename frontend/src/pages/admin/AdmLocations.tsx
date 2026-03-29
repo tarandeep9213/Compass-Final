@@ -126,7 +126,11 @@ export default function AdmLocations({ adminName }: Props) {
       try {
         const created = await createLocation({ id: newLoc.id, name: newLoc.name, city: '', expected_cash: newLoc.expectedCash, tolerance_pct: newLoc.tolerancePct })
         newLoc.id = created.id
-      } catch { /* demo mode */ }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to create location.'
+        setErrors({ name: msg })
+        return
+      }
       setLocs(prev => {
         const next = [...prev, newLoc]
         syncToStorage(next)
@@ -137,7 +141,11 @@ export default function AdmLocations({ adminName }: Props) {
     } else if (mode && typeof mode === 'object') {
       try {
         await updateLocation(mode.id, { cost_center: form.cost_center.trim(), name: form.name.trim(), expected_cash: Number(form.expectedCash), tolerance_pct: Number(form.tolerancePct) })
-      } catch { /* demo mode */ }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to update location.'
+        setErrors({ name: msg })
+        return
+      }
       setLocs(prev => {
         const next = prev.map(l => l.id === (mode as {id:string}).id
           ? { ...l, cost_center: form.cost_center.trim(), name:form.name.trim(), expectedCash:Number(form.expectedCash), tolerancePct:Number(form.tolerancePct) }
