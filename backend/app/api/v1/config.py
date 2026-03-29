@@ -76,9 +76,11 @@ def update_config(
 def set_location_override(
     location_id: str,
     body: SetLocationOverrideBody,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     override = db.get(LocationToleranceOverride, location_id)
+    old_val = str(override.tolerance_pct) if override else "default"
     if override:
         override.tolerance_pct = body.tolerance_pct
     else:
@@ -87,6 +89,12 @@ def set_location_override(
             tolerance_pct=body.tolerance_pct,
         )
         db.add(override)
+    from app.services.audit import log_event
+    log_event(db, current_user, "CONFIG_LOCATION_OVERRIDE",
+              f"Tolerance override set for {location_id}: {old_val} -> {body.tolerance_pct}%",
+              location_id=location_id,
+              old_value=old_val, new_value=str(body.tolerance_pct),
+              entity_type="Config")
     db.commit()
     db.refresh(override)
     return LocationOverrideOut(
@@ -98,8 +106,15 @@ def set_location_override(
 
 @router.delete("/locations/{location_id}/override", status_code=204,
                dependencies=[Depends(require_roles(UserRole.ADMIN))])
-def remove_location_override(location_id: str, db: Session = Depends(get_db)):
+def remove_location_override(location_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     override = db.get(LocationToleranceOverride, location_id)
     if override:
+        old_val = str(override.tolerance_pct)
         db.delete(override)
+        from app.services.audit import log_event
+        log_event(db, current_user, "CONFIG_LOCATION_OVERRIDE_REMOVED",
+                  f"Tolerance override removed for {location_id} (was {old_val}%)",
+                  location_id=location_id,
+                  old_value=f"{old_val}%", new_value="default",
+                  entity_type="Config")
         db.commit()

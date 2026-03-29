@@ -275,11 +275,16 @@ def update_draft(
         setattr(s, k, v)
 
     # When updating a rejected submission, reset it to draft so it can be submitted
+    old_status = s.status.value if hasattr(s.status, 'value') else str(s.status)
     if s.status == SubmissionStatus.REJECTED:
         s.status = SubmissionStatus.DRAFT
         s.rejection_reason = None
-    # pending_approval stays as-is — already submitted, just updating the data
 
+    log_event(db, current_user, "SUBMISSION_UPDATED",
+              f"Submission for {s.location_name} on {s.submission_date} updated",
+              location_id=s.location_id, location_name=s.location_name,
+              entity_id=s.id, entity_type="Submission",
+              old_value=old_status, new_value=s.status.value if hasattr(s.status, 'value') else str(s.status))
     db.commit()
     db.refresh(s)
     return _to_out(s)
@@ -397,7 +402,8 @@ def approve_submission(
     log_event(db, current_user, "SUBMISSION_APPROVED",
               f"Submission approved for {s.location_name} on {s.submission_date}",
               location_id=s.location_id, location_name=s.location_name,
-              entity_id=s.id, entity_type="Submission")
+              entity_id=s.id, entity_type="Submission",
+              old_value="pending_approval", new_value="approved")
     db.commit()
     db.refresh(s)
 
@@ -453,7 +459,8 @@ def reject_submission(
     log_event(db, current_user, "SUBMISSION_REJECTED",
               f"Submission rejected for {s.location_name} on {s.submission_date}: {body.reason}",
               location_id=s.location_id, location_name=s.location_name,
-              entity_id=s.id, entity_type="Submission")
+              entity_id=s.id, entity_type="Submission",
+              old_value="pending_approval", new_value=f"rejected: {body.reason}")
     db.commit()
     db.refresh(s)
 
@@ -500,6 +507,10 @@ def log_missed(
         logged_by=current_user.id,
     )
     db.add(m)
+    log_event(db, current_user, "MISSED_SUBMISSION_LOGGED",
+              f"Missed submission logged for {location_name} on {body.missed_date}: {body.reason}",
+              location_id=body.location_id, location_name=location_name,
+              entity_id=m.id, entity_type="MissedSubmission")
     db.commit()
     db.refresh(m)
 

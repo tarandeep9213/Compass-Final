@@ -126,6 +126,9 @@ def forgot_password(
         if settings.DEBUG:
             _debug_otp_store[user.email.lower().strip()] = otp
             
+        log_event(db, user, "PASSWORD_RESET_REQUESTED",
+                  f"Password reset OTP requested for {user.email}",
+                  entity_id=user.id, entity_type="User")
         db.commit()
         send_password_reset_background(background, user.email, user.name, otp)
     # Always return 200 — never reveal whether the email exists
@@ -157,6 +160,10 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
         or not verify_password(body.otp, user.password_reset_token)
     ):
         raise invalid
+    log_event(db, user, "PASSWORD_RESET_OTP_VERIFIED",
+              f"OTP verified for {user.email}",
+              entity_id=user.id, entity_type="User")
+    db.commit()
     return MessageResponse(message="OTP verified.")
 
 

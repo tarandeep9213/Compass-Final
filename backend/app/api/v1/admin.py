@@ -343,6 +343,10 @@ def admin_reset_all(
     for l in locs_deleted:
         db.delete(l)
     db.query(AuditEvent).delete()
+    log_event(db, current_user, "ADMIN_RESET_EXECUTED",
+              f"Full system reset: {users_count} users deleted, {locs_count} locations deleted",
+              old_value=f"users:{users_count},locations:{locs_count}", new_value="reset",
+              entity_type="System")
     db.commit()
     return {"users_deleted": users_count, "locations_deleted": locs_count}
 
