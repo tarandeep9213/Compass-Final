@@ -128,6 +128,7 @@ def admin_create_location(
         db.flush()
         db.add(LocationToleranceOverride(location_id=loc.id, tolerance_pct=body.tolerance_pct))
     log_event(db, current_user, "LOCATION_CREATED", f"Location {body.name} created",
+              location_id=loc.id, location_name=body.name,
               entity_id=loc.id, entity_type="Location")
     db.commit()
     db.refresh(loc)
@@ -156,6 +157,7 @@ def admin_update_location(
         else:
             db.add(LocationToleranceOverride(location_id=location_id, tolerance_pct=tol))
     log_event(db, current_user, "LOCATION_UPDATED", f"Location {loc.name} updated",
+              location_id=loc.id, location_name=loc.name,
               entity_id=loc.id, entity_type="Location")
     db.commit()
     db.refresh(loc)
@@ -174,6 +176,7 @@ def admin_deactivate_location(
         raise HTTPException(404, "Location not found")
     loc.active = False
     log_event(db, current_user, "LOCATION_DEACTIVATED", f"Location {loc.name} deactivated",
+              location_id=loc.id, location_name=loc.name,
               entity_id=loc.id, entity_type="Location")
     db.commit()
     return {"id": location_id, "active": False}
@@ -189,6 +192,7 @@ def admin_reactivate_location(
         raise HTTPException(404, "Location not found")
     loc.active = True
     log_event(db, current_user, "LOCATION_REACTIVATED", f"Location {loc.name} reactivated",
+              location_id=loc.id, location_name=loc.name,
               entity_id=loc.id, entity_type="Location")
     db.commit()
     return {"id": location_id, "active": True}
@@ -265,8 +269,15 @@ def admin_create_user(
         role=body.role, location_ids=body.location_ids, active=True,
     )
     db.add(user)
+    user_loc_id = body.location_ids[0] if body.location_ids else None
+    user_loc_name = None
+    if user_loc_id:
+        from app.models.location import Location as Loc
+        _loc = db.get(Loc, user_loc_id)
+        user_loc_name = _loc.name if _loc else None
     log_event(db, current_user, "USER_CREATED",
               f"User {user.email} created with role {user.role.value}",
+              location_id=user_loc_id, location_name=user_loc_name,
               entity_id=user.id, entity_type="User")
     db.commit()
     db.refresh(user)

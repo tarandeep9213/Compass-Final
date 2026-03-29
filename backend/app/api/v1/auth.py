@@ -64,7 +64,9 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     from app.models.access_grant import AccessGrant
     grants = db.query(AccessGrant).filter(AccessGrant.user_id == user.id).all()
     user.access_grants = list({g.access_type for g in grants})
+    first_loc_id = user.location_ids[0] if isinstance(user.location_ids, list) and user.location_ids else None
     log_event(db, user, "USER_LOGIN", f"{user.name} logged in",
+              location_id=first_loc_id,
               entity_id=user.id, entity_type="User")
     db.commit()
     return _full_token_response(user)
