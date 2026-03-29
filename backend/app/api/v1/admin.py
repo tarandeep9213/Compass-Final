@@ -408,9 +408,15 @@ def admin_update_config(
     db: Session = Depends(get_db),
 ):
     cfg = _get_config(db)
-    for k, v in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    old_vals = {k: str(getattr(cfg, k)) for k in changes}
+    for k, v in changes.items():
         setattr(cfg, k, v)
-    log_event(db, current_user, "CONFIG_UPDATED", "Global config updated", entity_type="Config")
+    new_vals = {k: str(v) for k, v in changes.items()}
+    log_event(db, current_user, "CONFIG_UPDATED",
+              f"Global config updated: {', '.join(f'{k}: {old_vals[k]} -> {new_vals[k]}' for k in changes)}",
+              old_value=str(old_vals), new_value=str(new_vals),
+              entity_type="Config")
     db.commit()
     db.refresh(cfg)
     overrides = db.query(LocationToleranceOverride).all()

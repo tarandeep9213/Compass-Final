@@ -44,11 +44,20 @@ def get_config(
             dependencies=[Depends(require_roles(UserRole.ADMIN))])
 def update_config(
     body: UpdateGlobalConfigBody,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     cfg = _get_or_create_config(db)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    old_vals = {k: str(getattr(cfg, k)) for k in changes}
+    for field, value in changes.items():
         setattr(cfg, field, value)
+    new_vals = {k: str(v) for k, v in changes.items()}
+    from app.services.audit import log_event
+    log_event(db, current_user, "CONFIG_UPDATED",
+              f"Global config updated: {', '.join(f'{k}: {old_vals[k]} -> {new_vals[k]}' for k in changes)}",
+              old_value=str(old_vals), new_value=str(new_vals),
+              entity_type="Config")
     db.commit()
     db.refresh(cfg)
     overrides = db.query(LocationToleranceOverride).all()
