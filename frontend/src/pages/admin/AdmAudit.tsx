@@ -440,7 +440,10 @@ export default function AdmAudit({ adminName }: Props) {
                             {EVENT_LABELS[ev.eventType]??ev.eventType}
                           </span>
                         </td>
-                        <td style={{fontSize:12,fontWeight:500,color:'var(--td)',whiteSpace:'nowrap'}}>{ev.actor}</td>
+                        <td style={{whiteSpace:'nowrap'}}>
+                          <div style={{fontSize:12,fontWeight:500,color:'var(--td)'}}>{ev.actor}</div>
+                          {ev.actorRole && <div style={{fontSize:10,color:'var(--ts)',textTransform:'capitalize'}}>{ev.actorRole.replace(/_/g,' ').toLowerCase()}</div>}
+                        </td>
                         <td style={{fontSize:12,color:'var(--ts)'}}>
                           {loc ? <><div style={{fontWeight:500,color:'var(--td)',fontSize:12}}>{loc.name}</div><div style={{fontSize:10,fontFamily:'monospace'}}>{loc.id}</div></>
                             : ev.locationId ? <span style={{fontFamily:'monospace',fontSize:11}}>{ev.locationId}</span>
