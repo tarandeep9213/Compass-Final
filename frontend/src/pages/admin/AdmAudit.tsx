@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { AUDIT_EVENTS, LOCATIONS, todayStr } from '../../mock/data'
+import { todayStr } from '../../mock/data'
 import type { AuditEvent } from '../../mock/data'
 import { listAuditEvents } from '../../api/audit'
 import { listLocations } from '../../api/locations'
@@ -155,9 +155,9 @@ export default function AdmAudit({ adminName }: Props) {
       .catch(() => { /* fall back to mock */ })
   }, [])
 
-  const allLocations = apiLocations.length > 0 ? apiLocations : LOCATIONS.map(l => ({ id: l.id, name: l.name, cost_center: (l as unknown as Record<string, string>).costCenter || (l as unknown as Record<string, string>).cost_center }))
+  const allLocations = apiLocations
 
-  const sourceEvents = apiEvents.length > 0 ? apiEvents : AUDIT_EVENTS
+  const sourceEvents = apiEvents
 
   // Event types: static from known EVENT_LABELS (don't derive from data)
   const EVENT_TYPES = Object.keys(EVENT_LABELS).sort((a, b) =>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { SUBMISSIONS, VERIFICATIONS, LOCATIONS, USERS, AUDIT_EVENTS, formatCurrency, todayStr, getLocation, IMPREST } from '../../mock/data'
+import { formatCurrency, todayStr, IMPREST } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listControllerVerifications, listDgmVerifications } from '../../api/verifications'
 import { listLocations } from '../../api/locations'
@@ -60,7 +60,7 @@ export default function AdmReports({ adminName }: Props) {
     listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: l.cost_center ?? undefined, active: l.active })))).catch(() => {})
   }, [])
 
-  const allLocs = apiLocs.length > 0 ? apiLocs : LOCATIONS
+  const allLocs = apiLocs
 
 
   const { start, end } = useMemo(() => {
@@ -120,13 +120,7 @@ export default function AdmReports({ adminName }: Props) {
         }
       });
     }
-    return SUBMISSIONS.filter(s => (!start||s.date>=start) && (!end||s.date<=end)).map(s => {
-      const loc = getLocation(s.locationId)
-      const expCash = Number(s.expectedCash || (loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
-      const variance = s.totalCash - expCash
-      const variancePct = expCash > 0 ? (variance / expCash) * 100 : 0
-      return { ...s, expectedCash: expCash, variance, variancePct }
-    });
+    return [];
   }, [apiSubs, start, end])
 
   // All verifications in the date range (used for actor summary)
@@ -141,7 +135,7 @@ export default function AdmReports({ adminName }: Props) {
         date: v.verification_date
       }));
     }
-    return VERIFICATIONS.filter(v => (!start||v.date>=start) && (!end||v.date<=end));
+    return [];
   }, [apiVerifs, start, end])
 
   // Single Source of Truth: Filter the raw submission/verification data by location
@@ -249,9 +243,8 @@ export default function AdmReports({ adminName }: Props) {
   // Pre-build RC lookup: locationId → assigned RC name (from USERS)
   const assignedRcByLoc = useMemo(() => {
     const map: Record<string, string> = {}
-    USERS.filter(u => u.role === 'regional-controller').forEach(u => {
-      u.locationIds.forEach(lid => { if (!map[lid]) map[lid] = u.name })
-    })
+    // RC lookup could be enriched from API users if needed
+    void map
     return map
   }, [])
 
@@ -281,12 +274,7 @@ export default function AdmReports({ adminName }: Props) {
         const ctrl = filteredVerifs.find(v => v.locationId === locId && v.date === date && v.type === 'controller' && v.status === 'completed')
         const dgm  = filteredVerifs.find(v => v.locationId === locId && v.date === date && v.type === 'dgm'        && v.status === 'completed')
         // RC: first check audit events for an RC actor on this location+date, then fall back to assigned RC
-        const rcEvent = AUDIT_EVENTS.find(e =>
-          e.locationId === locId &&
-          e.timestamp.startsWith(date) &&
-          e.actorRole === 'regional-controller'
-        )
-        const rc = rcEvent?.actor ?? assignedRcByLoc[locId] ?? '—'
+        const rc = assignedRcByLoc[locId] ?? '—'
         return {
           date,
           locId,
