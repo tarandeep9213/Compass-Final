@@ -110,14 +110,17 @@ def list_submissions(
     q = db.query(Submission)
 
     # Operators (and users with operator grant) see only their own submissions
-    if current_user.role == UserRole.OPERATOR or _has_operator_grant(current_user):
+    is_operator = current_user.role == UserRole.OPERATOR or _has_operator_grant(current_user)
+    if is_operator:
         q = q.filter(Submission.operator_id == current_user.id)
-    elif current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
-        if current_user.location_ids:
-            q = q.filter(Submission.location_id.in_(current_user.location_ids))
-        # Controllers should not see draft submissions (operator work-in-progress)
-        if not status:  # only auto-exclude if no explicit status filter
+    else:
+        # Non-operators should not see draft submissions (operator work-in-progress)
+        if not status:
             q = q.filter(Submission.status != SubmissionStatus.DRAFT)
+        # Controllers scoped to assigned locations
+        if current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
+            if current_user.location_ids:
+                q = q.filter(Submission.location_id.in_(current_user.location_ids))
 
     if location_id:
         q = q.filter(Submission.location_id == location_id)
