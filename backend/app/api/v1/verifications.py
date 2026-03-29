@@ -230,8 +230,22 @@ def complete_controller_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
-    if dt_date.fromisoformat(v.verification_date) > dt_date.today():
-        raise HTTPException(400, "Cannot complete a future visit. The visit date has not arrived yet.")
+    # Time-aware: complete only today within 5hr window of scheduled time
+    visit_date = dt_date.fromisoformat(v.verification_date)
+    today = dt_date.today()
+    if visit_date > today:
+        raise HTTPException(400, "Cannot complete a future visit.")
+    if visit_date < today:
+        raise HTTPException(400, "Cannot complete a past visit. Use 'Mark as Missed' instead.")
+    if v.scheduled_time:
+        from datetime import timedelta
+        h, m = map(int, v.scheduled_time.split(':'))
+        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m, tzinfo=timezone.utc)
+        now_utc = datetime.now(timezone.utc)
+        if now_utc < sched_dt:
+            raise HTTPException(400, f"Too early — visit is scheduled for {v.scheduled_time}.")
+        if now_utc > sched_dt + timedelta(hours=5):
+            raise HTTPException(400, f"5-hour completion window has passed (scheduled {v.scheduled_time}). Use 'Mark as Missed'.")
 
     v.status = VerificationStatus.COMPLETED
     v.observed_total = body.observed_total
@@ -278,6 +292,17 @@ def miss_controller_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
+    # Time-aware: miss only for past dates, or today after 5hr window
+    visit_date = dt_date.fromisoformat(v.verification_date)
+    today = dt_date.today()
+    if visit_date > today:
+        raise HTTPException(400, "Cannot mark a future visit as missed. Use 'Cancel' instead.")
+    if visit_date == today and v.scheduled_time:
+        from datetime import timedelta
+        h, m = map(int, v.scheduled_time.split(':'))
+        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m, tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) <= sched_dt + timedelta(hours=5):
+            raise HTTPException(400, f"Completion window is still open (until 5hrs after {v.scheduled_time}). Complete or wait before marking as missed.")
 
     v.status = VerificationStatus.MISSED
     v.missed_reason = body.missed_reason
@@ -305,8 +330,15 @@ def cancel_controller_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Only scheduled visits can be cancelled")
-    if dt_date.fromisoformat(v.verification_date) < dt_date.today():
+    visit_date = dt_date.fromisoformat(v.verification_date)
+    today = dt_date.today()
+    if visit_date < today:
         raise HTTPException(400, "Cannot cancel a past visit. Use 'Mark as Missed' instead.")
+    if visit_date == today and v.scheduled_time:
+        h, m = map(int, v.scheduled_time.split(':'))
+        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m, tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) >= sched_dt:
+            raise HTTPException(400, "Cannot cancel — the scheduled time has arrived. Use 'Complete' or 'Mark as Missed'.")
 
     v.status = VerificationStatus.CANCELLED
     v.notes = body.notes or v.notes
@@ -478,8 +510,13 @@ def complete_dgm_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
-    if dt_date.fromisoformat(v.verification_date) > dt_date.today():
-        raise HTTPException(400, "Cannot complete a future visit. The visit date has not arrived yet.")
+    # DGM: complete only on the visit date (today), not future or past
+    visit_date = dt_date.fromisoformat(v.verification_date)
+    today = dt_date.today()
+    if visit_date > today:
+        raise HTTPException(400, "Cannot complete a future visit.")
+    if visit_date < today:
+        raise HTTPException(400, "Cannot complete a past visit. Use 'Mark as Missed' instead.")
 
     v.status = VerificationStatus.COMPLETED
     v.observed_total = body.observed_total
@@ -552,6 +589,10 @@ def miss_dgm_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
+    # DGM: miss only for past dates
+    visit_date = dt_date.fromisoformat(v.verification_date)
+    if visit_date >= dt_date.today():
+        raise HTTPException(400, "Cannot mark today/future visit as missed. Use 'Cancel' for future visits, or complete today's visit.")
 
     v.status = VerificationStatus.MISSED
     v.missed_reason = body.missed_reason

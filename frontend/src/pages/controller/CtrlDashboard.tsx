@@ -754,33 +754,51 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
                         {/* Actions */}
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {v.status === 'scheduled' ? (
+                          {v.status === 'scheduled' ? (() => {
+                            // Time-aware action rules
+                            const vDate = v.date
+                            const isPast = vDate < todayStr
+                            const isToday = vDate === todayStr
+                            let inWindow = false
+                            let pastWindow = false
+                            let beforeTime = false
+                            if (isToday && v.scheduledTime) {
+                              const [hh, mm] = v.scheduledTime.split(':').map(Number)
+                              const schedMs = new Date().setHours(hh, mm, 0, 0)
+                              const nowMs = Date.now()
+                              beforeTime = nowMs < schedMs
+                              inWindow = nowMs >= schedMs && nowMs <= schedMs + 5 * 3600000
+                              pastWindow = nowMs > schedMs + 5 * 3600000
+                            } else if (isToday && !v.scheduledTime) {
+                              inWindow = true // DGM-like: no time = all day
+                            }
+                            const showComplete = isToday && inWindow
+                            const showMiss = isPast || (isToday && pastWindow)
+                            const showCancel = isFuture || (isToday && beforeTime)
+
+                            return (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              {!isFuture && (
-                              <button
-                                className="btn btn-primary"
-                                style={{ fontSize: 11, padding: '4px 12px' }}
-                                onClick={() => openExpand(v.id, 'complete')}
-                              >
+                              {showComplete && (
+                              <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
+                                onClick={() => openExpand(v.id, 'complete')}>
                                 Mark as Completed
                               </button>
                               )}
-                              <button
-                                className="btn btn-ghost"
-                                style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)' }}
-                                onClick={() => openExpand(v.id, 'miss')}
-                              >
+                              {showMiss && (
+                              <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)' }}
+                                onClick={() => openExpand(v.id, 'miss')}>
                                 Mark as Missed
                               </button>
-                              <button
-                                className="btn btn-ghost"
-                                style={{ fontSize: 11, padding: '4px 12px', color: 'var(--ts)' }}
-                                onClick={() => handleCancelVisit(v.id)}
-                              >
+                              )}
+                              {showCancel && (
+                              <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--ts)' }}
+                                onClick={() => handleCancelVisit(v.id)}>
                                 ⊘ Cancel
                               </button>
+                              )}
                             </div>
-                          ) : v.status === 'completed' ? (
+                            )
+                          })() : v.status === 'completed' ? (
                             <button
                               className="btn btn-outline"
                               style={{ fontSize: 11, padding: '4px 12px', color: 'var(--g7)', borderColor: 'var(--g3)' }}
