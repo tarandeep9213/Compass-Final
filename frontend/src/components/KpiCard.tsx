@@ -65,7 +65,7 @@ export default function KpiCard({ label, value, sub, accent, highlight, tooltip,
       style={{
         position: 'relative',
         zIndex: show ? 50 : 1, // FIX: Elevate the stacking context when tooltip is active so it renders over adjacent cards
-        overflow: 'visible', // FIX: Ensure the tooltip can break out of the card container
+        overflow: 'hidden', // Prevent value text overflow; tooltip uses portal so it's unaffected
         cursor: onClick ? 'pointer' : undefined,
         outline: selected ? `2px solid ${accent || '#3b82f6'}` : undefined,
         outlineOffset: selected ? 2 : undefined,

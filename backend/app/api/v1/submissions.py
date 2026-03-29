@@ -115,6 +115,9 @@ def list_submissions(
     elif current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
         if current_user.location_ids:
             q = q.filter(Submission.location_id.in_(current_user.location_ids))
+        # Controllers should not see draft submissions (operator work-in-progress)
+        if not status:  # only auto-exclude if no explicit status filter
+            q = q.filter(Submission.status != SubmissionStatus.DRAFT)
 
     if location_id:
         q = q.filter(Submission.location_id == location_id)
