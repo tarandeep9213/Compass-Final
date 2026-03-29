@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.core.deps import get_current_user
 from app.models.user import User, UserRole
 from app.models.location import Location
+from app.services.audit import log_event
 from app.models.verification import Verification, VerificationStatus, VerificationType
 from app.models.config import SystemConfig
 from app.schemas.verification import (
