@@ -158,6 +158,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
             H: typeof s.sections['H'] === 'number' ? s.sections['H'] : (s.sections['H'] as { total?: number })?.total ?? 0,
             I: typeof s.sections['I'] === 'number' ? s.sections['I'] : (s.sections['I'] as { total?: number })?.total ?? 0,
             holdover: typeof s.sections['holdover'] === 'number' ? s.sections['holdover'] : 0,
+            replenishment: typeof s.sections['replenishment'] === 'number' ? s.sections['replenishment'] : 0,
             coinTransit: typeof s.sections['coin_transit'] === 'number' ? s.sections['coin_transit'] : 0,
           } as unknown as Submission['sections'],
         })
@@ -328,13 +329,12 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const sc = statusConfig[effStatus] ?? statusConfig['pending_approval']
 
   const s = sub.sections
-  // Read intermediate values from sections JSON (stored by backend at submission time)
+  // Read intermediate values from sections JSON
   const sectionsRaw = s as unknown as Record<string, unknown>
   const holdoverAmt = Number(sectionsRaw.holdover ?? 0)
+  const replenishAmt = Number(sectionsRaw.replenishment ?? 0)
   const coinTransitAmt = Number(sectionsRaw.coinTransit ?? sectionsRaw.coin_transit ?? 0)
-  // "Total Cash" = A+B+C+D+E+F+G minus holdover (intermediate subtotal before H, I, J, K)
-  const calcTotalCash = s.A + s.B + s.C + s.D + s.E + s.F + s.G - holdoverAmt
-  // All totals come from API — single source of truth
+  // All values come from API — single source of truth
   const calcTotalFund = sub.totalCash
   const calcExpectedCash = sub.expectedCash || 0
   const calcVariance = sub.variance
@@ -957,14 +957,23 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
                   Deduct Holdover (if any)
                 </td>
                 <td style={{ textAlign: 'right', padding: '7px 0', color: 'var(--td)', fontSize: 14 }}>
-                  {formatCurrency((s as unknown as Record<string, number>).holdover || 0)}
+                  {formatCurrency(holdoverAmt)}
                 </td>
               </tr>
+              {replenishAmt > 0 && (
+              <tr style={{ borderBottom: '1px solid var(--ow2)' }}>
+                <td style={{ padding: '7px 0', color: 'var(--g7)', fontWeight: 700, fontSize: 13 }}>K</td>
+                <td style={{ padding: '7px 8px', fontSize: 13, color: 'var(--td)' }}>Replenishment</td>
+                <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 14, padding: '7px 0' }}>
+                  {formatCurrency(replenishAmt)}
+                </td>
+              </tr>
+              )}
               <tr style={{ background: '#fffde7', borderBottom: '2px solid var(--ow2)' }}>
                 <td />
                 <td style={{ padding: '8px 8px', fontWeight: 700, fontSize: 13, color: '#78590a' }}>Total Cash</td>
                 <td style={{ ...YC, padding: '8px 0', fontSize: 15, fontFamily: 'DM Serif Display,serif' }}>
-                  {formatCurrency(calcTotalCash)}
+                  {formatCurrency(s.A + s.B + s.C + s.D + s.E + s.F + s.G - holdoverAmt + replenishAmt)}
                 </td>
               </tr>
               {(['H', 'I'] as const).map(k => (

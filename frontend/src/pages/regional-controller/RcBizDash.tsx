@@ -410,7 +410,7 @@ export default function RcBizDash({ adminName }: Props) {
   }
 
   return (
-    <div className="fade-up" style={{ maxWidth: 1100 }}>
+    <div className="fade-up">
 
       {/* ── Page Header ──────────────────────────────────────────────────── */}
       <div className="ph" style={{ marginBottom: 18 }}>
@@ -1047,8 +1047,8 @@ export default function RcBizDash({ adminName }: Props) {
             </div>
 
             {/* Table */}
-            <div className="card-body" style={{ padding: 0 }}>
-              <table className="dt">
+            <div className="card-body" style={{ padding: 0, overflowX: 'auto' }}>
+              <table className="dt" style={{ minWidth: 950 }}>
                 <thead>
                   <tr>
                     <th style={{ width: 100 }}>Health</th>
