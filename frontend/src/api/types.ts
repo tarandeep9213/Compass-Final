@@ -98,6 +98,7 @@ export interface ApiSubmission {
   approved_by_name: string | null
   approved_at: string | null
   rejection_reason: string | null
+  section_reviews: Record<string, { decision: string; note: string }> | null
   submitted_at: string | null
   created_at: string
   updated_at: string

@@ -303,6 +303,7 @@ def update_draft(
     if s.status == SubmissionStatus.REJECTED:
         s.status = SubmissionStatus.DRAFT
         s.rejection_reason = None
+        s.section_reviews = None
 
     log_event(db, current_user, "SUBMISSION_UPDATED",
               f"Submission for {s.location_name} on {s.submission_date} updated",
