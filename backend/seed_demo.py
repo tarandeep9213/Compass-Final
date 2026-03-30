@@ -22,7 +22,7 @@ from app.models.user import User, UserRole
 from app.core.security import hash_password
 
 # ── Constants ────────────────────────────────────────────────────────────────
-TODAY      = date(2026, 3, 6)
+TODAY      = date.today()
 DEMO_PASS  = "demo1234"
 DAY_NAMES  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 
