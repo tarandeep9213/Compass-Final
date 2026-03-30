@@ -659,8 +659,9 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* ── Excel prefill banner ── */}
+      {/* ── Excel prefill banner (only for actual Excel uploads, not existing submissions) ── */}
       {(() => {
+        if (editingStatus) return null  // Don't show for existing submissions being edited
         const pf = getExcelPrefill(ctx)
         if (!pf) return null
         const hasManualSections = pf.sections.C + pf.sections.D + pf.sections.E + pf.sections.F > 0
@@ -677,36 +678,18 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         )
       })()}
 
-      {globalRejectReason && (
-        <div style={{
-          display: 'flex', gap: 12, alignItems: 'flex-start',
-          padding: '14px 18px', borderRadius: 10, marginBottom: 16,
-          background: 'var(--red-bg)', border: '1px solid #fca5a5',
-        }}>
-          <span style={{ fontSize: 24 }}>❌</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--red)', marginBottom: 4 }}>
-              Submission Rejected
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--red)', lineHeight: 1.5 }}>
-              {globalRejectReason}
-            </div>
-          </div>
-        </div>
-      )}
-
       {globalRejectReason && editingStatus === 'rejected' && (
         <div style={{
           display: 'flex', gap: 12, alignItems: 'flex-start',
           padding: '14px 18px', borderRadius: 10, marginBottom: 18,
           background: 'var(--red-bg)', border: '1px solid #fca5a5',
         }}>
-          <span style={{ fontSize: 20 }}>❌</span>
+          <span style={{ fontSize: 22 }}>❌</span>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--red)', marginBottom: 3 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--red)', marginBottom: 4 }}>
               Submission Rejected
             </div>
-            <div style={{ fontSize: 12, color: 'var(--red)' }}>
+            <div style={{ fontSize: 13, color: 'var(--red)', lineHeight: 1.5 }}>
               Reason: {globalRejectReason}
             </div>
           </div>
