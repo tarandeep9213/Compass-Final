@@ -825,13 +825,6 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                               background: 'var(--g0)', borderLeft: '4px solid var(--g4)',
                               padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16,
                             }}>
-                              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--g8)' }}>
-                                ✓ Complete Visit — {loc?.name ?? v.locationId}
-                                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ts)', marginLeft: 10 }}>
-                                  {new Date(v.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                </span>
-                              </div>
-
                               {/* Gate: submission must be approved in Daily Review first */}
                               {!subApproved && (
                                 <div style={{

@@ -628,11 +628,6 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                         <tr>
                           <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid var(--ow2)' }}>
                             <div style={{ background: 'var(--g0)', borderLeft: '4px solid var(--g4)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--g8)' }}>
-                                ✓ Complete Visit — {loc?.name ?? v.locationId}
-                                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ts)', marginLeft: 10 }}>{dateLabel}</span>
-                              </div>
-
                               {/* Gate: controller must have completed + approved visit */}
                               {!ctrlApproved && (
                                 <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8, padding: '16px 20px' }}>
