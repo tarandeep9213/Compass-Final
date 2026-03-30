@@ -1,10 +1,21 @@
 /**
  * Operator E2E Test Cases from V2 reference repo.
  * Adapted to use our seed data (operator@compass.com, controller@compass.com).
+ * Uses unique random dates to avoid collisions with prior test runs.
  */
 import { test, expect } from '@playwright/test'
 
 const API = 'http://localhost:8006/v1'
+
+// Generate a unique date string (2029-MM-DD) to avoid collisions
+let _dateCounter = 0
+function uniqueDate(): string {
+  _dateCounter++
+  const now = Date.now()
+  const day = ((_dateCounter + now) % 28) + 1
+  const month = ((_dateCounter + Math.floor(now / 1000)) % 12) + 1
+  return `2029-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
 
 async function getToken(request: import('@playwright/test').APIRequestContext, email: string): Promise<string> {
   return (await (await request.post(`${API}/auth/login`, { data: { email, password: 'demo1234' } })).json()).access_token
@@ -15,12 +26,13 @@ test.describe('OP-COMM-003: Rejection → Resubmit workflow', () => {
   test('rejection preserves values and resubmit works', async ({ request }) => {
     const opToken = await getToken(request, 'operator@compass.com')
     const ctrlToken = await getToken(request, 'controller@compass.com')
+    const date = uniqueDate()
 
     // 1. Operator submits form
     const sub = await (await request.post(`${API}/submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-01', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: { A: { total: 9575, ones: 100, fives: 500, tens: 300, twenties: 200, fifties: 100, hundreds: 50, other: 0 }, B: { total: 0 } },
         variance_note: null, save_as_draft: false,
       },
@@ -50,7 +62,7 @@ test.describe('OP-COMM-003: Rejection → Resubmit workflow', () => {
     await request.put(`${API}/submissions/${sub.id}`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-01', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: { A: { total: 9000, ones: 50, fives: 400 }, B: { total: 0 } },
         variance_note: null, save_as_draft: true,
       },
@@ -74,12 +86,13 @@ test.describe('OP-COMM-007: Update pending — values reflected on controller', 
   test('operator updates pending, controller sees new values', async ({ request }) => {
     const opToken = await getToken(request, 'operator@compass.com')
     const ctrlToken = await getToken(request, 'controller@compass.com')
+    const date = uniqueDate()
 
     // Create submission
     const sub = await (await request.post(`${API}/submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-02', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: { A: { total: 500, ones: 10 } },
         variance_note: null, save_as_draft: false,
       },
@@ -90,7 +103,7 @@ test.describe('OP-COMM-007: Update pending — values reflected on controller', 
     await request.put(`${API}/submissions/${sub.id}`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-02', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: { A: { total: 520, ones: 20 } },
         variance_note: null, save_as_draft: true,
       },
@@ -109,11 +122,12 @@ test.describe('OP-MSS-001: Missed explanation full flow', () => {
 
   test('missed submission via API — validation and success', async ({ request }) => {
     const opToken = await getToken(request, 'operator@compass.com')
+    const date = uniqueDate()
 
     // Submit without required fields should fail (API validates)
     const bad = await request.post(`${API}/missed-submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
-      data: { location_id: 'loc-1', missed_date: '2028-10-03' },
+      data: { location_id: 'loc-1', missed_date: date },
     })
     expect(bad.status()).toBe(422) // validation error
 
@@ -121,7 +135,7 @@ test.describe('OP-MSS-001: Missed explanation full flow', () => {
     const good = await request.post(`${API}/missed-submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', missed_date: '2028-10-03',
+        location_id: 'loc-1', missed_date: date,
         reason: 'Illness', detail: 'Staff illness — called in at 7 AM',
         supervisor_name: 'Chris Controller',
       },
@@ -159,11 +173,12 @@ test.describe('OP-FRM-001: Variance calculation', () => {
 
   test('total_cash and variance calculated correctly', async ({ request }) => {
     const opToken = await getToken(request, 'operator@compass.com')
+    const date = uniqueDate()
 
     const sub = await (await request.post(`${API}/submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-05', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: {
           A: { total: 235 }, B: { total: 10 }, C: { total: 0 },
           D: { total: 0 }, E: { total: 0 }, F: { total: 0 },
@@ -185,11 +200,12 @@ test.describe('Opr-013: Imprest from admin config', () => {
 
   test('submission uses location expected_cash, not hardcoded', async ({ request }) => {
     const opToken = await getToken(request, 'operator@compass.com')
+    const date = uniqueDate()
 
     const sub = await (await request.post(`${API}/submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-06', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: { A: { total: 100 } },
         variance_note: null, save_as_draft: false,
       },
@@ -208,12 +224,13 @@ test.describe('Opr-016: Drafts visible only to creator', () => {
     const opToken = await getToken(request, 'operator@compass.com')
     const op2Token = await getToken(request, 'op2@compass.com')
     const ctrlToken = await getToken(request, 'controller@compass.com')
+    const date = uniqueDate()
 
     // Create draft as operator
     const draft = await (await request.post(`${API}/submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-07', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: { A: { total: 999 } }, variance_note: null, save_as_draft: true,
       },
     })).json()
@@ -239,12 +256,13 @@ test.describe('Opr-033: Discard draft', () => {
 
   test('draft can be deleted and is gone from API', async ({ request }) => {
     const opToken = await getToken(request, 'operator@compass.com')
+    const date = uniqueDate()
 
     // Create draft
     const draft = await (await request.post(`${API}/submissions`, {
       headers: { Authorization: `Bearer ${opToken}` },
       data: {
-        location_id: 'loc-1', submission_date: '2028-10-08', source: 'FORM',
+        location_id: 'loc-1', submission_date: date, source: 'FORM',
         sections: { A: { total: 111 } }, variance_note: null, save_as_draft: true,
       },
     })).json()

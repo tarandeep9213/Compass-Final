@@ -189,6 +189,29 @@ def create_submission(
     if existing and not body.save_as_draft:
         raise HTTPException(409, f"A submission already exists for this location on {body.submission_date}. Use the Update feature instead.")
 
+    # Prevent duplicate drafts — return existing draft if one exists for same location+date+operator
+    if body.save_as_draft:
+        existing_draft = db.query(Submission).filter(
+            Submission.location_id == body.location_id,
+            Submission.submission_date == body.submission_date,
+            Submission.operator_id == current_user.id,
+            Submission.status == SubmissionStatus.DRAFT,
+        ).first()
+        if existing_draft:
+            # Update existing draft instead of creating a new one
+            existing_draft.sections = body.sections
+            existing_draft.variance_note = body.variance_note
+            existing_draft.source = SubmissionSource(body.source)
+            cfg = _get_config(db)
+            tolerance = loc.tolerance_pct_override if loc.tolerance_pct_override is not None else cfg.default_tolerance_pct
+            expected = loc.expected_cash or 0.0
+            totals = _calc_totals(body.sections, expected, tolerance)
+            for k, v in totals.items():
+                setattr(existing_draft, k, v)
+            db.commit()
+            db.refresh(existing_draft)
+            return existing_draft
+
     cfg = _get_config(db)
     tolerance = loc.tolerance_pct_override if loc.tolerance_pct_override is not None else cfg.default_tolerance_pct
     expected = loc.expected_cash or 0.0

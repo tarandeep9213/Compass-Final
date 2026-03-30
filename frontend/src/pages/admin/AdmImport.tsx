@@ -324,18 +324,8 @@ export default function AdmImport({ adminName }: Props) {
             Upload a Cashroom roster Excel to preview roles and location assignments · {adminName}
           </p>
         </div>
-        <div className="ph-right">
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 12, color: '#b45309', border: '1px solid #f59e0b', background: '#fffbeb' }}
-            onClick={() => setResetConfirm(true)}
-          >
-            ↺ Reset (Users + Locations)
-          </button>
-        </div>
-
-        {rows.length > 0 && !imported && (
-          <div className="ph-right">
+        <div className="ph-right" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {rows.length > 0 && !imported && (
             <button
               className="btn btn-primary"
               disabled={importing}
@@ -391,8 +381,15 @@ export default function AdmImport({ adminName }: Props) {
             >
               {importing ? 'Importing…' : `✓ Confirm Import (${rows.length} rows)`}
             </button>
-          </div>
-        )}
+          )}
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12, color: '#b45309', border: '1px solid #f59e0b', background: '#fffbeb' }}
+            onClick={() => setResetConfirm(true)}
+          >
+            ↺ Reset (Users + Locations)
+          </button>
+        </div>
       </div>
 
       {/* ── Reset confirmation banner ── */}

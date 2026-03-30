@@ -323,14 +323,15 @@ export default function OpForm({ ctx, onNavigate }: Props) {
   const [draftId,      setDraftId]      = useState<string | null>(ctx.draftId ?? null)
   const [globalRejectReason, setGlobalRejectReason] = useState('')
 
-  const [formLoading, setFormLoading] = useState(!!ctx.submissionId && ctx.fromExcel !== 'true')
+  const _loadId = ctx.submissionId || ctx.draftId
+  const [formLoading, setFormLoading] = useState(!!_loadId && ctx.fromExcel !== 'true')
   const [editingStatus, setEditingStatus] = useState<string | null>(null)
 
-  // ── Pre-fill from API when editing an existing submission ─────────────────
+  // ── Pre-fill from API when editing an existing submission or resuming draft ─
   useEffect(() => {
-    if (!ctx.submissionId || ctx.fromExcel === 'true') return
+    if (!_loadId || ctx.fromExcel === 'true') return
     setFormLoading(true)
-    getSubmission(ctx.submissionId).then(sub => {
+    getSubmission(_loadId).then(sub => {
       setEditingStatus(sub.status)
       interface ParsedSections {
         A?: { ones?: number; twos?: number; fives?: number; tens?: number; twenties?: number; fifties?: number; hundreds?: number; other?: number };
@@ -425,7 +426,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       }
     }).catch(() => { /* keep empty if fetch fails */ })
       .finally(() => setFormLoading(false))
-  }, [ctx.submissionId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [_loadId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Totals (formula cells) ─────────────────────────────────────────────────
   const totA = SEC_A.reduce((s, r) =>
