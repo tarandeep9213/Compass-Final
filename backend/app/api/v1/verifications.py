@@ -406,7 +406,7 @@ def schedule_dgm_visit(
     dow = d.weekday()
     month_year = body.date[:7]  # YYYY-MM
 
-    # 30-day rolling block: visits must be at least 30 days apart
+    # 30-day rolling block: visits must be at least 30 days apart (includes same-date duplicate check)
     from datetime import timedelta
     window_start = (d - timedelta(days=29)).isoformat()
     window_end = (d + timedelta(days=29)).isoformat()
@@ -415,11 +415,12 @@ def schedule_dgm_visit(
         Verification.verification_type == VerificationType.DGM,
         Verification.verification_date >= window_start,
         Verification.verification_date <= window_end,
-        Verification.verification_date != body.date,
         Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
     ).first()
     if existing_nearby:
         days_diff = abs((d - dt_date.fromisoformat(existing_nearby.verification_date)).days)
+        if days_diff == 0:
+            raise HTTPException(400, f"A DGM visit is already {existing_nearby.status.value} for this location on {body.date}.")
         next_available = (dt_date.fromisoformat(existing_nearby.verification_date) + timedelta(days=30)).isoformat()
         raise HTTPException(400, f"A DGM visit exists on {existing_nearby.verification_date} ({days_diff} days away). Visits must be at least 30 days apart. Next available: {next_available}.")
 

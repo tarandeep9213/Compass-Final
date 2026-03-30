@@ -62,11 +62,13 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   const [fetchError,   setFetchError]   = useState('')
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
+  const [verifsLoaded, setVerifsLoaded] = useState(false)
   const [apiLocs, setApiLocs] = useState<{id:string;name:string;cost_center?:string|null}[]>([])
   useEffect(() => {
-    listControllerVerifications()
-      .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
-      .catch(() => {})
+    setVerifsLoaded(false)
+    listControllerVerifications({ page_size: 200 })
+      .then(r => { setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))); setVerifsLoaded(true) })
+      .catch(() => setVerifsLoaded(true))
     listLocations()
       .then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: (l as unknown as {cost_center?:string|null}).cost_center ?? null }))))
       .catch(() => {})
@@ -189,11 +191,14 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
 
   // ── Date cell click ────────────────────────────────────────────────────
   function handleDateSelect(dateStr: string) {
+    if (!verifsLoaded) return             // data not loaded yet
     if (dateStr < today) return          // past: not bookable (today IS allowed)
     if (blockedDates.has(dateStr)) return // blocked by 7-day rule
+    if (bookedMap.has(dateStr)) return    // already booked
     if (selectedDate === dateStr) { setSelectedDate(null); setSelectedTime(null); return }
     setSelectedDate(dateStr); setSelectedTime(null)
     setErrors(p => ({ ...p, date: '' }))
+    setFetchError('')
   }
 
   // ── Validate + submit ──────────────────────────────────────────────────
@@ -478,7 +483,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                     const isBlocked  = !isPast && !isBooked && blockedDates.has(dateStr)
                     const isDowWarn  = !isPast && !isBooked && !isBlocked && getDowConflicts(dateStr).length > 0
                     const blockInfo  = blockedDates.get(dateStr)
-                    const notClickable = isPast || isBooked || isBlocked
+                    const notClickable = isPast || isBooked || isBlocked || !verifsLoaded
 
                     // ── Cell styles ──
                     let bg     = 'transparent'
@@ -721,6 +726,17 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
               )}
             </div>
           </div>
+
+          {fetchError && (
+            <div style={{
+              fontSize: 12, color: 'var(--red)', fontWeight: 600,
+              background: '#fff1f2', border: '1px solid #fca5a5',
+              padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+              display: 'flex', alignItems: 'center', gap: 8
+            }}>
+              <span>⚠️</span> {fetchError}
+            </div>
+          )}
 
           {/* ── Submit row ── */}
           <div style={{ borderTop: '1px solid var(--ow2)', paddingTop: 18, display: 'flex', gap: 10 }}>

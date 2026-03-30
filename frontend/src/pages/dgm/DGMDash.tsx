@@ -589,6 +589,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                           {v.missedReason ? (
                             <span style={{ color: 'var(--red)', fontSize: 11 }}>
                               {v.missedReason.length > 42 ? v.missedReason.slice(0, 42) + '…' : v.missedReason}
+                              {v.notes && <span style={{ color: 'var(--ts)', display: 'block', marginTop: 2 }}>{v.notes.length > 40 ? v.notes.slice(0, 40) + '…' : v.notes}</span>}
                             </span>
                           ) : v.notes ? (
                             <span style={{ color: 'var(--ts)' }}>{v.notes.length > 50 ? v.notes.slice(0, 50) + '…' : v.notes}</span>
@@ -599,6 +600,8 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {v.status === 'completed' ? (
                             <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--g7)', fontWeight: 600 }} onClick={() => openExpand(v.id, 'view')}>✅ Completed</button>
+                          ) : v.status === 'missed' ? (
+                            <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)', fontWeight: 600 }} onClick={() => openExpand(v.id, 'view')}>❌ View Missed</button>
                           ) : v.status === 'scheduled' ? (() => {
                             const isPast = v.date < today
                             const isToday = v.date === today
@@ -636,6 +639,9 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                   </div>
                                   <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55 }}>
                                     The controller must approve the operator's submission for this location and date before the DGM visit can be completed.
+                                  </div>
+                                  <div style={{ marginTop: 10 }}>
+                                    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
                                   </div>
                                 </div>
                               )}
@@ -749,6 +755,35 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                 )}
                               </div>
 
+                              <div>
+                                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* Expand: View missed visit (readonly) */}
+                      {isExpanded && expandAction === 'view' && v.status === 'missed' && (
+                        <tr>
+                          <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid var(--ow2)' }}>
+                            <div style={{ background: 'var(--red-bg)', borderLeft: '4px solid var(--red)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--red)' }}>
+                                ❌ Missed Visit — {loc?.name ?? v.locationId}
+                                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ts)', marginLeft: 10 }}>{dateLabel}</span>
+                              </div>
+                              {v.missedReason && (
+                                <div>
+                                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 4 }}>Reason</label>
+                                  <div style={{ fontSize: 13, color: 'var(--red)' }}>{v.missedReason}</div>
+                                </div>
+                              )}
+                              {v.notes && (
+                                <div>
+                                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 4 }}>Notes</label>
+                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.5 }}>{v.notes}</div>
+                                </div>
+                              )}
                               <div>
                                 <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
                               </div>

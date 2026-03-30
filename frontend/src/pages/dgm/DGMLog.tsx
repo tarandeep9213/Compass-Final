@@ -56,15 +56,17 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
   const [fetchError,   setFetchError]   = useState('')
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
+  const [verifsLoaded, setVerifsLoaded] = useState(false)
   const [apiLocs, setApiLocs] = useState<{id:string;name:string;cost_center?:string|null}[]>([])
   useEffect(() => {
-    listDgmVerifications()
-      .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
-      .catch(() => {})
+    setVerifsLoaded(false)
+    listDgmVerifications({ page_size: 200 })
+      .then(r => { setApiVerifs(r.items.map(mapApiVerification)); setVerifsLoaded(true) })
+      .catch(() => setVerifsLoaded(true))
     listLocations()
       .then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name, cost_center: (l as unknown as {cost_center?:string|null}).cost_center ?? null }))))
       .catch(() => {})
-  }, [locationIds, refresh])
+  }, [refresh])
 
   // ── Calendar grid ──────────────────────────────────────────────────────
   const calCells = useMemo<(number | null)[]>(() => {
@@ -143,6 +145,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     if (selectedDate === dateStr) { setSelectedDate(null); return }
     setSelectedDate(dateStr)
     setErrors(p => ({ ...p, date: '' }))
+    setFetchError('')
   }
 
   // ── DOM Warning Check (3-month lookback) ────────────────────────────────
@@ -502,9 +505,9 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                     const isSelected = selectedDate === dateStr
                     const blocker    = !isPast ? getBlockingVisit(dateStr) : undefined
                     const isVisitDay = blocker?.date === dateStr
-                    const isBlocked  = !isPast && !!blocker && !isVisitDay
+                    const isBlocked  = !isPast && !!blocker
                     const isDomWarn  = !isPast && !blocker && getDomConflict(dateStr)
-                    const notClickable = isPast || isBlocked
+                    const notClickable = isPast || isBlocked || !verifsLoaded
 
                     let bg     = 'transparent'
                     let color  = isPast ? '#c8c8c8' : 'var(--td)'
@@ -516,7 +519,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                     } else if (isVisitDay) {
                       bg = 'var(--g0)'; color = 'var(--g7)'; fw = 600
                     } else if (isBlocked) {
-                      bg = '#f3f4f6'; color = '#9ca3af'
+                      bg = '#fef2f2'; color = '#b91c1c'
                     } else if (isToday) {
                       border = `2px solid var(--g4)`; color = 'var(--g7)'; fw = 600
                     } else if (isDomWarn) {
@@ -543,7 +546,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                           fontSize: 13, fontWeight: fw,
                           cursor: notClickable ? 'not-allowed' : 'pointer',
                           position: 'relative',
-                          opacity: isPast || isBlocked ? 0.4 : 1,
+                          opacity: isPast ? 0.4 : 1,
                           transition: 'background 0.1s, color 0.1s',
                           userSelect: 'none',
                         }}
@@ -553,6 +556,11 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                         {/* Green dot on the actual visit day */}
                         {isVisitDay && !isSelected && (
                           <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: 'var(--g7)' }} />
+                        )}
+
+                        {/* Red dot — blocked by 30-day rule */}
+                        {isBlocked && !isVisitDay && !isSelected && (
+                          <span style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: '#dc2626' }} />
                         )}
 
                         {/* Amber dot — DOM pattern */}
@@ -570,12 +578,16 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                   borderTop: '1px solid var(--ow2)', flexWrap: 'wrap',
                 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--g0)', border: '1px solid var(--g2)', display: 'inline-block' }} />
-                    Active/Completed month
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--g7)', display: 'inline-block' }} />
+                    Booked
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--g7)', display: 'inline-block' }} />
-                    Visit date
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
+                    Blocked (30-day)
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
+                    DOM warning
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
                     <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#1d4ed8', display: 'inline-block' }} />
@@ -719,6 +731,17 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
               display: 'flex', alignItems: 'center', gap: 8
             }}>
               <span>⚠️</span> {errors.date}
+            </div>
+          )}
+
+          {fetchError && (
+            <div style={{
+              fontSize: 12, color: 'var(--red)', fontWeight: 600,
+              background: '#fff1f2', border: '1px solid #fca5a5',
+              padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+              display: 'flex', alignItems: 'center', gap: 8
+            }}>
+              <span>⚠️</span> {fetchError}
             </div>
           )}
 
