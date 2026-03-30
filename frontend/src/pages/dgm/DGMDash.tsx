@@ -611,12 +611,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                             const showCancel = isFuture || isToday
                             return (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              {showComplete && <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => onNavigate('op-readonly', {
-                                locationId: v.locationId, date: v.date,
-                                submissionId: getSubId(v.locationId, v.date) ?? '',
-                                visitId: v.id, fromPanel: 'dgm-dash',
-                                completionMode: 'true',
-                              })}>Mark as Completed</button>}
+                              {showComplete && <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => openExpand(v.id, 'complete')}>Mark as Completed</button>}
                               {showMiss && <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)' }} onClick={() => openExpand(v.id, 'miss')}>Mark as Missed</button>}
                               {showCancel && <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--ts)' }} onClick={() => handleCancel(v.id)}>⊘ Cancel</button>}
                             </div>
@@ -663,8 +658,9 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                         submissionId: getSubId(v.locationId, v.date) ?? '',
                                         visitId: v.id, fromPanel: 'dgm-dash',
                                         expandVisitId: v.id, expandAction: 'complete',
+                                        completionMode: 'true',
                                       })}>
-                                      👁 View Submission
+                                      👁 View & Approve
                                     </button>
                                     {(() => {
                                       const subTotal = getSubTotalCash(v.locationId, v.date)

@@ -225,15 +225,35 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   // Trust API status when submission is already actioned — localStorage review may be stale
   const effStatus = localAction ?? sub.status
 
-  // Show review form when pending approval OR when controller is doing a forced re-review
-  //const showSecReview = isManagerView && (effStatus === 'pending_approval' || forceReview)
-  const showSecReview = (ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard') && effStatus === 'pending_approval'
+  // Show review form when pending approval OR in completion mode
+  const isCompletionMode = ctx.completionMode === 'true'
+  const showSecReview = isCompletionMode
+    ? effStatus === 'approved'
+    : (ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard') && effStatus === 'pending_approval'
   const allDecided = SECTIONS.every(k => secDecisions[k] !== null)
+  const allAccepted = SECTIONS.every(k => secDecisions[k] === 'accept')
   const allNoted   = SECTIONS.every(k => secDecisions[k] !== 'reject' || secNotes[k].trim() !== '')
   const canSubmit  = allDecided && allNoted
 
   async function handleSubmitReview() {
     if (!canSubmit || !sub) return
+
+    // Completion mode: store section review in session and go back to sign
+    if (isCompletionMode) {
+      const sections: Record<string, { decision: string; note: string }> = {}
+      SECTIONS.forEach(k => {
+        sections[k] = { decision: secDecisions[k] as string, note: secNotes[k] }
+      })
+      sessionStorage.setItem(`visit_review_${ctx.visitId}`, JSON.stringify(sections))
+      const vid = ctx.visitId
+      if (ctx.fromPanel === 'ctrl-dashboard') {
+        onNavigate('ctrl-dashboard', vid ? { expandVisitId: vid, expandAction: 'complete' } : {})
+      } else if (ctx.fromPanel === 'dgm-dash') {
+        onNavigate('dgm-dash', vid ? { expandVisitId: vid, expandAction: 'complete' } : {})
+      }
+      return
+    }
+
     const outcome: 'approved' | 'rejected' = SECTIONS.some(k => secDecisions[k] === 'reject') ? 'rejected' : 'approved'
     const sections: Record<string, { decision: 'accept' | 'reject'; note: string }> = {}
     SECTIONS.forEach(k => {
@@ -258,7 +278,6 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
     }
 
     if (ctx.fromPanel === 'ctrl-dashboard') {
-      // Re-open the completion panel so the controller lands back in context
       const vid = ctx.visitId || ctx.verificationId
       onNavigate('ctrl-dashboard', vid ? { expandVisitId: vid, expandAction: 'complete' } : {})
       return
@@ -419,7 +438,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         <div className="card" style={{ marginBottom: 18 }}>
           <div className="card-header">
             {/*<span className="card-title">{forceReview ? 'Re-review Required' : 'Complete Review'}</span>*/}
-            <span className="card-title">Complete Review</span>
+            <span className="card-title">{isCompletionMode ? 'Visit Verification' : 'Complete Review'}</span>
             <span className="card-sub">Submitted by {sub.operatorName} · {submittedLabel}</span>
           </div>
           <div className="card-body">
@@ -925,6 +944,32 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         {renderSecFooter('I')}
       </div>
 
+      {/* Section J */}
+      <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.J?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+        <SecHead id="J" title="Replenishment" total={replenishAmt} red={pastRejected || sub.sectionReviews?.J?.decision === 'reject'} />
+        <SecRejectNote sectionId="J" reviews={sub.sectionReviews} />
+        <div className="card-body" style={{ padding: '10px 14px', fontSize: 13 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Replenishment Amount</span>
+            <span style={{ fontFamily: 'DM Serif Display,serif', fontSize: 14 }}>{formatCurrency(replenishAmt)}</span>
+          </div>
+        </div>
+        {renderSecFooter('J')}
+      </div>
+
+      {/* Section K */}
+      <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.K?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+        <SecHead id="K" title="Coin Purchase in Transit to / from Bank" total={coinTransitAmt} red={pastRejected || sub.sectionReviews?.K?.decision === 'reject'} />
+        <SecRejectNote sectionId="K" reviews={sub.sectionReviews} />
+        <div className="card-body" style={{ padding: '10px 14px', fontSize: 13 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Coin Purchase in Transit</span>
+            <span style={{ fontFamily: 'DM Serif Display,serif', fontSize: 14 }}>{formatCurrency(coinTransitAmt)}</span>
+          </div>
+        </div>
+        {renderSecFooter('K')}
+      </div>
+
       {/* ══ Summary ══ */}
       <div className="card" style={{ border: `2px solid ${Math.abs(calcVariancePct) > 5 ? 'var(--red)' : 'var(--g4)'}` }}>
         <div className="card-header" style={{ background: Math.abs(calcVariancePct) > 5 ? 'var(--red-bg)' : 'var(--g0)' }}>
@@ -1029,11 +1074,6 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
             </div>
           )}
 
-          {/* Review footers for J and K */}
-          {renderSecFooter('J')}
-          <SecRejectNote sectionId="J" reviews={sub.sectionReviews} />
-          {renderSecFooter('K')}
-          <SecRejectNote sectionId="K" reviews={sub.sectionReviews} />
         </div>
       </div>
 

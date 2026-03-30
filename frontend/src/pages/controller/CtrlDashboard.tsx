@@ -778,12 +778,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                               {showComplete && (
                               <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
-                                onClick={() => onNavigate('op-readonly', {
-                                  locationId: v.locationId, date: v.date,
-                                  submissionId: getSubId(v.locationId, v.date) ?? '',
-                                  visitId: v.id, fromPanel: 'ctrl-dashboard',
-                                  completionMode: 'true',
-                                })}>
+                                onClick={() => openExpand(v.id, 'complete')}>
                                 Mark as Completed
                               </button>
                               )}
@@ -872,6 +867,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                         submissionId: getSubId(v.locationId, v.date) ?? '',
                                         visitId: v.id, fromPanel: 'ctrl-dashboard',
                                         expandVisitId: v.id, expandAction: 'complete',
+                                        completionMode: 'true',
                                       })}>
                                       👁 View & Approve
                                     </button>
