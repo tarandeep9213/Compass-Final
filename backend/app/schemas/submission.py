@@ -22,6 +22,7 @@ class SubmissionOut(BaseModel):
     approved_by_name: Optional[str]
     approved_at: Optional[datetime]
     rejection_reason: Optional[str]
+    section_reviews: Optional[dict] = None
     submitted_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
@@ -67,6 +68,7 @@ class ApproveBody(BaseModel):
 
 class RejectBody(BaseModel):
     reason: str
+    section_reviews: Optional[dict] = None  # {A: {decision, note}, B: {decision, note}, ...}
 
 
 class ApproveResponse(BaseModel):

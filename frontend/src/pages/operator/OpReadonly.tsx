@@ -70,6 +70,21 @@ function SecHead({ id, title, total, red = false }: { id: string; title: string;
   )
 }
 
+function SecRejectNote({ sectionId, reviews }: { sectionId: string; reviews?: Record<string, { decision: string; note: string }> }) {
+  if (!reviews) return null
+  const review = reviews[sectionId]
+  if (!review || review.decision !== 'reject' || !review.note?.trim()) return null
+  return (
+    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderTop: 'none', padding: '8px 14px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <span style={{ color: 'var(--red)', fontSize: 13, flexShrink: 0 }}>❌</span>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', marginBottom: 2 }}>Rejected</div>
+        <div style={{ fontSize: 12, color: '#991b1b', lineHeight: 1.5 }}>{review.note}</div>
+      </div>
+    </div>
+  )
+}
+
 const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
 
 const SEC_C_LABELS = ['Dollars', 'Halves', 'Quarters', 'Dimes', 'Nickels', 'Pennies']
@@ -129,6 +144,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           submittedAt: forceUTC(s.submitted_at ?? s.created_at) as string,
           approvedBy: s.approved_by ?? undefined, approvedByName: s.approved_by_name ?? undefined,
           rejectionReason: s.rejection_reason ?? undefined,
+          sectionReviews: s.section_reviews ?? undefined,
           varianceNote: s.variance_note ?? undefined,
           varianceException: !!s.variance_note,
           sections: {
@@ -228,8 +244,11 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       if (outcome === 'approved') {
         await approveSubmission(sub.id)
       } else {
-        const rejectNote = Object.values(sections).find(s => s.decision === 'reject')?.note ?? 'Rejected by controller.'
-        await rejectSubmission(sub.id, { reason: rejectNote })
+        const rejectedSections = SECTIONS
+          .filter(k => secDecisions[k] === 'reject' && secNotes[k].trim())
+          .map(k => `Section ${k}: ${secNotes[k].trim()}`)
+        const rejectNote = rejectedSections.length > 0 ? rejectedSections.join(' | ') : 'Rejected by controller.'
+        await rejectSubmission(sub.id, { reason: rejectNote, section_reviews: sections })
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to submit review.'
@@ -584,8 +603,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12, alignItems: 'start' }}>
 
         {/* Section A */}
-        <div className="card" style={{ border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="A" title="Currency" total={s.A} red={pastRejected} />
+        <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.A?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+          <SecHead id="A" title="Currency" total={s.A} red={pastRejected || sub.sectionReviews?.A?.decision === 'reject'} />
+          <SecRejectNote sectionId="A" reviews={sub.sectionReviews} />
           <table className="dt" style={{ fontSize: 12 }}>
             <thead>
               <tr>
@@ -615,8 +635,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         </div>
 
         {/* Section B */}
-        <div className="card" style={{ border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="B" title="Rolled Coin" total={s.B} red={pastRejected} />
+        <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.B?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+          <SecHead id="B" title="Rolled Coin" total={s.B} red={pastRejected || sub.sectionReviews?.B?.decision === 'reject'} />
+          <SecRejectNote sectionId="B" reviews={sub.sectionReviews} />
           <table className="dt" style={{ fontSize: 12 }}>
             <thead>
               <tr>
@@ -646,8 +667,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         </div>
 
         {/* Section C */}
-        <div className="card" style={{ border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="C" title="Coins in Counting Machines (Sorter/Counter)" total={s.C} red={pastRejected} />
+        <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.C?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+          <SecHead id="C" title="Coins in Counting Machines (Sorter/Counter)" total={s.C} red={pastRejected || sub.sectionReviews?.C?.decision === 'reject'} />
+          <SecRejectNote sectionId="C" reviews={sub.sectionReviews} />
           <div style={{ overflowX: 'auto' }}>
             <table className="dt" style={{ fontSize: 12, minWidth: 380 }}>
               <thead>
@@ -693,8 +715,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 12, marginBottom: 12, alignItems: 'start' }}>
 
         {/* Section D */}
-        <div className="card" style={{ border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="D" title="Bagged Coin (Full for Bank)" total={s.D} red={pastRejected} />
+        <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.D?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+          <SecHead id="D" title="Bagged Coin (Full for Bank)" total={s.D} red={pastRejected || sub.sectionReviews?.D?.decision === 'reject'} />
+          <SecRejectNote sectionId="D" reviews={sub.sectionReviews} />
           <table className="dt" style={{ fontSize: 12 }}>
             <thead>
               <tr>
@@ -725,8 +748,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         </div>
 
         {/* Section E */}
-        <div className="card" style={{ border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="E" title="Unissued Changer Funds in Cashroom or Vault" total={s.E} red={pastRejected} />
+        <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.E?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+          <SecHead id="E" title="Unissued Changer Funds in Cashroom or Vault" total={s.E} red={pastRejected || sub.sectionReviews?.E?.decision === 'reject'} />
+          <SecRejectNote sectionId="E" reviews={sub.sectionReviews} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--ow2)' }}>
             {['Set 1', 'Set 2'].map((setLabel, si) => (
               <div key={setLabel} style={{ borderRight: si === 0 ? '1px solid var(--ow2)' : undefined }}>
@@ -777,8 +801,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       {/* ══ Sections F · G · H · I (full width) ══ */}
 
       {/* Section F */}
-      <div className="card" style={{ marginBottom: 12, border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="F" title="Returned but Uncounted Manual Change" total={s.F} red={pastRejected} />
+      <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.F?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+        <SecHead id="F" title="Returned but Uncounted Manual Change" total={s.F} red={pastRejected || sub.sectionReviews?.F?.decision === 'reject'} />
+        <SecRejectNote sectionId="F" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>
             <tr>
@@ -813,8 +838,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       </div>
 
       {/* Section G */}
-      <div className="card" style={{ marginBottom: 12, border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="G" title="Mutilated Currency, Foreign, and/or Bent Coin" total={s.G} red={pastRejected} />
+      <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.G?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+        <SecHead id="G" title="Mutilated Currency, Foreign, and/or Bent Coin" total={s.G} red={pastRejected || sub.sectionReviews?.G?.decision === 'reject'} />
+        <SecRejectNote sectionId="G" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>
             <tr>
@@ -842,8 +868,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       </div>
 
       {/* Section H */}
-      <div className="card" style={{ marginBottom: 12, border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="H" title="Changer Funds Outstanding (Per Form #1841 / #403-1)" total={s.H} red={pastRejected} />
+      <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.H?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+        <SecHead id="H" title="Changer Funds Outstanding (Per Form #1841 / #403-1)" total={s.H} red={pastRejected || sub.sectionReviews?.H?.decision === 'reject'} />
+        <SecRejectNote sectionId="H" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>
             <tr>
@@ -866,8 +893,9 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       </div>
 
       {/* Section I */}
-      <div className="card" style={{ marginBottom: 12, border: pastRejected ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="I" title="Net Unreimbursed Bill Changer Fund Shortage / (Overage)" total={Math.abs(s.I)} red={pastRejected} />
+      <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.I?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
+        <SecHead id="I" title="Net Unreimbursed Bill Changer Fund Shortage / (Overage)" total={Math.abs(s.I)} red={pastRejected || sub.sectionReviews?.I?.decision === 'reject'} />
+        <SecRejectNote sectionId="I" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>
             <tr>

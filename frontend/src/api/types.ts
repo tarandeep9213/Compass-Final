@@ -122,6 +122,7 @@ export interface ApproveBody {
 
 export interface RejectBody {
   reason: string
+  section_reviews?: Record<string, { decision: string; note: string }>
 }
 
 export interface ApproveResponse {

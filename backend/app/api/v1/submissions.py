@@ -82,6 +82,7 @@ def _to_out(s: Submission) -> SubmissionOut:
         approved_by_name=s.approved_by_name,
         approved_at=s.approved_at.isoformat() if s.approved_at else None,
         rejection_reason=s.rejection_reason,
+        section_reviews=s.section_reviews,
         submitted_at=s.submitted_at.isoformat() if s.submitted_at else None,
         created_at=s.created_at.isoformat(),
         updated_at=s.updated_at.isoformat(),
@@ -479,6 +480,7 @@ def reject_submission(
     s.approved_by_name = current_user.name
     s.approved_at = now
     s.rejection_reason = body.reason
+    s.section_reviews = body.section_reviews
     log_event(db, current_user, "SUBMISSION_REJECTED",
               f"Submission rejected for {s.location_name} on {s.submission_date}: {body.reason}",
               location_id=s.location_id, location_name=s.location_name,

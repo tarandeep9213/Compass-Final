@@ -59,6 +59,7 @@ class Submission(Base):
     approved_by_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    section_reviews: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # {A: {decision, note}, ...}
 
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)

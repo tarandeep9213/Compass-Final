@@ -29,6 +29,7 @@ export interface Submission {
   approvedBy?: string
   approvedByName?: string
   rejectionReason?: string
+  sectionReviews?: Record<string, { decision: string; note: string }>
   sections: SectionTotals
   // Variance exception: set when |variancePct| > location tolerancePct at submission time
   varianceException?: boolean
