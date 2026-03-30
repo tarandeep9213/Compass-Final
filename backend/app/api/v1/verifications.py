@@ -332,8 +332,6 @@ def cancel_controller_visit(
         raise HTTPException(400, "Only scheduled visits can be cancelled")
     visit_date = dt_date.fromisoformat(v.verification_date)
     today = dt_date.today()
-    if visit_date < today:
-        raise HTTPException(400, "Cannot cancel a past visit. Use 'Mark as Missed' instead.")
     if visit_date == today and v.scheduled_time:
         h, m = map(int, v.scheduled_time.split(':'))
         sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m, tzinfo=timezone.utc)
@@ -561,8 +559,6 @@ def cancel_dgm_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Only scheduled visits can be cancelled")
-    if dt_date.fromisoformat(v.verification_date) < dt_date.today():
-        raise HTTPException(400, "Cannot cancel a past visit. Use 'Mark as Missed' instead.")
 
     v.status = VerificationStatus.CANCELLED
     v.notes = body.notes or v.notes

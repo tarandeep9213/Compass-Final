@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { getLocation, todayStr } from '../../mock/data'
 import { listLocations } from '../../api/locations'
 import type { VerificationRecord } from '../../mock/data'
-import { scheduleDgmVisit, listDgmVerifications } from '../../api/verifications'
+import { scheduleDgmVisit, cancelDgmVisit, listDgmVerifications } from '../../api/verifications'
 import type { ApiVerification } from '../../api/types'
 
 interface Props {
@@ -210,17 +210,26 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     const existing = bookedMonths.get(my)
 
     if (existing && existing.status === 'scheduled') {
-      // Reschedule Flow
+      // Reschedule Flow: cancel old visit, schedule new one
       try {
-        // Mocking reschedule API
+        await cancelDgmVisit(existing.id, { notes: 'Rescheduled' })
+        const res = await scheduleDgmVisit({
+          location_id: location,
+          date: selectedDate!,
+          notes: notes.trim() || null,
+        })
+        existing.id = res.id
+        existing.date = selectedDate!
+        existing.notes = notes.trim()
+        existing.dayOfWeek = dow
+        existing.warningFlag = !!domWarning
         setFetchError('')
-      } catch {
-        setFetchError('Could not reach the server. Make sure the backend is running on port 8000.')
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        setFetchError(error.message || 'Failed to reschedule visit.')
+        setSaving(false)
+        return
       }
-      existing.date = selectedDate!
-      existing.notes = notes.trim()
-      existing.dayOfWeek = dow
-      existing.warningFlag = !!domWarning
       setSaving(false)
       setSubmitted({ ...existing, _isReschedule: true } as VerificationRecord & { _isReschedule?: boolean })
     } else {
