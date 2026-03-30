@@ -78,38 +78,42 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
 // -- Booked months for selected location --------------------------------
   // DGM rule: ONE visit per location per calendar month.
   // Exception: If a visit is 'cancelled' or 'missed', the month is freed for a new booking.
-  const bookedMonths = useMemo<Map<string, VerificationRecord>>(() => {
-    if (!location) return new Map()
-    const map = new Map<string, VerificationRecord>()
-    
+  // Active visits (scheduled/completed) for this location — used for 30-day rolling block
+  const activeVisits = useMemo<VerificationRecord[]>(() => {
+    if (!location) return []
     let sessionUpdates: Record<string, { status: string }> = {}
     try {
       const saved = sessionStorage.getItem('dgm_session_updates')
       if (saved) sessionUpdates = JSON.parse(saved)
-    } catch {
-      // ignore parse errors
-    }
+    } catch { /* ignore */ }
 
-    const sourceVerifs = apiVerifs
-
-    sourceVerifs.forEach(v => {
-      if (v.type !== 'dgm' || v.locationId !== location) return
-      
-      // Get current status (respecting session actions)
-      const currentStatus = sessionUpdates[v.id]?.status || v.status
-
-      /// Only 'scheduled' or 'completed' visits block the month.
-      if (currentStatus === 'scheduled' || currentStatus === 'completed') {
-        const my = v.monthYear ?? monthYearOf(v.date)
-        if (!map.has(my)) {
-          // Store the record with the updated status so UI knows it's VISITED/SCHEDULED
-          map.set(my, { ...v, status: currentStatus as 'scheduled' | 'completed' })
-        }
-      }
-    })
-    return map
+    return apiVerifs
+      .filter(v => v.type === 'dgm' && v.locationId === location)
+      .map(v => ({ ...v, status: (sessionUpdates[v.id]?.status || v.status) as VerificationRecord['status'] }))
+      .filter(v => v.status === 'scheduled' || v.status === 'completed')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, refresh, apiVerifs])
+
+  // Check if a date is within 30 days of any active visit
+  function getBlockingVisit(dateStr: string): VerificationRecord | undefined {
+    const d = new Date(dateStr + 'T12:00:00').getTime()
+    const THIRTY_DAYS = 30 * 24 * 3600 * 1000
+    return activeVisits.find(v => {
+      if (v.date === dateStr) return true // same date — already booked
+      const vd = new Date(v.date + 'T12:00:00').getTime()
+      return Math.abs(d - vd) < THIRTY_DAYS // strictly less than 30 days = blocked
+    })
+  }
+
+  // Legacy compat — bookedMonths map for parts of UI that still reference it
+  const bookedMonths = useMemo<Map<string, VerificationRecord>>(() => {
+    const map = new Map<string, VerificationRecord>()
+    activeVisits.forEach(v => {
+      const my = v.monthYear ?? monthYearOf(v.date)
+      if (!map.has(my)) map.set(my, v)
+    })
+    return map
+  }, [activeVisits])
 
   // ── Calendar navigation ────────────────────────────────────────────────
   const prevDisabled =
@@ -187,16 +191,13 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     if (!selectedDate)
       e.date = 'Please select a visit date from the calendar.'
     else {
-      const my = monthYearOf(selectedDate)
-      const existing = bookedMonths.get(my)
-
-      // Monthly block: if a visit exists and it's not a reschedule (different date), block it
-      if (existing && (existing.status === 'scheduled' || existing.status === 'completed')) {
-        if (existing.date !== selectedDate) {
-          e.date = `This month already has a ${existing.status} visit on ${new Date(existing.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.`
-        }
+      const blocker = getBlockingVisit(selectedDate)
+      if (blocker && blocker.date !== selectedDate) {
+        const days = Math.abs(Math.round((new Date(selectedDate + 'T12:00:00').getTime() - new Date(blocker.date + 'T12:00:00').getTime()) / 86400000))
+        e.date = `Too close to existing visit on ${new Date(blocker.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${days} days away). Must be 30+ days apart.`
+      } else if (blocker && blocker.date === selectedDate) {
+        e.date = 'A visit is already scheduled for this date.'
       }
-      // DOM warning is non-blocking — no validation error
     }
     return e
   }
@@ -207,34 +208,9 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     setSaving(true)
     const dow = new Date(selectedDate! + 'T12:00:00').getDay()
     const my  = monthYearOf(selectedDate!)
-    const existing = bookedMonths.get(my)
 
-    if (existing && existing.status === 'scheduled') {
-      // Reschedule Flow: cancel old visit, schedule new one
-      try {
-        await cancelDgmVisit(existing.id, { notes: 'Rescheduled' })
-        const res = await scheduleDgmVisit({
-          location_id: location,
-          date: selectedDate!,
-          notes: notes.trim() || null,
-        })
-        existing.id = res.id
-        existing.date = selectedDate!
-        existing.notes = notes.trim()
-        existing.dayOfWeek = dow
-        existing.warningFlag = !!domWarning
-        setFetchError('')
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err))
-        setFetchError(error.message || 'Failed to reschedule visit.')
-        setSaving(false)
-        return
-      }
-      setSaving(false)
-      setSubmitted({ ...existing, _isReschedule: true } as VerificationRecord & { _isReschedule?: boolean })
-    } else {
-      // New Schedule Flow
-      const rec: VerificationRecord = {
+    // New Schedule Flow
+    const rec: VerificationRecord = {
         id:           `VER-DGM-SCH${Date.now()}`,
         locationId:   location,
         verifierName: dgmName,
@@ -264,10 +240,9 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
           return;
         }
         setFetchError('Could not reach the server. Please check your connection.')
-      }
-      setSaving(false)
-      setSubmitted(rec)
     }
+    setSaving(false)
+    setSubmitted(rec)
   }
 
   function handleReset() {
@@ -346,8 +321,10 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
 
   // ── Form ──────────────────────────────────────────────────────────────
   const selectedMonthYear     = selectedDate ? monthYearOf(selectedDate) : null
+  const selectedBlocker       = selectedDate ? getBlockingVisit(selectedDate) : undefined
+  const selectedIsVisitDay    = selectedBlocker?.date === selectedDate
   const selectedMonthBooked   = selectedMonthYear ? bookedMonths.has(selectedMonthYear) : false
-  const existingVisit         = selectedMonthYear ? bookedMonths.get(selectedMonthYear) : undefined
+  const existingVisit         = selectedBlocker || (selectedMonthYear ? bookedMonths.get(selectedMonthYear) : undefined)
   const selectedDateLabel     = selectedDate
     ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', {
         weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
@@ -523,25 +500,22 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                     const isPast     = dateStr < today
                     const isToday    = dateStr === today
                     const isSelected = selectedDate === dateStr
-                    const my         = monthYearOf(dateStr)
-                    const monthTaken = bookedMonths.has(my)
-                    const existingForMonth = bookedMonths.get(my)
-                    const visitDate  = existingForMonth?.date
-                    const isVisitDay = visitDate === dateStr
-                    const isMonthBlocked = !isPast && monthTaken && !isVisitDay
-                    const isDomWarn  = !isPast && !monthTaken && getDomConflict(dateStr)
-                    const notClickable = isPast || isMonthBlocked
+                    const blocker    = !isPast ? getBlockingVisit(dateStr) : undefined
+                    const isVisitDay = blocker?.date === dateStr
+                    const isBlocked  = !isPast && !!blocker && !isVisitDay
+                    const isDomWarn  = !isPast && !blocker && getDomConflict(dateStr)
+                    const notClickable = isPast || isBlocked
 
                     let bg     = 'transparent'
                     let color  = isPast ? '#c8c8c8' : 'var(--td)'
                     let border = 'none'
                     let fw     = 400
 
-                    if (isSelected && !isMonthBlocked) {
+                    if (isSelected && !isBlocked) {
                       bg = isDomWarn ? '#f59e0b' : '#1d4ed8'; color = '#fff'; fw = 700
                     } else if (isVisitDay) {
                       bg = 'var(--g0)'; color = 'var(--g7)'; fw = 600
-                    } else if (isMonthBlocked) {
+                    } else if (isBlocked) {
                       bg = '#f3f4f6'; color = '#9ca3af'
                     } else if (isToday) {
                       border = `2px solid var(--g4)`; color = 'var(--g7)'; fw = 600
@@ -549,12 +523,13 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                       bg = '#fffbeb'
                     }
 
+                    const daysAway = blocker ? Math.abs(Math.round((new Date(dateStr + 'T12:00:00').getTime() - new Date(blocker.date + 'T12:00:00').getTime()) / 86400000)) : 0
                     let tooltip: string | undefined
-                    if (isPast && !isToday)        tooltip = 'Past date — cannot schedule'
-                    else if (isToday && !monthTaken) tooltip = 'Today'
-                    else if (isVisitDay)           tooltip = `Visit ${existingForMonth?.status} on this date`
-                    else if (isMonthBlocked)        tooltip = `Blocked — visit already ${existingForMonth?.status} on ${new Date(visitDate! + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} this month`
-                    else if (isDomWarn)            tooltip = `Caution — same day-of-month (${day}) visited recently. Consider a different date.`
+                    if (isPast && !isToday)   tooltip = 'Past date — cannot schedule'
+                    else if (isToday && !blocker) tooltip = 'Today'
+                    else if (isVisitDay)      tooltip = `Visit ${blocker?.status} on this date`
+                    else if (isBlocked)       tooltip = `Blocked — visit ${blocker?.status} on ${new Date(blocker!.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${daysAway} days away, must be 30+ days apart)`
+                    else if (isDomWarn)       tooltip = `Caution — same day-of-month (${day}) visited recently. Consider a different date.`
 
                     return (
                       <div
@@ -627,28 +602,45 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                 </div>
               )}
 
-              {selectedDate && selectedMonthBooked && existingVisit && existingVisit.status !== 'scheduled' && (
+              {selectedDate && selectedBlocker && !selectedIsVisitDay && (
                 <div style={{
                   background: '#fff3cd', border: '1px solid #fcd34d',
                   borderRadius: 10, padding: '16px 18px',
                 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: '#92400e', marginBottom: 4 }}>
-                    📅 Month Already Visited
+                    📅 Too Close to Existing Visit
                   </div>
                   <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
-                    <strong>{selectedMonthLabel}</strong> already has a visit on{' '}
+                    A visit is {selectedBlocker.status} on{' '}
                     <strong>
-                      {new Date(existingVisit.date + 'T12:00:00').toLocaleDateString('en-GB', {
+                      {new Date(selectedBlocker.date + 'T12:00:00').toLocaleDateString('en-GB', {
                         weekday: 'long', day: 'numeric', month: 'long',
                       })}
-                    </strong>{' '}
-                    ({existingVisit.status}).
-                    <br />Navigate to another month to schedule a new visit.
+                    </strong>.
+                    Visits must be at least 30 days apart. Select a date after{' '}
+                    <strong>
+                      {new Date(new Date(selectedBlocker.date + 'T12:00:00').getTime() + 30 * 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </strong>.
                   </div>
                 </div>
               )}
 
-              {selectedDate && (!selectedMonthBooked || (existingVisit && existingVisit.status === 'scheduled')) && (
+              {selectedDate && existingVisit && existingVisit.status === 'scheduled' && existingVisit.date === selectedDate && (
+                <div style={{
+                  background: 'var(--g0)', border: '1px solid var(--g2)',
+                  borderRadius: 10, padding: '16px 18px',
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--g7)', marginBottom: 4 }}>
+                    ✅ Visit Already Scheduled
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.6 }}>
+                    A DGM visit is already scheduled for <strong>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong> at <strong>{loc?.name ?? location}</strong>.
+                    <br />Select a different date to reschedule, or go to the Dashboard to manage this visit.
+                  </div>
+                </div>
+              )}
+
+              {selectedDate && !selectedBlocker && (
                 <>
                   {/* DOM Warning Alert */}
                   {domWarning && (
@@ -736,9 +728,9 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
               className="btn btn-primary"
               style={{ padding: '10px 28px', fontSize: 14 }}
               onClick={handleSubmit}
-              disabled={!selectedDate || (selectedMonthBooked && existingVisit?.status !== 'scheduled') || saving}
+              disabled={!selectedDate || !!selectedBlocker || saving}
             >
-              {saving ? 'Saving…' : (existingVisit?.status === 'scheduled' ? '🔄 Reschedule Visit' : '📅 Schedule Visit')}
+              {saving ? 'Saving…' : '📅 Schedule Visit'}
             </button>
             <button className="btn btn-ghost" onClick={() => onNavigate('dgm-dash')}>
               Back
