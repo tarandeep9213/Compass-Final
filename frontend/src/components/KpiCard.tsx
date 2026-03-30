@@ -64,8 +64,8 @@ export default function KpiCard({ label, value, sub, accent, highlight, tooltip,
       onClick={onClick}
       style={{
         position: 'relative',
-        zIndex: show ? 50 : 1, // FIX: Elevate the stacking context when tooltip is active so it renders over adjacent cards
-        overflow: 'visible',
+        zIndex: show ? 50 : 'auto',
+        overflow: show ? 'visible' : 'hidden',
         cursor: onClick ? 'pointer' : undefined,
         outline: selected ? `2px solid ${accent || '#3b82f6'}` : undefined,
         outlineOffset: selected ? 2 : undefined,

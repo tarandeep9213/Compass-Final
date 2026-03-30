@@ -270,11 +270,11 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     const visitMap    = new Set<string>()
     const completedMap = new Map<string, VerificationRecord>()
     allRecords.forEach(v => {
-      if (v.status === 'completed') {
+      if (v.status === 'completed' || v.status === 'scheduled') {
         const my  = v.monthYear ?? v.date.slice(0, 7)
         const key = `${v.locationId}|${my}`
         visitMap.add(key)
-        if (!completedMap.has(key)) completedMap.set(key, v)
+        if (v.status === 'completed' && !completedMap.has(key)) completedMap.set(key, v)
       }
     })
     return { visitMap, completedMap }
@@ -284,10 +284,13 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
   const curMY        = `${curYear}-${String(curMonth + 1).padStart(2, '0')}`
   const visitedNow   = locationIds.filter(id => visitMap.has(`${id}|${curMY}`)).length
   const remainingNow = locationIds.length - visitedNow
+  // Count overdue: locations missing a visit in any prior month that had system activity
+  const activeMonths = new Set<string>()
+  allRecords.forEach(v => { activeMonths.add(v.monthYear ?? v.date.slice(0, 7)) })
   const overdueTotal = locationIds.filter(id => {
     for (let m = 0; m < curMonth; m++) {
       const my = `${curYear}-${String(m + 1).padStart(2, '0')}`
-      if (!visitMap.has(`${id}|${my}`)) return true
+      if (activeMonths.has(my) && !visitMap.has(`${id}|${my}`)) return true
     }
     return false
   }).length
