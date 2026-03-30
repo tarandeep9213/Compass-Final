@@ -203,6 +203,7 @@ export interface CompleteVerificationBody {
   signature_data: string
   notes?: string
   dow_warning_reason?: DowWarningReason | null
+  visit_section_reviews?: Record<string, { decision: string; note: string }>
 }
 
 export interface MissVerificationBody {

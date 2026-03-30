@@ -85,7 +85,7 @@ function SecRejectNote({ sectionId, reviews }: { sectionId: string; reviews?: Re
   )
 }
 
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] as const
+const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'] as const
 
 const SEC_C_LABELS = ['Dollars', 'Halves', 'Quarters', 'Dimes', 'Nickels', 'Pennies']
 const SEC_C_FACE   = [1.00, 0.50, 0.25, 0.10, 0.05, 0.01]
@@ -425,7 +425,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           <div className="card-body">
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, color: 'var(--ts)', marginRight: 4 }}>
-                Accept or Reject each section (A–I) below, then:
+                Accept or Reject each section (A–K) below, then:
               </span>
               <button className="btn btn-primary" style={{ padding: '8px 24px', opacity: canSubmit ? 1 : 0.45 }}
                 disabled={!canSubmit} onClick={handleSubmitReview}>
@@ -450,7 +450,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
               <div style={{ marginTop: 10, fontSize: 12, color: 'var(--amb)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>⚠️</span>
                 <span>
-                  Please <strong>Accept</strong> or <strong>Reject</strong> each section (A–I) before submitting.
+                  Please <strong>Accept</strong> or <strong>Reject</strong> each section (A–K) before submitting.
                   {' '}{SECTIONS.filter(k => secDecisions[k] === null).length} section(s) remaining.
                 </span>
               </div>
@@ -491,7 +491,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           value={formatCurrency(calcTotalFund)}
           highlight={Math.abs(calcVariancePct) > 5 ? 'red' : false}
           tooltip={{
-            what: "The total cash counted across all sections (A–I) of this submission.",
+            what: "The total cash counted across all sections (A–K) of this submission.",
             how: "Summed from all section totals entered during the cash count — bills, coins, rolled coin, changer funds, etc.",
             formula: "Σ(Section A + B + C + D + E + F + G + H ± I)",
             flag: "Turns red if variance vs imprest exceeds 5%.",
@@ -1028,6 +1028,12 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
               <strong>Variance Note:</strong> {sub.varianceNote}
             </div>
           )}
+
+          {/* Review footers for J and K */}
+          {renderSecFooter('J')}
+          <SecRejectNote sectionId="J" reviews={sub.sectionReviews} />
+          {renderSecFooter('K')}
+          <SecRejectNote sectionId="K" reviews={sub.sectionReviews} />
         </div>
       </div>
 

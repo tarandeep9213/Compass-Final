@@ -23,6 +23,7 @@ class VerificationOut(BaseModel):
     missed_reason: Optional[str]
     month_year: Optional[str]
     signature_data: Optional[str]
+    visit_section_reviews: Optional[dict] = None
     created_at: str
     updated_at: str
 
@@ -65,6 +66,7 @@ class CompleteVerificationBody(BaseModel):
     signature_data: str
     notes: Optional[str] = None
     dow_warning_reason: Optional[str] = None
+    visit_section_reviews: Optional[dict] = None
 
 
 class MissVerificationBody(BaseModel):

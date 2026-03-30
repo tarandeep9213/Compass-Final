@@ -2,7 +2,7 @@ import uuid
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, DateTime, Float, Integer, Text, Enum as SAEnum
+from sqlalchemy import String, Boolean, DateTime, Float, Integer, Text, JSON, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -59,6 +59,7 @@ class Verification(Base):
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     missed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     signature_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visit_section_reviews: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # DGM specific: month coverage tracking
     month_year: Mapped[str | None] = mapped_column(String(7), nullable=True)  # YYYY-MM

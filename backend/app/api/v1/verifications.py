@@ -45,6 +45,7 @@ def _to_out(v: Verification) -> VerificationOut:
         missed_reason=v.missed_reason,
         month_year=v.month_year,
         signature_data=v.signature_data,
+        visit_section_reviews=v.visit_section_reviews,
         created_at=v.created_at.isoformat(),
         updated_at=v.updated_at.isoformat(),
     )
@@ -251,6 +252,7 @@ def complete_controller_visit(
     v.observed_total = body.observed_total
     v.signature_data = body.signature_data
     v.notes = body.notes or v.notes
+    v.visit_section_reviews = body.visit_section_reviews
     if body.dow_warning_reason:
         v.warning_reason = body.dow_warning_reason
     log_event(db, current_user, "VERIFICATION_COMPLETED",
@@ -528,6 +530,7 @@ def complete_dgm_visit(
     v.observed_total = body.observed_total
     v.signature_data = body.signature_data
     v.notes = body.notes or v.notes
+    v.visit_section_reviews = body.visit_section_reviews
     log_event(db, current_user, "VERIFICATION_COMPLETED",
               f"DGM visit to {v.location_name} on {v.verification_date} completed",
               location_id=v.location_id, location_name=v.location_name,
