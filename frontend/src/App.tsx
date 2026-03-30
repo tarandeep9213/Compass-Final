@@ -425,8 +425,9 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function syncLocations() {
-    listLocations().then(apiLocs => {
+  async function syncLocations() {
+    try {
+      const apiLocs = await listLocations()
       LOCATIONS.length = 0
       apiLocs.forEach(l => LOCATIONS.push({
         id: l.id, name: l.name, cost_center: l.cost_center, city: l.city,
@@ -439,7 +440,7 @@ export default function App() {
         updatedAt: l.updated_at,
       }))
       saveStored('compass_locations', LOCATIONS)
-    }).catch(() => { /* use whatever is in localStorage */ })
+    } catch { /* use whatever is in localStorage */ }
   }
 
   function syncUsers() {
@@ -475,9 +476,9 @@ export default function App() {
 
     // 2. We have a token, now ask the backend who we are
     me()
-      .then(user => {
+      .then(async user => {
         syncGrants(user)
-        syncLocations()
+        await syncLocations()
         const appRole = apiRoleToRole(user.role)
         if (appRole === 'admin' || appRole === 'regional-controller') {
           syncUsers()
