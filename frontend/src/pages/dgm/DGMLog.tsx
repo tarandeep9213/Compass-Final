@@ -543,7 +543,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                           fontSize: 13, fontWeight: fw,
                           cursor: notClickable ? 'not-allowed' : 'pointer',
                           position: 'relative',
-                          opacity: isPast || isMonthBlocked ? 0.4 : 1,
+                          opacity: isPast || isBlocked ? 0.4 : 1,
                           transition: 'background 0.1s, color 0.1s',
                           userSelect: 'none',
                         }}
