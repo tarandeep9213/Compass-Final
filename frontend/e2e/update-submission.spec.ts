@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const EXCEL_FILE = path.resolve(__dirname, '../../Cashroom Count Worksheet.xlsx')
 
-const API = 'http://localhost:8003/v1'
+const API = 'http://localhost:8006/v1'
 
 async function getToken(
   request: import('@playwright/test').APIRequestContext,

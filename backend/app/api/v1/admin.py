@@ -414,6 +414,10 @@ def admin_update_config(
     cfg = _get_config(db)
     changes = body.model_dump(exclude_unset=True)
     old_vals = {k: str(getattr(cfg, k)) for k in changes}
+    # If tolerance is changing, remove ALL overrides so every location
+    # picks up the new global value
+    if "default_tolerance_pct" in changes and changes["default_tolerance_pct"] != cfg.default_tolerance_pct:
+        db.query(LocationToleranceOverride).delete()
     for k, v in changes.items():
         setattr(cfg, k, v)
     new_vals = {k: str(v) for k, v in changes.items()}

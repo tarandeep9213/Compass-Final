@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { loginAs } from './helpers/auth'
 
-const API = 'http://localhost:8000/v1'
+const API = 'http://localhost:8006/v1'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
