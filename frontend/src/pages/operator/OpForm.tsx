@@ -650,9 +650,11 @@ export default function OpForm({ ctx, onNavigate }: Props) {
           <button className="btn btn-outline" onClick={() => onNavigate(ctx.from || 'op-start', ctx)}>
             ← Back
           </button>
-          <button className="btn btn-outline" style={{ color: 'var(--red)', borderColor: '#fca5a5' }} onClick={handleDiscard}>
-            🗑 Discard
-          </button>
+          {(!editingStatus || editingStatus === 'draft') && (
+            <button className="btn btn-outline" style={{ color: 'var(--red)', borderColor: '#fca5a5' }} onClick={handleDiscard}>
+              🗑 Discard
+            </button>
+          )}
           <button className="btn btn-outline" onClick={handleSaveDraft}>{editingStatus === 'pending_approval' ? '💾 Save Changes' : '💾 Save Draft'}</button>
         </div>
       </div>
@@ -1344,9 +1346,11 @@ export default function OpForm({ ctx, onNavigate }: Props) {
             <button className="btn btn-outline" onClick={handleSaveDraft}>
               {editingStatus === 'pending_approval' ? '💾 Save Changes' : '💾 Save Draft'}
             </button>
-            <button className="btn btn-outline" style={{ color: 'var(--red)', borderColor: '#fca5a5' }} onClick={handleDiscard}>
-              🗑 Discard
-            </button>
+            {(!editingStatus || editingStatus === 'draft') && (
+              <button className="btn btn-outline" style={{ color: 'var(--red)', borderColor: '#fca5a5' }} onClick={handleDiscard}>
+                🗑 Discard
+              </button>
+            )}
             <button className="btn btn-outline" onClick={() => onNavigate(ctx.from || 'op-start', ctx)}>
               ← Back
             </button>
