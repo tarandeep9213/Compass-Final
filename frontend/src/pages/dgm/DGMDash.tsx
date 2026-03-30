@@ -200,12 +200,11 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     }
   }, [locationIds, locIdsJoined])
 
-  // Check if controller has completed + approved visit for this location+date
+  // Check if the submission for this location+date is approved by controller
   function isControllerVisitApproved(locId: string, date: string): boolean {
-    return ctrlVerifs.some(v =>
-      v.locationId === locId && v.date === date &&
-      v.status === 'completed' && v.notes.includes('[VISIT APPROVED]')
-    )
+    const key = `${locId}_${date}`
+    const sub = apiSubsMap[key]
+    return sub?.status === 'approved'
   }
 
   function getSubId(locId: string, date: string): string | undefined {
@@ -638,10 +637,10 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                               {!ctrlApproved && (
                                 <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8, padding: '16px 20px' }}>
                                   <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>
-                                    🔒 Controller visit not yet completed
+                                    🔒 Submission not yet approved
                                   </div>
                                   <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55 }}>
-                                    A controller must complete their verification visit with an <strong>Approve</strong> outcome for this location and date before the DGM visit can be completed.
+                                    The controller must approve the operator's submission for this location and date before the DGM visit can be completed.
                                   </div>
                                 </div>
                               )}
