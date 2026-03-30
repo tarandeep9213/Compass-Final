@@ -117,16 +117,6 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   }
 
   // Complete inline form
-  const VER_SECTIONS = ['A','B','C','D','E','F','G','H','I','J','K'] as const
-  const [secDecisions, setSecDecisions] = useState<Record<string, 'accept' | 'reject' | null>>(
-    () => Object.fromEntries(VER_SECTIONS.map(k => [k, null]))
-  )
-  const [secNotes, setSecNotes] = useState<Record<string, string>>(
-    () => Object.fromEntries(VER_SECTIONS.map(k => [k, '']))
-  )
-  const allSecDecided = VER_SECTIONS.every(k => secDecisions[k] !== null)
-  const allSecAccepted = VER_SECTIONS.every(k => secDecisions[k] === 'accept')
-  const anySecRejected = VER_SECTIONS.some(k => secDecisions[k] === 'reject')
   const [cNotes,      setCNotes]      = useState('')
   const [cWarnReason, setCWarnReason] = useState('')
   const [cSig,        setCSig]        = useState('')
@@ -254,8 +244,6 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
   function closeExpand() {
     setExpandedId(null); setExpandAction(null)
-    setSecDecisions(Object.fromEntries(VER_SECTIONS.map(k => [k, null])))
-    setSecNotes(Object.fromEntries(VER_SECTIONS.map(k => [k, ''])))
     setCNotes(''); setCWarnReason(''); setCSig(''); setCErrors({})
     setMReason(''); setMNotes(''); setMErrors({})
   }
@@ -374,18 +362,14 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   async function handleComplete(id: string) {
     const e: Record<string, string> = {}
 
-    if (!allSecDecided)                   e.sections = 'Please accept or reject all sections (A-K).'
-    if (anySecRejected)                   e.sections = 'Completion blocked — one or more sections rejected.'
     if (dowWarning && !cWarnReason)       e.warn = 'Please select a reason to proceed.'
     if (!cSig)                            e.sig  = 'Please sign before confirming.'
     if (Object.keys(e).length) { setCErrors(e); return }
 
-    const visitReviews: Record<string, { decision: string; note: string }> = {}
-    VER_SECTIONS.forEach(k => { visitReviews[k] = { decision: secDecisions[k] as string, note: secNotes[k] } })
-    const fullNotes = ['[ALL SECTIONS ACCEPTED]', cNotes.trim()].filter(Boolean).join(' — ')
+    const fullNotes = cNotes.trim()
 
     try {
-      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, visit_section_reviews: visitReviews })
+      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning ? cWarnReason : undefined })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
@@ -794,7 +778,12 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                               {showComplete && (
                               <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
-                                onClick={() => openExpand(v.id, 'complete')}>
+                                onClick={() => onNavigate('op-readonly', {
+                                  locationId: v.locationId, date: v.date,
+                                  submissionId: getSubId(v.locationId, v.date) ?? '',
+                                  visitId: v.id, fromPanel: 'ctrl-dashboard',
+                                  completionMode: 'true',
+                                })}>
                                 Mark as Completed
                               </button>
                               )}
@@ -838,7 +827,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                       {isExpanded && expandAction === 'complete' && (() => {
                         const subStatus = getSubStatus(v.locationId, v.date)
                         const subApproved = subStatus === 'approved'
-                        const canConfirm = subApproved && allSecDecided && allSecAccepted && !!cSig
+                        const canConfirm = subApproved && !!cSig
 
                         return (
                         <tr>
@@ -872,59 +861,43 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                 </div>
                               )}
 
+                              {/* Submission status + View & Approve */}
+                              {subStatus && (
+                                <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <button className="btn btn-ghost"
+                                      style={{ fontSize: 11, padding: '6px 12px', height: 'fit-content' }}
+                                      onClick={() => onNavigate('op-readonly', {
+                                        locationId: v.locationId, date: v.date,
+                                        submissionId: getSubId(v.locationId, v.date) ?? '',
+                                        visitId: v.id, fromPanel: 'ctrl-dashboard',
+                                        expandVisitId: v.id, expandAction: 'complete',
+                                      })}>
+                                      👁 View & Approve
+                                    </button>
+                                    {subStatus === 'approved' && <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Approved</span>}
+                                    {subStatus === 'rejected' && <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Rejected</span>}
+                                    {subStatus === 'pending_approval' && <span style={{ fontSize: 11, color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Pending approval</span>}
+                                  </div>
+                                  {(() => {
+                                    const subTotal = getSubTotalCash(v.locationId, v.date)
+                                    return subTotal !== null ? (
+                                      <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 4 }}>Submission Total</label>
+                                        <div style={{ fontSize: 18, fontFamily: 'DM Serif Display,serif', color: 'var(--g8)' }}>{formatCurrency(subTotal)}</div>
+                                        <div style={{ fontSize: 10, color: 'var(--ts)' }}>from approved form</div>
+                                      </div>
+                                    ) : null
+                                  })()}
+                                </div>
+                              )}
+                              {!subStatus && (
+                                <span style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>⏳ Waiting for operator to submit</span>
+                              )}
+
                               {/* Full completion form — only when submission is approved */}
                               {subApproved && (
                                 <>
-                                  {/* Section-by-Section Review */}
-                                  <div>
-                                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 8 }}>
-                                      Section Verification (A-K) *
-                                    </label>
-                                    <div style={{ maxHeight: 350, overflowY: 'auto', border: '1px solid var(--ow2)', borderRadius: 8 }}>
-                                      {VER_SECTIONS.map(k => {
-                                        const dec = secDecisions[k]
-                                        return (
-                                          <div key={k} style={{
-                                            padding: '8px 12px', borderBottom: '1px solid var(--ow2)',
-                                            background: dec === 'accept' ? '#f0fdf4' : dec === 'reject' ? '#fef2f2' : '#fff',
-                                          }}>
-                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--td)', width: 70 }}>Section {k}</span>
-                                              <button onClick={() => { setSecDecisions(p => ({ ...p, [k]: 'accept' })); setCErrors(p => ({ ...p, sections: '' })) }}
-                                                style={{ padding: '3px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1.5px solid var(--g7)', background: dec === 'accept' ? 'var(--g7)' : '#fff', color: dec === 'accept' ? '#fff' : 'var(--g7)' }}>
-                                                ✓ Accept</button>
-                                              <button onClick={() => { setSecDecisions(p => ({ ...p, [k]: 'reject' })); setCErrors(p => ({ ...p, sections: '' })) }}
-                                                style={{ padding: '3px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1.5px solid var(--red)', background: dec === 'reject' ? 'var(--red)' : '#fff', color: dec === 'reject' ? '#fff' : 'var(--red)' }}>
-                                                ✗ Reject</button>
-                                            </div>
-                                            {dec === 'reject' && (
-                                              <textarea className="f-inp" rows={2} placeholder="Required: note your reason for rejecting this section..."
-                                                value={secNotes[k]} onChange={e => setSecNotes(p => ({ ...p, [k]: e.target.value }))}
-                                                style={{ width: '100%', resize: 'vertical', fontSize: 11, marginTop: 6 }} />
-                                            )}
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                    {/* Summary */}
-                                    {allSecDecided && allSecAccepted && (
-                                      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--g7)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <span>✓</span> All sections accepted — ready to confirm.
-                                      </div>
-                                    )}
-                                    {anySecRejected && (
-                                      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <span>❌</span> Section(s) {VER_SECTIONS.filter(k => secDecisions[k] === 'reject').join(', ')} rejected — completion blocked.
-                                      </div>
-                                    )}
-                                    {!allSecDecided && !anySecRejected && (
-                                      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--amb)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <span>⚠️</span> {VER_SECTIONS.filter(k => secDecisions[k] === null).length} section(s) remaining.
-                                      </div>
-                                    )}
-                                    {cErrors.sections && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{cErrors.sections}</div>}
-                                  </div>
-
                                   {/* DOW warning */}
                                   {dowWarning && (
                                     <div style={{
@@ -1013,7 +986,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
                                   {!canConfirm && (
                                     <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>
-                                      {!allSecDecided ? 'Please accept or reject all sections (A-K).' : anySecRejected ? 'Completion blocked — one or more sections rejected.' : 'Please sign before confirming.'}
+                                      Please sign before confirming.
                                     </div>
                                   )}
 

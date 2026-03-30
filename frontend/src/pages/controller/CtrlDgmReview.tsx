@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, Fragment } from 'react'
 import { VERIFICATIONS, VERIFICATION_REVIEWS, getLocation, todayStr } from '../../mock/data'
 import type { VerificationRecord, VerificationReview } from '../../mock/data'
 import { listDgmVerifications } from '../../api/verifications'
+import { listSubmissions } from '../../api/submissions'
 import type { ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 
@@ -27,7 +28,7 @@ interface Props {
   onNavigate: (panel: string, ctx?: Record<string, string>) => void
 }
 
-export default function CtrlDgmReview({ locationIds }: Props) {
+export default function CtrlDgmReview({ locationIds, onNavigate }: Props) {
   const today = todayStr()
 
   const [locationFilter, setLocationFilter] = useState('all')
@@ -36,10 +37,19 @@ export default function CtrlDgmReview({ locationIds }: Props) {
   const [expandedId,     setExpandedId]     = useState<string | null>(null)
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
+  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { id: string }>>({})
   useEffect(() => {
     listDgmVerifications()
       .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
       .catch(() => { /* fall back to mock */ })
+    if (locationIds.length > 0) {
+      Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
+        .then(arrays => {
+          const map: Record<string, { id: string }> = {}
+          arrays.flat().forEach(s => { map[`${s.location_id}_${s.submission_date}`] = { id: s.id } })
+          setApiSubsMap(map)
+        }).catch(() => {})
+    }
   }, [locationIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reviews — read from persistent store (read-only; DGM updates these when completing visits)
@@ -386,11 +396,15 @@ export default function CtrlDgmReview({ locationIds }: Props) {
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {review ? (
                             <button
-                              className={`btn btn-ghost${isExpanded ? ' active' : ''}`}
+                              className="btn btn-ghost"
                               style={{ fontSize: 11, padding: '3px 10px' }}
-                              onClick={() => toggleExpand(v.id)}
+                              onClick={() => onNavigate('op-readonly', {
+                                locationId: v.locationId, date: v.date,
+                                submissionId: apiSubsMap[`${v.locationId}_${v.date}`]?.id ?? '',
+                                visitId: v.id, fromPanel: 'ctrl-dgm-review',
+                              })}
                             >
-                              {isExpanded ? 'Close ↑' : 'View →'}
+                              👁 View Form
                             </button>
                           ) : v.status === 'missed' ? (
                             <button
