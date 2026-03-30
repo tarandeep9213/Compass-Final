@@ -68,6 +68,16 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
       .catch(() => {})
   }, [refresh])
 
+  // Auto-select first location when apiLocs loads and location is empty
+  useEffect(() => {
+    if (!location && apiLocs.length > 0) {
+      const first = ctx?.locationId && apiLocs.some(l => l.id === ctx.locationId)
+        ? ctx.locationId
+        : apiLocs[0].id
+      setLocation(first)
+    }
+  }, [apiLocs, location, ctx?.locationId])
+
   // ── Calendar grid ──────────────────────────────────────────────────────
   const calCells = useMemo<(number | null)[]>(() => {
     const firstDow    = new Date(calYear, calMonth, 1).getDay()
@@ -401,12 +411,9 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                 onFocus={e => { e.currentTarget.style.borderColor = 'var(--g4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(52,160,110,0.12)' }}
                 onBlur={e  => { e.currentTarget.style.borderColor = 'var(--ow2)'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)' }}
               >
-                {locationIds.map(id => {
-                  const loc = apiLocs.find(l => l.id === id) ?? getLocation(id)
-                  const name = loc?.name ?? id
-                  const cc = (loc as unknown as {cost_center?:string|null})?.cost_center
-                  return <option key={id} value={id}>{name}{cc ? ` (CC: ${cc})` : ''}</option>
-                })}
+                {(apiLocs.length > 0 ? apiLocs : locationIds.map(id => ({ id, name: getLocation(id)?.name ?? id, cost_center: null as string | null }))).map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}{loc.cost_center ? ` (CC: ${loc.cost_center})` : ''}</option>
+                ))}
               </select>
             </div>
           </div>

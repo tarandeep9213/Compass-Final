@@ -37,7 +37,7 @@ def _has_controller_grant(user: User) -> bool:
 
 
 def _fmt_currency(v: float) -> str:
-    return f"£{v:,.2f}"
+    return f"${v:,.2f}"
 
 
 def _calc_totals(sections: dict, expected_cash: float, tolerance_pct: float) -> dict:

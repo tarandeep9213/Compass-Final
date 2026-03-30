@@ -387,8 +387,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* Status banner */}
-      <div style={{
+      {/* Status banner — hide when controller just submitted a review (localAction handles it) */}
+      {!localAction && <div style={{
         display: 'flex', gap: 14, alignItems: 'flex-start',
         padding: '14px 18px', borderRadius: 10, marginBottom: 18,
         background: effStatus === 'approved' ? 'var(--g0)' : effStatus === 'rejected' ? 'var(--red-bg)' : 'var(--amb-bg)',
@@ -412,7 +412,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
               {sc.message}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Controller review panel */}
       {showSecReview && (
@@ -477,7 +477,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
               <div style={{ fontSize: 13, color: 'var(--ts)' }}>
                 {localAction === 'approved'
                   ? 'All sections accepted. The operator will be notified.'
-                  : 'One or more sections rejected. The operator will receive your review comments via email.'}
+                  : 'One or more sections rejected.'}
               </div>
             </div>
           </div>
@@ -503,7 +503,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           accent="var(--ts)"
           tooltip={{
             what: "The fixed cash fund amount that this location is expected to hold at all times.",
-            how: "Set by the administrator for each location. This is the benchmark used to calculate the daily variance. The default system-wide value is £9,575.",
+            how: "Set by the administrator for each location. This is the benchmark used to calculate the daily variance. The default system-wide value is $9,575.",
             formula: "Fixed per location — configured in Admin > Locations",
           }}
         />

@@ -271,7 +271,7 @@ def complete_controller_visit(
             verifier_name=v.verifier_name,
             location_name=v.location_name,
             visit_date=v.verification_date,
-            observed_total=f"£{body.observed_total:,.2f}",
+            observed_total=f"${body.observed_total:,.2f}",
             notes=body.notes or "",
         )
 
@@ -546,7 +546,7 @@ def complete_dgm_visit(
             verifier_name=v.verifier_name,
             location_name=v.location_name,
             visit_date=v.verification_date,
-            observed_total=f"£{body.observed_total:,.2f}",
+            observed_total=f"${body.observed_total:,.2f}",
             notes=body.notes or "",
         )
 

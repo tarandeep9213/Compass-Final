@@ -1,5 +1,5 @@
 """
-Email service — wraps fastapi-mail with Jinja2 templates.
+Email service -wraps fastapi-mail with Jinja2 templates.
 Set EMAIL_ENABLED=false in .env to suppress all sending (useful for tests).
 Local dev: point at Mailhog (localhost:1025), view at http://localhost:8025
 """
@@ -39,9 +39,9 @@ _fastmail = FastMail(_mail_config)
 
 
 async def _send(to: list[str], subject: str, template: str, ctx: dict) -> None:
-    """Internal: render template and send. Never raises — logs errors instead."""
+    """Internal: render template and send. Never raises -logs errors instead."""
     if not settings.EMAIL_ENABLED:
-        logger.debug("EMAIL_ENABLED=false — skipping send to %s: %s", to, subject)
+        logger.debug("EMAIL_ENABLED=false -skipping send to %s: %s", to, subject)
         return
     try:
         html = _jinja.get_template(template).render(**ctx)
@@ -54,7 +54,7 @@ async def _send(to: list[str], subject: str, template: str, ctx: dict) -> None:
         await _fastmail.send_message(msg)
         logger.info("Email sent to %s: %s", to, subject)
     except Exception as exc:
-        logger.error("Failed to send email to %s: %s — %s", to, subject, exc)
+        logger.error("Failed to send email to %s: %s -%s", to, subject, exc)
 
 
 def send_email_background(
@@ -64,7 +64,7 @@ def send_email_background(
     template: str,
     ctx: dict,
 ) -> None:
-    """Queue email in FastAPI BackgroundTasks — non-blocking."""
+    """Queue email in FastAPI BackgroundTasks -non-blocking."""
     background.add_task(_send, to, subject, template, ctx)
 
 
@@ -82,7 +82,7 @@ async def send_welcome(to: str, name: str, temp_password: str) -> None:
 async def send_submission_reminder(to: str, name: str, location_name: str, today: str) -> None:
     await _send(
         to=[to],
-        subject=f"Reminder: Cash Count Submission Due — {location_name}",
+        subject=f"Reminder: Cash Count Submission Due - {location_name}",
         template="submission_reminder.html",
         ctx={"name": name, "location_name": location_name, "today": today},
     )
@@ -94,7 +94,7 @@ async def send_sla_breach(
 ) -> None:
     await _send(
         to=[to],
-        subject=f"SLA Breach: Submission Overdue — {location_name}",
+        subject=f"SLA Breach: Submission Overdue - {location_name}",
         template="sla_breach.html",
         ctx={
             "name": name,
@@ -122,7 +122,7 @@ def send_submission_pending_background(
     send_email_background(
         background,
         to=[reviewer_email],
-        subject=f"Submission Pending Approval — {location_name} {submission_date}",
+        subject=f"Submission Pending Approval - {location_name} {submission_date}",
         template="submission_pending.html",
         ctx={
             "reviewer_name": reviewer_name,
@@ -148,7 +148,7 @@ def send_submission_approved_background(
     send_email_background(
         background,
         to=[operator_email],
-        subject=f"Submission Approved — {location_name} {submission_date}",
+        subject=f"Submission Approved - {location_name} {submission_date}",
         template="submission_approved.html",
         ctx={
             "operator_name": operator_name,
@@ -174,7 +174,7 @@ def send_visit_scheduled_background(
     send_email_background(
         background,
         to=[recipient_email],
-        subject=f"{visit_type} Visit Scheduled — {location_name} {visit_date}",
+        subject=f"{visit_type} Visit Scheduled - {location_name} {visit_date}",
         template="visit_scheduled.html",
         ctx={
             "recipient_name": recipient_name,
@@ -202,7 +202,7 @@ def send_visit_completed_background(
     send_email_background(
         background,
         to=[recipient_email],
-        subject=f"{visit_type} Visit Completed — {location_name} {visit_date}",
+        subject=f"{visit_type} Visit Completed - {location_name} {visit_date}",
         template="visit_completed.html",
         ctx={
             "recipient_name": recipient_name,
@@ -230,7 +230,7 @@ def send_missed_explanation_background(
     send_email_background(
         background,
         to=[controller_email],
-        subject=f"Missed Submission Explanation — {location_name} {missed_date}",
+        subject=f"Missed Submission Explanation - {location_name} {missed_date}",
         template="missed_explanation.html",
         ctx={
             "controller_name": controller_name,
@@ -253,7 +253,7 @@ def send_welcome_background(
     send_email_background(
         background,
         to=[to],
-        subject="Welcome to CashRoom Compass — Your Login Details",
+        subject="Welcome to CashRoom Compass - Your Login Details",
         template="welcome.html",
         ctx={"name": name, "email": to, "temp_password": temp_password},
     )
@@ -301,7 +301,7 @@ def send_submission_rejected_background(
     send_email_background(
         background,
         to=[operator_email],
-        subject=f"Submission Rejected — {location_name} {submission_date}",
+        subject=f"Submission Rejected - {location_name} {submission_date}",
         template="submission_rejected.html",
         ctx={
             "operator_name": operator_name,

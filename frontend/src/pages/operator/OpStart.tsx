@@ -616,13 +616,6 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                               >
                                 View Details
                               </button>
-                              <button
-                                className="btn btn-outline"
-                                style={{ fontSize: 11, padding: '4px 10px', color: 'var(--red)', borderColor: '#fca5a5' }}
-                                onClick={e => { e.stopPropagation(); onNavigate('op-method', { locationId, date: row.date, submissionId: row.sub!.id, from: 'op-start' }) }}
-                              >
-                                Update
-                              </button>
                             </div>
                           ) : row.type === 'pending_approval' ? (
                             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
@@ -632,13 +625,6 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                                 onClick={e => { e.stopPropagation(); onNavigate('op-readonly', { locationId, date: row.date, submissionId: row.sub!.id, from: 'op-start' }) }}
                               >
                                 View Details
-                              </button>
-                              <button
-                                className="btn btn-outline"
-                                style={{ fontSize: 11, padding: '4px 10px' }}
-                                onClick={e => { e.stopPropagation(); onNavigate('op-method', { locationId, date: row.date, submissionId: row.sub!.id, from: 'op-start' }) }}
-                              >
-                                Update
                               </button>
                             </div>
                           ) : (
