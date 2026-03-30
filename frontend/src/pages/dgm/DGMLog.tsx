@@ -634,7 +634,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                     ✅ Visit Already Scheduled
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.6 }}>
-                    A DGM visit is already scheduled for <strong>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong> at <strong>{loc?.name ?? location}</strong>.
+                    A DGM visit is already scheduled for <strong>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong> at <strong>{getLocation(location)?.name ?? location}</strong>.
                     <br />Select a different date to reschedule, or go to the Dashboard to manage this visit.
                   </div>
                 </div>
