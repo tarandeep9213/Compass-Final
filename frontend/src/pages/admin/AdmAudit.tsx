@@ -249,17 +249,12 @@ export default function AdmAudit({ adminName }: Props) {
   }
 
   const getExportData = () => filtered.map(ev => {
-    const loc = allLocations.find(l => l.id === ev.locationId)
     const ts = new Date(ev.timestamp)
     return {
       Timestamp: `${ts.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} ${ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`,
       Event: EVENT_LABELS[ev.eventType] ?? ev.eventType,
       Actor: ev.actor,
-      'Location Name': loc?.name ?? '—',
-      'Location ID': ev.locationId ?? '—',
       Detail: ev.detail,
-      'Old Value': ev.oldValue ?? '—',
-      'New Value': ev.newValue ?? '—',
     }
   })
 
@@ -437,14 +432,11 @@ export default function AdmAudit({ adminName }: Props) {
                     <th style={{minWidth:160}}>Timestamp</th>
                     <th style={{minWidth:160}}>Event</th>
                     <th>Actor</th>
-                    <th>Location</th>
                     <th style={{minWidth:260}}>Detail</th>
-                    <th>Change</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.map(ev => {
-                    const loc = allLocations.find(l=>l.id===ev.locationId)
                     const ts  = new Date(ev.timestamp)
                     return (
                       <tr key={ev.id}>
@@ -464,17 +456,7 @@ export default function AdmAudit({ adminName }: Props) {
                           <div style={{fontSize:12,fontWeight:500,color:'var(--td)'}}>{ev.actor}</div>
                           {ev.actorRole && <div style={{fontSize:10,color:'var(--ts)',textTransform:'capitalize'}}>{ev.actorRole.replace(/_/g,' ').toLowerCase()}</div>}
                         </td>
-                        <td style={{fontSize:12,color:'var(--ts)'}}>
-                          {loc ? <><div style={{fontWeight:500,color:'var(--td)',fontSize:12}}>{loc.name}</div><div style={{fontSize:10,fontFamily:'monospace'}}>{loc.id}</div></>
-                            : ev.locationId ? <span style={{fontFamily:'monospace',fontSize:11}}>{ev.locationId}</span>
-                            : <span style={{color:'#bbb'}}>—</span>}
-                        </td>
                         <td style={{fontSize:12,color:'var(--td)',maxWidth:280}}>{ev.detail}</td>
-                        <td style={{fontSize:11,color:'var(--ts)'}}>
-                          {ev.oldValue&&ev.newValue
-                            ? <><span style={{color:'var(--red)',textDecoration:'line-through'}}>{ev.oldValue}</span>{' → '}<span style={{color:'var(--g7)',fontWeight:600}}>{ev.newValue}</span></>
-                            : <span style={{color:'#bbb'}}>—</span>}
-                        </td>
                       </tr>
                     )
                   })}
