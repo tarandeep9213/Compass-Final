@@ -637,7 +637,7 @@ def import_roster(
             db.add(LocationToleranceOverride(location_id=loc_id, tolerance_pct=0.5))
 
         role_map = [
-            (row.daily_reviewer,      None,                          UserRole.OPERATOR),
+            (row.cashroom_lead,       row.cashroom_lead_email,       UserRole.OPERATOR),
             (row.controller,          row.controller_email,          UserRole.CONTROLLER),
             (row.dgm,                 row.dgm_email,                 UserRole.DGM),
             (row.regional_controller, row.regional_controller_email, UserRole.REGIONAL_CONTROLLER),
@@ -690,6 +690,9 @@ def import_roster(
                         changed = True
                     if user.name != display_name:
                         user.name = display_name
+                        changed = True
+                    if user.role != role:
+                        user.role = role
                         changed = True
                     if changed:
                         users_updated += 1
