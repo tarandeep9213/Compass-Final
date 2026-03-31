@@ -190,7 +190,8 @@ export default function AdmLocations({ adminName }: Props) {
     if (Object.keys(e).length > 0) { setDefErrors(e); return }
     setDefErrors({})
     try {
-      await updateConfig({ default_tolerance_pct: tol })
+      const cfg = await updateConfig({ default_tolerance_pct: tol })
+      setDefaults(prev => ({ ...prev, tolerancePct: String(cfg.global.default_tolerance_pct) }))
       const r = await listLocations()
       setLocs(r.items.map(mapApiLocation))
       setDefSaved(true)
