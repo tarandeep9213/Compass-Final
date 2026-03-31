@@ -53,7 +53,7 @@ function pageNums(cur: number, total: number): (number | 'gap')[] {
   return [0, 'gap', cur - 1, cur, cur + 1, 'gap', total - 1]
 }
 
-type StatusFilter = 'all' | 'scheduled' | 'completed' | 'missed'
+type StatusFilter = 'all' | 'scheduled' | 'completed' | 'missed' | 'cancelled'
 
 type SessionUpdate = {
   status: 'completed' | 'missed' | 'cancelled'
@@ -85,6 +85,13 @@ function StatusBadge({ status }: { status: string }) {
       padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700,
       background: 'var(--red-bg)', color: 'var(--red)', border: '1px solid #fca5a5',
     }}>❌ Missed</span>
+  )
+  if (status === 'cancelled') return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700,
+      background: '#f5f5f5', color: '#737373', border: '1px solid #d4d4d4',
+    }}>⊘ Cancelled</span>
   )
   return <span style={{ fontSize: 11, color: 'var(--wg)' }}>—</span>
 }
@@ -318,6 +325,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
       scheduled: base.filter(v => v.status === 'scheduled').length,
       completed: base.filter(v => v.status === 'completed').length,
       missed:    base.filter(v => v.status === 'missed').length,
+      cancelled: base.filter(v => v.status === 'cancelled').length,
     }
   }, [allRecords, locationFilter])
 
@@ -368,13 +376,23 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
     const fullNotes = cNotes.trim()
 
+    // Retrieve per-section review decisions stored by OpReadonly
+    let visitSectionReviews: Record<string, { decision: string; note: string }> | undefined
     try {
-      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning ? cWarnReason : undefined })
+      const raw = sessionStorage.getItem(`visit_review_${id}`)
+      if (raw) visitSectionReviews = JSON.parse(raw)
+    } catch { /* ignore parse errors */ }
+
+    try {
+      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
       return
     }
+
+    // Clean up session storage after successful save
+    sessionStorage.removeItem(`visit_review_${id}`)
 
     setSessionUpdates(prev => ({
       ...prev,
@@ -494,9 +512,9 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
         {/* Status filter chips */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(['all', 'scheduled', 'completed', 'missed'] as const).map(s => {
+          {(['all', 'scheduled', 'completed', 'missed', 'cancelled'] as const).map(s => {
             const labels: Record<StatusFilter, string> = {
-              all: 'All', scheduled: '📅 Scheduled', completed: '✅ Completed', missed: '❌ Missed',
+              all: 'All', scheduled: '📅 Scheduled', completed: '✅ Completed', missed: '❌ Missed', cancelled: '⊘ Cancelled',
             }
             const active = statusFilter === s
             return (
@@ -654,6 +672,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                       <tr style={{
                         background: isExpanded ? 'var(--g0)' : undefined,
                         borderLeft: isExpanded ? '3px solid var(--g4)' : undefined,
+                        opacity: v.status === 'cancelled' ? 0.5 : undefined,
                       }}>
 
                         {/* Date */}
@@ -812,6 +831,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                             >
                               ❌ View Missed
                             </button>
+                          ) : v.status === 'cancelled' ? (
+                            <span style={{ fontSize: 11, color: '#737373', fontWeight: 600 }}>⊘ Cancelled</span>
                           ) : (
                             <span style={{ fontSize: 11, color: 'var(--wg)' }}>—</span>
                           )}
@@ -848,7 +869,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                   </div>
                                   <div style={{ display: 'flex', gap: 8 }}>
                                     <button className="btn btn-outline" style={{ fontSize: 12 }}
-                                      onClick={() => onNavigate('ctrl-dashboard')}>
+                                      onClick={() => onNavigate('ctrl-daily-report')}>
                                       ← Go to Daily Review
                                     </button>
                                     <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>

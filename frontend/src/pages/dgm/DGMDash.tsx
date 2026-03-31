@@ -337,13 +337,21 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
 
     const fullNotes = cNotes.trim()
 
+    // Retrieve per-section review decisions stored by OpReadonly
+    let visitSectionReviews: Record<string, { decision: string; note: string }> | undefined
     try {
-      await completeDgmVisit(id, { signature_data: cSig, notes: fullNotes || undefined })
+      const raw = sessionStorage.getItem(`visit_review_${id}`)
+      if (raw) visitSectionReviews = JSON.parse(raw)
+    } catch { /* ignore parse errors */ }
+
+    try {
+      await completeDgmVisit(id, { signature_data: cSig, notes: fullNotes || undefined, visit_section_reviews: visitSectionReviews })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
       return
     }
+    sessionStorage.removeItem(`visit_review_${id}`)
     setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: 0, notes: fullNotes, signatureData: cSig } }))
     closeExpand()
   }
