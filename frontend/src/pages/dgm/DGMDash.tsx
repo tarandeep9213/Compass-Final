@@ -3,6 +3,7 @@ import { getLocation, formatCurrency, IMPREST, todayStr } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
 import { listDgmVerifications, listControllerVerifications, completeDgmVisit, missDgmVisit, cancelDgmVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
+import { api } from '../../api/client'
 import type { ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 
@@ -169,6 +170,13 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number }>>({})
+  const [slaHours, setSlaHours] = useState(48)
+
+  useEffect(() => {
+    api.get<{ global_config?: { approval_sla_hours?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.approval_sla_hours) setSlaHours(cfg.global_config.approval_sla_hours) })
+      .catch(() => {})
+  }, [])
 
   const locIdsJoined = locationIds.join(',')
   useEffect(() => {
@@ -199,11 +207,9 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     }
   }, [locationIds, locIdsJoined])
 
-  // Check if the submission for this location+date is approved by controller
-  function isControllerVisitApproved(locId: string, date: string): boolean {
+  function getSubStatus(locId: string, date: string): string | null {
     const key = `${locId}_${date}`
-    const sub = apiSubsMap[key]
-    return sub?.status === 'approved'
+    return apiSubsMap[key]?.status ?? null
   }
 
   function getSubId(locId: string, date: string): string | undefined {
@@ -612,11 +618,12 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                             <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)', fontWeight: 600 }} onClick={() => openExpand(v.id, 'view')}>❌ View Missed</button>
                           ) : v.status === 'scheduled' ? (() => {
                             const isPast = v.date < today
-                            const isToday = v.date === today
-                            // DGM: complete today, miss past, cancel future/today
-                            const showComplete = isToday
+                            // SLA window: from start of visit date + slaHours
+                            const visitStartMs = new Date(v.date + 'T00:00:00').getTime()
+                            const pastSlaWindow = Date.now() > visitStartMs + slaHours * 3600000
+                            const showComplete = !pastSlaWindow
                             const showMiss = isPast
-                            const showCancel = isFuture || isToday
+                            const showCancel = !isPast
                             return (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                               {showComplete && <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => openExpand(v.id, 'complete')}>Mark as Completed</button>}
@@ -632,30 +639,34 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
 
                       {/* Expand: Complete */}
                       {isExpanded && expandAction === 'complete' && (() => {
-                        const ctrlApproved = isControllerVisitApproved(v.locationId, v.date)
-                        const canConfirm = ctrlApproved && !!cSig
+                        const subStatus = getSubStatus(v.locationId, v.date)
+                        const subApproved = subStatus === 'approved'
+                        const canConfirm = subApproved && !!cSig
 
                         return (
                         <tr>
                           <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid var(--ow2)' }}>
                             <div style={{ background: 'var(--g0)', borderLeft: '4px solid var(--g4)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                              {/* Gate: controller must have completed + approved visit */}
-                              {!ctrlApproved && (
+                              {/* Gate: operator submission must be approved */}
+                              {!subApproved && (
                                 <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8, padding: '16px 20px' }}>
                                   <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>
                                     🔒 Submission not yet approved
                                   </div>
-                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55 }}>
-                                    The controller must approve the operator's submission for this location and date before the DGM visit can be completed.
+                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55, marginBottom: 12 }}>
+                                    The operator's cash count submission must be <strong>approved</strong> before this visit can be completed.
+                                    {subStatus === 'pending_approval' && ' The submission is currently pending review.'}
+                                    {subStatus === 'rejected' && ' The submission was rejected — the operator needs to resubmit.'}
+                                    {!subStatus && ' The operator has not yet submitted a cash count for this date.'}
                                   </div>
-                                  <div style={{ marginTop: 10 }}>
+                                  <div style={{ display: 'flex', gap: 8 }}>
                                     <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
                                   </div>
                                 </div>
                               )}
 
-                              {/* Full completion form — only when controller visit is approved */}
-                              {ctrlApproved && (
+                              {/* Full completion form — only when operator submission is approved */}
+                              {subApproved && (
                                 <>
                                   {/* View submission link + Submission Total */}
                                   <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>

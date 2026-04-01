@@ -137,17 +137,23 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
     )
   }, [activeVisits])
 
-  // Helper to get blocked dates (7-day rolling block per visit)
+  // Helper to get blocked dates (business week: Mon-Fri, one visit per week)
   const blockedDates = useMemo<Map<string, { visitDate: string; daysLeft: number }>>(() => {
     const map = new Map<string, { visitDate: string; daysLeft: number }>()
     for (const v of activeVisits) {
       const vDate = new Date(v.date + 'T12:00:00')
-      for (let i = 1; i <= 6; i++) {
-        const blocked = new Date(vDate)
-        blocked.setDate(vDate.getDate() + i)
+      const dow = vDate.getDay() // 0=Sun, 1=Mon...6=Sat
+      // Compute Monday of this visit's week
+      const mondayOffset = dow === 0 ? -6 : 1 - dow
+      const monday = new Date(vDate)
+      monday.setDate(vDate.getDate() + mondayOffset)
+      // Block Mon-Fri of that week (except the visit date itself)
+      for (let i = 0; i < 5; i++) {
+        const blocked = new Date(monday)
+        blocked.setDate(monday.getDate() + i)
         const blockedStr = padDate(blocked.getFullYear(), blocked.getMonth(), blocked.getDate())
-        if (!map.has(blockedStr)) {
-          map.set(blockedStr, { visitDate: v.date, daysLeft: 7 - i })
+        if (blockedStr !== v.date && !map.has(blockedStr)) {
+          map.set(blockedStr, { visitDate: v.date, daysLeft: 0 })
         }
       }
     }
@@ -193,7 +199,9 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   function handleDateSelect(dateStr: string) {
     if (!verifsLoaded) return             // data not loaded yet
     if (dateStr < today) return          // past: not bookable (today IS allowed)
-    if (blockedDates.has(dateStr)) return // blocked by 7-day rule
+    if (blockedDates.has(dateStr)) return // blocked by business week rule
+    const dow = new Date(dateStr + 'T12:00:00').getDay()
+    if (dow === 0 || dow === 6) return    // weekend
     if (bookedMap.has(dateStr)) return    // already booked
     if (selectedDate === dateStr) { setSelectedDate(null); setSelectedTime(null); return }
     setSelectedDate(dateStr); setSelectedTime(null)
@@ -206,7 +214,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
     const e: Record<string, string> = {}
     if (!selectedDate)                        e.date = 'Please select a visit date from the calendar.'
     else if (bookedMap.has(selectedDate))     e.date = 'This date is already booked for this location. Choose another.'
-    else if (blockedDates.has(selectedDate))  e.date = 'This date is blocked — must wait 7 days between visits to the same location.'
+    else if (blockedDates.has(selectedDate))  e.date = 'This date is blocked — one visit per business week (Mon-Fri).'
     else if (!selectedTime)                   e.time = 'Please select a time slot.'
     return e
   }
@@ -480,7 +488,9 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                     const isToday    = dateStr === today
                     const isSelected = selectedDate === dateStr
                     const isBooked   = bookedMap.has(dateStr)
-                    const isBlocked  = !isPast && !isBooked && blockedDates.has(dateStr)
+                    const dayOfWeek  = new Date(dateStr + 'T12:00:00').getDay()
+                    const isWeekend  = dayOfWeek === 0 || dayOfWeek === 6
+                    const isBlocked  = !isPast && !isBooked && (isWeekend || blockedDates.has(dateStr))
                     const isDowWarn  = !isPast && !isBooked && !isBlocked && getDowConflicts(dateStr).length > 0
                     const blockInfo  = blockedDates.get(dateStr)
                     const notClickable = isPast || isBooked || isBlocked || !verifsLoaded
@@ -510,7 +520,8 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                     if (isPast && !isToday)          tooltip = 'Past date — cannot schedule'
                     else if (isToday && !isBooked && !isBlocked) tooltip = 'Today'
                     else if (isBooked)               tooltip = `Already booked — visit ${bookedMap.get(dateStr)?.status} on this date`
-                    else if (isBlocked && blockInfo)  tooltip = `Blocked — must wait 7 days after visit on ${new Date(blockInfo.visitDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${blockInfo.daysLeft} day${blockInfo.daysLeft !== 1 ? 's' : ''} remaining)`
+                    else if (isWeekend)              tooltip = 'Weekend — visits are Mon-Fri only'
+                    else if (isBlocked && blockInfo)  tooltip = `Blocked — one visit per week (visit on ${new Date(blockInfo.visitDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})`
                     else if (isDowWarn) {
                       const conflicts = getDowConflicts(dateStr)
                       const lastVisit = [...conflicts].sort((a, b) => b.date.localeCompare(a.date))[0]
@@ -547,7 +558,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                           }} />
                         )}
 
-                        {/* Red dot — blocked by 7-day rule */}
+                        {/* Red dot — blocked by weekly rule */}
                         {isBlocked && !isSelected && (
                           <span style={{
                             position: 'absolute', bottom: 4, left: '50%',
@@ -582,7 +593,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
-                    Blocked (7-day)
+                    Blocked (weekly)
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />

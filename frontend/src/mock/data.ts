@@ -65,6 +65,8 @@ export interface VerificationRecord {
   missedReason?: string
   scheduledTime?: string  // e.g. "09:00" — set at booking time, undefined for older records
   signatureData?: string  // base64 data URL of the controller's signature
+  varianceVsImprest?: number
+  variancePct?: number
 }
 
 export interface AuditEvent {

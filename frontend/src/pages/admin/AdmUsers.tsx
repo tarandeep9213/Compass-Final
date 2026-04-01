@@ -179,7 +179,7 @@ export default function AdmUsers({ adminName }: Props) {
 
   const nameQuery = filterName.trim().toLowerCase()
   const filteredUsers = users.filter(u =>
-    (filterRole === '' || u.role === filterRole) &&
+    (filterRole === '' || u.role === filterRole || (filterRole === 'operator' && opGrants[u.id]) || (filterRole === 'controller' && ctrlGrants[u.id])) &&
     (filterLoc  === '' || u.locationIds.includes(filterLoc)) &&
     (nameQuery  === '' || u.name.toLowerCase().includes(nameQuery) || u.email.toLowerCase().includes(nameQuery))
   )

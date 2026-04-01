@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
-import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
+import { getLocation, formatCurrency } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
@@ -91,16 +91,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
     return 0
   }, [dateRange])
 
-  const sourceSubs = useMemo(() => {
-    const base = apiSubs
-    return base.map(s => {
-      const loc = getLocation(s.locationId)
-      const expCash = Number(s.expectedCash || (loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
-      const variance = s.totalCash - expCash
-      const variancePct = expCash > 0 ? (variance / expCash) * 100 : 0
-      return { ...s, expectedCash: expCash, variance, variancePct }
-    })
-  }, [apiSubs])
+  const sourceSubs = useMemo(() => apiSubs, [apiSubs])
 
   const allMgrSubs = useMemo(() =>
     sourceSubs.filter(s =>
@@ -147,12 +138,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
   const rejectedCount = inRange.filter(s => effectiveStatus(s) === 'rejected').length
   const actionedInRange = inRange.filter(s => effectiveStatus(s) !== 'pending_approval')
   const avgVariance   = actionedInRange.length > 0
-    ? actionedInRange.reduce((sum, s) => {
-        const loc = apiLocations.find(l => l.id === s.locationId)
-        const expCash = s.expectedCash || loc?.expected_cash || 0
-        const calcVarPct = expCash > 0 ? ((s.totalCash - expCash) / expCash) * 100 : 0
-        return sum + Math.abs(calcVarPct)
-      }, 0) / actionedInRange.length
+    ? actionedInRange.reduce((sum, s) => sum + Math.abs(s.variancePct), 0) / actionedInRange.length
     : null
 
   // ── Filter counts (for chips) ────────────────────────────────────────────

@@ -90,7 +90,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
 // -- Booked months for selected location --------------------------------
   // DGM rule: ONE visit per location per calendar month.
   // Exception: If a visit is 'cancelled' or 'missed', the month is freed for a new booking.
-  // Active visits (scheduled/completed) for this location — used for 30-day rolling block
+  // Active visits (scheduled/completed) for this location — used for monthly block
   const activeVisits = useMemo<VerificationRecord[]>(() => {
     if (!location) return []
     let sessionUpdates: Record<string, { status: string }> = {}
@@ -106,15 +106,10 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, refresh, apiVerifs])
 
-  // Check if a date is within 30 days of any active visit
+  // Check if a date is in the same calendar month as any active visit
   function getBlockingVisit(dateStr: string): VerificationRecord | undefined {
-    const d = new Date(dateStr + 'T12:00:00').getTime()
-    const THIRTY_DAYS = 30 * 24 * 3600 * 1000
-    return activeVisits.find(v => {
-      if (v.date === dateStr) return true // same date — already booked
-      const vd = new Date(v.date + 'T12:00:00').getTime()
-      return Math.abs(d - vd) < THIRTY_DAYS // strictly less than 30 days = blocked
-    })
+    const monthKey = dateStr.slice(0, 7) // YYYY-MM
+    return activeVisits.find(v => v.date.slice(0, 7) === monthKey)
   }
 
   // Legacy compat — bookedMonths map for parts of UI that still reference it
@@ -206,8 +201,8 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
     else {
       const blocker = getBlockingVisit(selectedDate)
       if (blocker && blocker.date !== selectedDate) {
-        const days = Math.abs(Math.round((new Date(selectedDate + 'T12:00:00').getTime() - new Date(blocker.date + 'T12:00:00').getTime()) / 86400000))
-        e.date = `Too close to existing visit on ${new Date(blocker.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${days} days away). Must be 30+ days apart.`
+        const monthName = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        e.date = `A visit already exists for this location in ${monthName}.`
       } else if (blocker && blocker.date === selectedDate) {
         e.date = 'A visit is already scheduled for this date.'
       }
@@ -533,12 +528,11 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                       bg = '#fffbeb'
                     }
 
-                    const daysAway = blocker ? Math.abs(Math.round((new Date(dateStr + 'T12:00:00').getTime() - new Date(blocker.date + 'T12:00:00').getTime()) / 86400000)) : 0
                     let tooltip: string | undefined
                     if (isPast && !isToday)   tooltip = 'Past date — cannot schedule'
                     else if (isToday && !blocker) tooltip = 'Today'
                     else if (isVisitDay)      tooltip = `Visit ${blocker?.status} on this date`
-                    else if (isBlocked)       tooltip = `Blocked — visit ${blocker?.status} on ${new Date(blocker!.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} (${daysAway} days away, must be 30+ days apart)`
+                    else if (isBlocked)       tooltip = `Blocked — one visit per month (visit on ${new Date(blocker!.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})`
                     else if (isDomWarn)       tooltip = `Caution — same day-of-month (${day}) visited recently. Consider a different date.`
 
                     return (
@@ -590,7 +584,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />
-                    Blocked (30-day)
+                    Blocked (monthly)
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--ts)', fontWeight: 600 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
@@ -627,7 +621,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                   borderRadius: 10, padding: '16px 18px',
                 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: '#92400e', marginBottom: 4 }}>
-                    📅 Too Close to Existing Visit
+                    📅 Month Already Has a Visit
                   </div>
                   <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
                     A visit is {selectedBlocker.status} on{' '}
@@ -636,10 +630,7 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
                         weekday: 'long', day: 'numeric', month: 'long',
                       })}
                     </strong>.
-                    Visits must be at least 30 days apart. Select a date after{' '}
-                    <strong>
-                      {new Date(new Date(selectedBlocker.date + 'T12:00:00').getTime() + 30 * 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </strong>.
+                    Only one visit per location per calendar month. Select a date in a different month.
                   </div>
                 </div>
               )}

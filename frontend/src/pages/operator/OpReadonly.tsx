@@ -396,11 +396,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
                   Resubmit →
                 </button>
               )}
-              {sub.status === 'pending_approval' && !isManagerView && (
-                <button className="btn btn-primary" onClick={() => onNavigate('op-method', { locationId: ctx.locationId, date: ctx.date, submissionId: sub.id })}>
-                  Update →
-                </button>
-              )}
+              {/* Update hidden while pending approval — operator cannot modify during review */}
             </>
           )}
         </div>

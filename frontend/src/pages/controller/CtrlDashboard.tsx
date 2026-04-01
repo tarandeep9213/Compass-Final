@@ -4,6 +4,7 @@ import type { VerificationRecord } from '../../mock/data'
 import { listControllerVerifications, completeControllerVisit, missControllerVisit, cancelControllerVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
+import { api } from '../../api/client'
 import type { ApiVerification, ApiLocation } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 
@@ -24,6 +25,8 @@ function mapApiVerification(v: ApiVerification): VerificationRecord {
     missedReason: v.missed_reason ?? undefined,
     scheduledTime: v.scheduled_time ?? undefined,
     signatureData: v.signature_data ?? undefined,
+    varianceVsImprest: v.variance_vs_imprest ?? undefined,
+    variancePct: v.variance_pct ?? undefined,
   }
 }
 
@@ -104,9 +107,13 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   const [locationFilter, setLocationFilter] = useState('all')
   const [page,           setPage]          = useState(0)
   const [apiLocations,   setApiLocations]  = useState<ApiLocation[]>([])
+  const [slaHours,       setSlaHours]      = useState(48)
 
   useEffect(() => {
     listLocations().then(setApiLocations).catch(() => {})
+    api.get<{ global_config?: { approval_sla_hours?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.approval_sla_hours) setSlaHours(cfg.global_config.approval_sla_hours) })
+      .catch(() => {})
   }, [])
 
   // Inline expand state (initialize from ctx if returning from approval)
@@ -197,7 +204,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   // API-fetched verifications — overlay over mock data
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   // Map of locationId_date to { status, id }
-  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number }>>({})
+  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number; expectedCash: number; variance: number; variancePct: number }>>({})
 
   // Clear any stale sessionStorage from old code so it doesn't affect other reads
   useEffect(() => {
@@ -220,9 +227,9 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
           const flats = arrays.flat()
-          const map: Record<string, { status: string; id: string; totalCash: number }> = {}
+          const map: Record<string, { status: string; id: string; totalCash: number; expectedCash: number; variance: number; variancePct: number }> = {}
           flats.forEach(s => {
-            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash }
+            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash, expectedCash: s.expected_cash, variance: s.variance, variancePct: s.variance_pct }
           })
           setApiSubsMap(map)
         })
@@ -245,6 +252,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     const key = `${locId}_${date}`
     return apiSubsMap[key]?.totalCash ?? null
   }
+
 
   // FIX: Removed useEffect to prevent cascading render errors. Resetting state happens inside the click/change handlers now.
   // useEffect(() => { setPage(0); closeExpand() }, [statusFilter, locationFilter])
@@ -653,10 +661,10 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                   const loc        = getLocation(v.locationId)
                   const isFuture   = v.date > todayStr
                   const isExpanded = expandedId === v.id
-                  const expCash    = Number((loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
-                  const effObsTotal = (v.observedTotal && v.observedTotal > 0) ? v.observedTotal : getSubTotalCash(v.locationId, v.date)
-                  const variance   = effObsTotal !== null && effObsTotal !== undefined ? Math.round((effObsTotal - expCash) * 100) / 100 : null
-                  const pct        = variance !== null && expCash > 0 ? (variance / expCash) * 100 : null
+                  // Use API-computed variance — only available for completed visits
+                  const hasObserved = v.status === 'completed' && v.observedTotal != null && v.observedTotal > 0
+                  const variance   = hasObserved ? (v.varianceVsImprest ?? null) : null
+                  const pct        = hasObserved ? (v.variancePct ?? null) : null
                   const varCol     = pct !== null
                     ? (Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)')
                     : 'var(--wg)'
@@ -712,15 +720,17 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                             )}
                             {(() => {
                               const vDate = new Date(v.date + 'T12:00:00')
+                              const dow = vDate.getDay() // 0=Sun
+                              // Compute Friday of the visit's week
+                              const fridayOffset = dow === 0 ? -2 : 5 - dow
+                              const friday = new Date(vDate)
+                              friday.setDate(vDate.getDate() + fridayOffset)
                               const _today = new Date()
                               const todayDate = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate())
-                              const diff = Math.floor((todayDate.getTime() - vDate.getTime()) / 86400000)
-                              if ((v.status === 'scheduled' || v.status === 'completed') && diff >= 0 && diff < 7) {
-                                const unblockDate = new Date(vDate)
-                                unblockDate.setDate(vDate.getDate() + 7)
+                              if ((v.status === 'scheduled' || v.status === 'completed') && todayDate <= friday) {
                                 return (
-                                  <span style={{ fontSize: 10, color: 'var(--ts)', display: 'flex', alignItems: 'center', gap: 3 }} title={`Location blocked until ${unblockDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}>
-                                    🔒 Block until {unblockDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                  <span style={{ fontSize: 10, color: 'var(--ts)', display: 'flex', alignItems: 'center', gap: 3 }} title={`Location blocked until end of week (${friday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})`}>
+                                    🔒 Blocked this week
                                   </span>
                                 )
                               }
@@ -731,8 +741,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
                         {/* Observed Total */}
                         <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 15 }}>
-                          {effObsTotal !== null && effObsTotal !== undefined
-                            ? formatCurrency(effObsTotal)
+                          {hasObserved
+                            ? formatCurrency(v.observedTotal!)
                             : <span style={{ color: 'var(--wg)', fontFamily: 'inherit', fontSize: 12 }}>—</span>
                           }
                         </td>
@@ -772,26 +782,22 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                         {/* Actions */}
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {v.status === 'scheduled' ? (() => {
-                            // Time-aware action rules
+                            // Action rules based on date/time and SLA window
                             const vDate = v.date
                             const isPast = vDate < todayStr
                             const isToday = vDate === todayStr
-                            let inWindow = false
-                            let pastWindow = false
-                            let beforeTime = false
+                            let pastScheduledTime = false
+                            let pastSlaWindow = false
                             if (isToday && v.scheduledTime) {
                               const [hh, mm] = v.scheduledTime.split(':').map(Number)
                               const schedMs = new Date().setHours(hh, mm, 0, 0)
                               const nowMs = Date.now()
-                              beforeTime = nowMs < schedMs
-                              inWindow = nowMs >= schedMs && nowMs <= schedMs + 5 * 3600000
-                              pastWindow = nowMs > schedMs + 5 * 3600000
-                            } else if (isToday && !v.scheduledTime) {
-                              inWindow = true // DGM-like: no time = all day
+                              pastScheduledTime = nowMs >= schedMs
+                              pastSlaWindow = nowMs > schedMs + slaHours * 3600000
                             }
-                            const showComplete = isToday && inWindow
-                            const showMiss = isPast || (isToday && pastWindow)
-                            const showCancel = isFuture || (isToday && beforeTime)
+                            const showComplete = !isPast && !pastSlaWindow
+                            const showMiss = isPast || (isToday && pastScheduledTime)
+                            const showCancel = !isPast && !pastScheduledTime
 
                             return (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>

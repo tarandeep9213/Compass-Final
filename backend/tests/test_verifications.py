@@ -53,10 +53,10 @@ def test_operator_cannot_schedule_controller(client, operator_token):
 
 # ── TC-4.4  Complete controller visit ────────────────────────────────────────
 def test_complete_controller_visit(client, controller_token):
-    # Schedule first
+    # Schedule in a different week than TC-4.2 (2026-03-10 is week of Mar 9-13)
     create = client.post("/v1/verifications/controller",
         headers={"Authorization": f"Bearer {controller_token}"},
-        json={"location_id": "loc-1", "date": "2026-03-12",
+        json={"location_id": "loc-1", "date": "2026-03-17",
               "scheduled_time": "11:00", "dow_warning_acknowledged": False},
     )
     vid = create.json()["id"]
@@ -75,7 +75,7 @@ def test_complete_controller_visit(client, controller_token):
 def test_cannot_complete_twice(client, controller_token):
     create = client.post("/v1/verifications/controller",
         headers={"Authorization": f"Bearer {controller_token}"},
-        json={"location_id": "loc-1", "date": "2026-03-13",
+        json={"location_id": "loc-1", "date": "2026-03-24",
               "scheduled_time": "09:00", "dow_warning_acknowledged": False},
     )
     vid = create.json()["id"]
@@ -94,7 +94,7 @@ def test_cannot_complete_twice(client, controller_token):
 def test_miss_controller_visit(client, controller_token):
     create = client.post("/v1/verifications/controller",
         headers={"Authorization": f"Bearer {controller_token}"},
-        json={"location_id": "loc-2", "date": "2026-03-14",
+        json={"location_id": "loc-2", "date": "2026-03-10",
               "scheduled_time": "13:00", "dow_warning_acknowledged": False},
     )
     vid = create.json()["id"]
@@ -165,9 +165,11 @@ def test_controller_cannot_schedule_dgm(client, controller_token):
 
 # ── TC-4.11  Complete DGM visit ──────────────────────────────────────────────
 def test_complete_dgm_visit(client, dgm_token):
+    from datetime import date
+    today = date.today().isoformat()
     create = client.post("/v1/verifications/dgm",
         headers={"Authorization": f"Bearer {dgm_token}"},
-        json={"location_id": "loc-2", "date": "2026-03-20"},
+        json={"location_id": "loc-2", "date": today},
     )
     vid = create.json()["id"]
 

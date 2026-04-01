@@ -1,5 +1,5 @@
 import math
-from datetime import datetime, date as dt_date, timezone
+from datetime import datetime, date as dt_date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
@@ -54,6 +54,12 @@ def _to_out(v: Verification) -> VerificationOut:
 def _get_config(db: Session) -> SystemConfig:
     cfg = db.get(SystemConfig, 1)
     return cfg or SystemConfig()
+
+def _now_local() -> datetime:
+    return datetime.now()
+
+def _today_local() -> dt_date:
+    return dt_date.today()
 
 
 def _check_dow(db: Session, location_id: str, visit_date: str, vtype: VerificationType, lookback_weeks: int) -> DowCheckResponse:
@@ -126,21 +132,22 @@ def schedule_controller_visit(
     d = dt_date.fromisoformat(body.date)
     dow = d.weekday()
 
-    # 7-day block: no visit within 6 days of another visit for the same location
-    recent = db.query(Verification).filter(
+    # Business week block: one visit per location per Mon-Fri week
+    if dow >= 5:
+        raise HTTPException(400, "Visits can only be scheduled on weekdays (Mon-Fri).")
+    week_start = (d - timedelta(days=dow)).isoformat()
+    week_end = (d - timedelta(days=dow) + timedelta(days=4)).isoformat()
+    existing_in_week = db.query(Verification).filter(
         Verification.location_id == body.location_id,
         Verification.verification_type == VerificationType.CONTROLLER,
         Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
-    ).all()
-    for rv in recent:
-        rv_date = dt_date.fromisoformat(rv.verification_date)
-        diff = (d - rv_date).days
-        if diff == 0:
-            raise HTTPException(400, f"A visit already exists for this location on {rv.verification_date}.")
-        if 0 < diff <= 6:
-            raise HTTPException(400, f"Too soon \u2014 a visit exists on {rv.verification_date}. Must wait 7 days between visits to the same location.")
-        if -6 <= diff < 0:
-            raise HTTPException(400, f"Too soon \u2014 a visit is already scheduled on {rv.verification_date}. Must wait 7 days between visits to the same location.")
+        Verification.verification_date >= week_start,
+        Verification.verification_date <= week_end,
+    ).first()
+    if existing_in_week:
+        if existing_in_week.verification_date == body.date:
+            raise HTTPException(400, f"A visit already exists for this location on {body.date}.")
+        raise HTTPException(400, f"A visit already exists for this location in the week of {week_start} to {week_end}.")
 
     v = Verification(
         verification_type=VerificationType.CONTROLLER,
@@ -231,22 +238,19 @@ def complete_controller_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
-    # Time-aware: complete only today within 5hr window of scheduled time
+    # SLA window check: if visit has a scheduled time on today, enforce configurable window
     visit_date = dt_date.fromisoformat(v.verification_date)
-    today = dt_date.today()
-    if visit_date > today:
-        raise HTTPException(400, "Cannot complete a future visit.")
-    if visit_date < today:
-        raise HTTPException(400, "Cannot complete a past visit. Use 'Mark as Missed' instead.")
-    if v.scheduled_time:
-        from datetime import timedelta
+    today = _today_local()
+    if visit_date == today and v.scheduled_time:
+        cfg = _get_config(db)
+        sla_hours = cfg.approval_sla_hours or 48
         h, m = map(int, v.scheduled_time.split(':'))
-        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m, tzinfo=timezone.utc)
-        now_utc = datetime.now(timezone.utc)
-        if now_utc < sched_dt:
+        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m)
+        now = _now_local()
+        if now < sched_dt:
             raise HTTPException(400, f"Too early — visit is scheduled for {v.scheduled_time}.")
-        if now_utc > sched_dt + timedelta(hours=5):
-            raise HTTPException(400, f"5-hour completion window has passed (scheduled {v.scheduled_time}). Use 'Mark as Missed'.")
+        if now > sched_dt + timedelta(hours=sla_hours):
+            raise HTTPException(400, f"{sla_hours}-hour completion window has passed (scheduled {v.scheduled_time}). Use 'Mark as Missed'.")
 
     v.status = VerificationStatus.COMPLETED
     v.observed_total = body.observed_total
@@ -255,6 +259,12 @@ def complete_controller_visit(
     v.visit_section_reviews = body.visit_section_reviews
     if body.dow_warning_reason:
         v.warning_reason = body.dow_warning_reason
+    # Compute variance against location expected cash
+    loc = db.get(Location, v.location_id)
+    expected = loc.expected_cash if loc else 0
+    if body.observed_total is not None and expected > 0:
+        v.variance_vs_imprest = round(body.observed_total - expected, 2)
+        v.variance_pct = round((body.observed_total - expected) / expected * 100, 4)
     log_event(db, current_user, "VERIFICATION_COMPLETED",
               f"Controller visit to {v.location_name} on {v.verification_date} completed",
               location_id=v.location_id, location_name=v.location_name,
@@ -294,17 +304,18 @@ def miss_controller_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
-    # Time-aware: miss only for past dates, or today after 5hr window
+    # Miss: only for past dates, or today after SLA window
     visit_date = dt_date.fromisoformat(v.verification_date)
-    today = dt_date.today()
+    today = _today_local()
     if visit_date > today:
         raise HTTPException(400, "Cannot mark a future visit as missed. Use 'Cancel' instead.")
     if visit_date == today and v.scheduled_time:
-        from datetime import timedelta
+        cfg = _get_config(db)
+        sla_hours = cfg.approval_sla_hours or 48
         h, m = map(int, v.scheduled_time.split(':'))
-        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m, tzinfo=timezone.utc)
-        if datetime.now(timezone.utc) <= sched_dt + timedelta(hours=5):
-            raise HTTPException(400, f"Completion window is still open (until 5hrs after {v.scheduled_time}). Complete or wait before marking as missed.")
+        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m)
+        if _now_local() <= sched_dt + timedelta(hours=sla_hours):
+            raise HTTPException(400, f"Completion window is still open (until {sla_hours}hrs after {v.scheduled_time}). Complete or wait before marking as missed.")
 
     v.status = VerificationStatus.MISSED
     v.missed_reason = body.missed_reason
@@ -333,11 +344,11 @@ def cancel_controller_visit(
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Only scheduled visits can be cancelled")
     visit_date = dt_date.fromisoformat(v.verification_date)
-    today = dt_date.today()
+    today = _today_local()
     if visit_date == today and v.scheduled_time:
         h, m = map(int, v.scheduled_time.split(':'))
-        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m, tzinfo=timezone.utc)
-        if datetime.now(timezone.utc) >= sched_dt:
+        sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m)
+        if _now_local() >= sched_dt:
             raise HTTPException(400, "Cannot cancel — the scheduled time has arrived. Use 'Complete' or 'Mark as Missed'.")
 
     v.status = VerificationStatus.CANCELLED
@@ -408,23 +419,24 @@ def schedule_dgm_visit(
     dow = d.weekday()
     month_year = body.date[:7]  # YYYY-MM
 
-    # 30-day rolling block: visits must be at least 30 days apart (includes same-date duplicate check)
-    from datetime import timedelta
-    window_start = (d - timedelta(days=29)).isoformat()
-    window_end = (d + timedelta(days=29)).isoformat()
-    existing_nearby = db.query(Verification).filter(
+    # Calendar month block: one visit per location per month
+    month_start = d.replace(day=1).isoformat()
+    if d.month == 12:
+        month_end = d.replace(year=d.year + 1, month=1, day=1).isoformat()
+    else:
+        month_end = d.replace(month=d.month + 1, day=1).isoformat()
+    existing_in_month = db.query(Verification).filter(
         Verification.location_id == body.location_id,
         Verification.verification_type == VerificationType.DGM,
-        Verification.verification_date >= window_start,
-        Verification.verification_date <= window_end,
+        Verification.verification_date >= month_start,
+        Verification.verification_date < month_end,
         Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
     ).first()
-    if existing_nearby:
-        days_diff = abs((d - dt_date.fromisoformat(existing_nearby.verification_date)).days)
-        if days_diff == 0:
-            raise HTTPException(400, f"A DGM visit is already {existing_nearby.status.value} for this location on {body.date}.")
-        next_available = (dt_date.fromisoformat(existing_nearby.verification_date) + timedelta(days=30)).isoformat()
-        raise HTTPException(400, f"A DGM visit exists on {existing_nearby.verification_date} ({days_diff} days away). Visits must be at least 30 days apart. Next available: {next_available}.")
+    if existing_in_month:
+        month_name = d.strftime('%B %Y')
+        if existing_in_month.verification_date == body.date:
+            raise HTTPException(400, f"A DGM visit already exists for this location on {body.date}.")
+        raise HTTPException(400, f"A DGM visit already exists for this location in {month_name}.")
 
     v = Verification(
         verification_type=VerificationType.DGM,
@@ -518,19 +530,24 @@ def complete_dgm_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
-    # DGM: complete only on the visit date (today), not future or past
+    # SLA window: visit date + approval_sla_hours
     visit_date = dt_date.fromisoformat(v.verification_date)
-    today = dt_date.today()
-    if visit_date > today:
-        raise HTTPException(400, "Cannot complete a future visit.")
-    if visit_date < today:
-        raise HTTPException(400, "Cannot complete a past visit. Use 'Mark as Missed' instead.")
-
+    cfg = _get_config(db)
+    sla_hours = cfg.approval_sla_hours or 48
+    visit_start = datetime(visit_date.year, visit_date.month, visit_date.day)
+    if _now_local() > visit_start + timedelta(hours=sla_hours):
+        raise HTTPException(400, f"{sla_hours}-hour completion window has passed for this visit. Use 'Mark as Missed'.")
     v.status = VerificationStatus.COMPLETED
     v.observed_total = body.observed_total
     v.signature_data = body.signature_data
     v.notes = body.notes or v.notes
     v.visit_section_reviews = body.visit_section_reviews
+    # Compute variance against location expected cash
+    loc = db.get(Location, v.location_id)
+    expected = loc.expected_cash if loc else 0
+    if body.observed_total is not None and expected > 0:
+        v.variance_vs_imprest = round(body.observed_total - expected, 2)
+        v.variance_pct = round((body.observed_total - expected) / expected * 100, 4)
     log_event(db, current_user, "VERIFICATION_COMPLETED",
               f"DGM visit to {v.location_name} on {v.verification_date} completed",
               location_id=v.location_id, location_name=v.location_name,
@@ -598,7 +615,7 @@ def miss_dgm_visit(
         raise HTTPException(400, "Visit is not in scheduled state")
     # DGM: miss only for past dates
     visit_date = dt_date.fromisoformat(v.verification_date)
-    if visit_date >= dt_date.today():
+    if visit_date >= _today_local():
         raise HTTPException(400, "Cannot mark today/future visit as missed. Use 'Cancel' for future visits, or complete today's visit.")
 
     v.status = VerificationStatus.MISSED

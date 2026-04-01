@@ -312,12 +312,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                   onClick={() => onNavigate('op-readonly', { locationId, date: todayStr(), submissionId: todaySub.id, from: 'op-start' })}>
                   View →
                 </button>
-                {todaySub.status === 'pending_approval' && (
-                  <button className="btn btn-primary"
-                    onClick={() => onNavigate('op-method', { locationId, date: todayStr(), submissionId: todaySub.id })}>
-                    Update →
-                  </button>
-                )}
+                {/* Update hidden while pending approval or approved — operator cannot modify during review */}
                 {todaySub.status === 'rejected' && (
                   <button className="btn btn-primary"
                     onClick={() => onNavigate('op-method', { locationId, date: todayStr(), submissionId: todaySub.id })}>
