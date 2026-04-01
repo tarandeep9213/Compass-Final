@@ -323,7 +323,7 @@ export default function RcBizDash({ adminName }: Props) {
 
         const tt = {
           compliance: { what: 'Percentage of active locations that submitted a cash count AND had it approved within the selected period.', how: 'Divides locations with at least one approved submission by total active locations.', formula: '(Locations with approved submission ÷ Total active locations) × 100', flag: 'Green ≥ 80% · Amber 70–79% · Red < 70%.' },
-          approval: { what: 'Percentage of submitted cash counts that were approved by a manager (vs rejected).', how: 'Counts approved submissions and divides by total non-draft submissions.', formula: '(Approved ÷ Total submitted) × 100', flag: 'Target ≥ 85%. Low rate signals operator accuracy problems.' },
+          approval: { what: 'Percentage of submitted cash counts that were approved by a controller (vs rejected).', how: 'Counts approved submissions and divides by total non-draft submissions.', formula: '(Approved ÷ Total submitted) × 100', flag: 'Target ≥ 85%. Low rate signals operator accuracy problems.' },
           sla: { what: 'Percentage of submissions reviewed within the 48-hour SLA window.', how: 'Hours between submitted_at and approved_at. Counts those ≤ 48h.', formula: '(Reviewed ≤ 48h ÷ Total reviewed) × 100', flag: 'Target ≥ 90%. Check Slowest Approvers for bottlenecks.' },
           cashAtRisk: { what: `Total dollar variance across all exception submissions (>${tolerance}% tolerance).`, how: 'Sums |actual − imprest| for every variance exception.', formula: 'Σ |actual cash − imprest| for exceptions', flag: 'Report this to finance. Rising trend = systemic issue.' },
           exceptions: { what: `Submissions where cash deviated from imprest by more than ${tolerance}%.`, how: `|actual − imprest| ÷ imprest × 100 > ${tolerance}%.`, formula: `COUNT(variance > ${tolerance}%)`, flag: 'Written explanation required. Repeat exceptions = training gap.' },
@@ -1063,7 +1063,7 @@ export default function RcBizDash({ adminName }: Props) {
                     <th style={{ width: 100 }}>Health</th>
                     <th style={{ minWidth: 160 }}>Location</th>
                     <th style={{ minWidth: 200 }}>Today's Submission</th>
-                    <th style={{ minWidth: 150 }}>Manager Approval</th>
+                    <th style={{ minWidth: 150 }}>Controller Approval</th>
                     <th style={{ minWidth: 180 }}>Controller Visit</th>
                     <th style={{ minWidth: 160 }}>DGM Visit</th>
                   </tr>
@@ -1134,7 +1134,7 @@ export default function RcBizDash({ adminName }: Props) {
                           )}
                         </td>
 
-                        {/* Manager Approval */}
+                        {/* Controller Approval */}
                         <td>
                           {subDisplayStatus === 'approved' ? (
                             <span style={{ fontSize: 12, color: 'var(--g7)', fontWeight: 600 }}>✓ Approved</span>
