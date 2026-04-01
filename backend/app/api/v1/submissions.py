@@ -294,7 +294,9 @@ def update_draft(
     flag_modified(s, "sections") # Force SQLAlchemy to track the JSON update
     
     s.variance_note = body.variance_note
-    s.source = SubmissionSource(body.source)
+    # Only update source for drafts — preserve original source on resubmit
+    if s.status == SubmissionStatus.DRAFT:
+        s.source = SubmissionSource(body.source)
     for k, v in totals.items():
         setattr(s, k, v)
 

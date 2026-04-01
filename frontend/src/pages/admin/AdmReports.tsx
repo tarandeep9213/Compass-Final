@@ -192,18 +192,7 @@ export default function AdmReports({ adminName }: Props) {
       rows.push({ name, role:'Operator', actions:subs.length, positive:approved, negative:rejected, pending, rate, variance, excepts, locs })
     })
 
-    // ── Managers ────────────────────────────────────────────────────────────
-    // approvedBy is set on reviewed (approved) submissions; rejected subs may not carry it
-    const mgNames = [...new Set(filteredSubs.filter(s => s.approvedBy).map(s => s.approvedBy!))]
-    mgNames.forEach(name => {
-      const reviewed = filteredSubs.filter(s => s.approvedBy === name)
-      const approved = reviewed.filter(s => s.status === 'approved').length
-      const rejected = reviewed.filter(s => s.status === 'rejected').length
-      const rate     = reviewed.length ? Math.round((approved / reviewed.length) * 100) : 0
-      const variance = reviewed.length ? reviewed.reduce((n,s) => n + s.variancePct, 0) / reviewed.length : 0
-      const locs     = new Set(reviewed.map(s => s.locationId)).size
-      rows.push({ name, role:'Manager', actions:reviewed.length, positive:approved, negative:rejected, pending:0, rate, variance, excepts:null, locs })
-    })
+
 
     // ── Controllers ─────────────────────────────────────────────────────────
     const ctrlNames = [...new Set(filteredVerifs.filter(v => v.type==='controller').map(v => v.verifierName))]
@@ -238,7 +227,7 @@ export default function AdmReports({ adminName }: Props) {
   const actPageRows   = actFiltered.slice(actPageClamped * ACT_PAGE_SIZE, (actPageClamped + 1) * ACT_PAGE_SIZE)
 
   // Role counts for filter chips
-  const roleCounts = ['Operator','Manager','Controller','DGM'].reduce<Record<string,number>>((acc, r) => {
+  const roleCounts = ['Operator','Controller','DGM'].reduce<Record<string,number>>((acc, r) => {
     acc[r] = actorSummary.filter(a => a.role === r).length
     return acc
   }, {})
@@ -629,19 +618,18 @@ export default function AdmReports({ adminName }: Props) {
             <span className="card-sub">
               {actorSummary.length} actor{actorSummary.length!==1?'s':''} · sorted by activity ·
               <span style={{marginLeft:6,fontSize:10,color:'var(--ts)'}}>
-                Operators &amp; Managers: submissions · Controllers &amp; DGMs: verifications
+                Operators: submissions · Controllers &amp; DGMs: verifications
               </span>
             </span>
           </div>
           {/* Role filter chips */}
           <div style={{display:'flex',gap:8,alignItems:'center',padding:'10px 16px',borderBottom:'1px solid var(--ow2)',background:'#fafaf8',flexWrap:'wrap'}}>
             <span style={{fontSize:11,fontWeight:600,color:'var(--td)',marginRight:2}}>Show:</span>
-            {(['all','Operator','Manager','Controller','DGM'] as const).map(r => {
+            {(['all','Operator','Controller','DGM'] as const).map(r => {
               const count = r === 'all' ? actorSummary.length : (roleCounts[r] ?? 0)
               const active = actRole === r
               const CHIP_COLORS: Record<string,{bg:string,color:string,border:string}> = {
                 Operator:   {bg:'#e0f2fe',color:'#0369a1',border:'#bae6fd'},
-                Manager:    {bg:'#fef9c3',color:'#854d0e',border:'#fde047'},
                 Controller: {bg:'#f0fdf4',color:'#166534',border:'#bbf7d0'},
                 DGM:        {bg:'#fdf4ff',color:'#7e22ce',border:'#e9d5ff'},
               }
@@ -687,7 +675,6 @@ export default function AdmReports({ adminName }: Props) {
                 {actPageRows.map(({name,role,actions,positive,negative,pending,rate,variance,excepts,locs})=>{
                   const ROLE_STYLE: Record<string,{bg:string,color:string,border:string}> = {
                     Operator:   {bg:'#e0f2fe',color:'#0369a1',border:'#bae6fd'},
-                    Manager:    {bg:'#fef9c3',color:'#854d0e',border:'#fde047'},
                     Controller: {bg:'#f0fdf4',color:'#166534',border:'#bbf7d0'},
                     DGM:        {bg:'#fdf4ff',color:'#7e22ce',border:'#e9d5ff'},
                   }
@@ -706,9 +693,7 @@ export default function AdmReports({ adminName }: Props) {
                         <span style={{color:negative>0?'var(--red)':'var(--ts)',fontWeight:negative>0?600:400,fontSize:13}}>{negative}</span>
                       </td>
                       <td style={{textAlign:'center'}}>
-                        {role==='Manager'
-                          ? <span style={{color:'var(--ts)',fontSize:12}}>—</span>
-                          : <span style={{color:pending>0?'var(--amb)':'var(--ts)',fontWeight:pending>0?600:400,fontSize:13}}>{pending}</span>}
+                        <span style={{color:pending>0?'var(--amb)':'var(--ts)',fontWeight:pending>0?600:400,fontSize:13}}>{pending}</span>
                       </td>
                       <td style={{textAlign:'center'}}>
                         <span style={{
