@@ -160,7 +160,7 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
     _scheduler.start()
-    logger.info("Scheduler started — daily_reminder at %s:%s UTC, sla_check every 1h", hour, minute)
+    logger.info("Scheduler started — daily_reminder at %s:%s local time, sla_check every 1h", hour, minute)
 
 
 def stop_scheduler() -> None:

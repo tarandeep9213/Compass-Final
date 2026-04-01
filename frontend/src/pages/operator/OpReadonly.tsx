@@ -4,6 +4,7 @@ import type { Submission } from '../../mock/data'
 import { getSubmission, approveSubmission, rejectSubmission } from '../../api/submissions'
 import { api } from '../../api/client'
 import KpiCard from '../../components/KpiCard'
+import { varColor as sharedVarColor, varHighlight } from '../../utils/variance'
 
 interface Props {
   ctx: Record<string, string>
@@ -362,7 +363,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const locAny = location as any
   const tolerance = realTolerance ?? locAny?.tolerance_pct_override ?? locAny?.effective_tolerance_pct ?? locAny?.tolerance_pct ?? location?.tolerancePct ?? 0.5
   const exceedsTolerance = Math.abs(calcVariancePct) > tolerance
-  const varColor = Math.abs(calcVariancePct) > 5 ? 'var(--red)' : Math.abs(calcVariancePct) > 2 ? 'var(--amb)' : 'var(--g7)'
+  const varColor = sharedVarColor(calcVariancePct, tolerance)
 
   return (
     <div className="fade-up">
@@ -504,12 +505,12 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         <KpiCard
           label="Total Fund"
           value={formatCurrency(calcTotalFund)}
-          highlight={Math.abs(calcVariancePct) > 5 ? 'red' : false}
+          highlight={varHighlight(calcVariancePct, tolerance)}
           tooltip={{
             what: "The total cash counted across all sections (A–K) of this submission.",
             how: "Summed from all section totals entered during the cash count — bills, coins, rolled coin, changer funds, etc.",
             formula: "Σ(Section A + B + C + D + E + F + G + H ± I)",
-            flag: "Turns red if variance vs imprest exceeds 5%.",
+            flag: `Turns red if variance vs imprest exceeds ${tolerance}%.`,
           }}
         />
         <KpiCard
@@ -527,12 +528,12 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           value={`${calcVariance >= 0 ? '+' : ''}${formatCurrency(calcVariance)}`}
           sub={`${calcVariancePct >= 0 ? '+' : ''}${calcVariancePct.toFixed(2)}%`}
           accent={varColor}
-          highlight={Math.abs(calcVariancePct) > 5 ? 'red' : Math.abs(calcVariancePct) > 2 ? 'amber' : false}
+          highlight={varHighlight(calcVariancePct, tolerance)}
           tooltip={{
             what: "The difference between the actual cash counted and the expected imprest balance.",
             how: "Positive variance means more cash than expected (overage); negative means less (shortage). The percentage is used to determine if a written explanation is required.",
             formula: "Variance = Total Fund − Imprest Balance\nVariance % = Variance ÷ Imprest × 100",
-            flag: ">5% requires written explanation. >2% shown in amber as a soft warning.",
+            flag: `>${tolerance}% requires written explanation. >${tolerance / 2}% shown in amber as a soft warning.`,
           }}
         />
         <KpiCard
@@ -967,8 +968,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       </div>
 
       {/* ══ Summary ══ */}
-      <div className="card" style={{ border: `2px solid ${Math.abs(calcVariancePct) > 5 ? 'var(--red)' : 'var(--g4)'}` }}>
-        <div className="card-header" style={{ background: Math.abs(calcVariancePct) > 5 ? 'var(--red-bg)' : 'var(--g0)' }}>
+      <div className="card" style={{ border: `2px solid ${Math.abs(calcVariancePct) > tolerance ? 'var(--red)' : 'var(--g4)'}` }}>
+        <div className="card-header" style={{ background: Math.abs(calcVariancePct) > tolerance ? 'var(--red-bg)' : 'var(--g0)' }}>
           <span className="card-title">Summary</span>
           <span className="card-sub">Cashroom Count Totals</span>
         </div>

@@ -14,6 +14,8 @@ import { listSubmissions } from '../../api/submissions'
 import { getControllerActivity, getOperatorBehaviour, getRejections, getDgmCoverage } from '../../api/businessDashboard'
 import type { ControllerActivityItem, OperatorBehaviourResponse, RejectionsResponse, DgmCoverageResponse } from '../../api/businessDashboard'
 import type { SlaApprover, LocationCompliance } from '../../api/types'
+import { api } from '../../api/client'
+import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
 interface Props { adminName: string }
 
@@ -138,6 +140,13 @@ function HealthDot({ health }: { health: 'red' | 'amber' | 'green' }) {
 // ── Main Component ────────────────────────────────────────────────────────
 
 export default function RcBizDash({ adminName }: Props) {
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
+  useEffect(() => {
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
+  }, [])
+
   // Date range for API calls — current month + prior month for deltas
   const _now = new Date()
   const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`
@@ -186,7 +195,7 @@ export default function RcBizDash({ adminName }: Props) {
   const [coverage, setCoverage] = useState<CoverageData | null>(null)
 
   // ── Task 3 + 4: Compliance dashboard (at-risk + location table) ──────────
-  type RiskFlag = 'No submission' | 'Rejected' | 'Overdue >48h' | 'Variance >5%' | 'No DGM visit' | 'Ctrl overdue' | 'No ctrl visit'
+  type RiskFlag = string
   type AtRiskRow = { rank: number; name: string; score: number; health: 'red' | 'amber'; flags: string[] }
   const [atRiskData, setAtRiskData] = useState<AtRiskRow[] | null>(null)
   const [atRiskLoading, setAtRiskLoading] = useState(true)
@@ -243,7 +252,7 @@ export default function RcBizDash({ adminName }: Props) {
                 const hrs = (nowMs - new Date(loc.submission.submitted_at).getTime()) / 3600000
                 if (hrs > 48) { score += 25; flags.push('Overdue >48h') }
               }
-              if (Math.abs(loc.submission.variance_pct) > 5) { score += 15; flags.push('Variance >5%') }
+              if (Math.abs(loc.submission.variance_pct) > tolerance) { score += 15; flags.push(`Variance >${tolerance}%`) }
             }
             if (!loc.dgm_visit.visit_date)                    { score += 10; flags.push('No DGM visit') }
             if (loc.controller_visit.days_since === null)      { score += 15; flags.push('No ctrl visit') }
@@ -316,8 +325,8 @@ export default function RcBizDash({ adminName }: Props) {
           compliance: { what: 'Percentage of active locations that submitted a cash count AND had it approved within the selected period.', how: 'Divides locations with at least one approved submission by total active locations.', formula: '(Locations with approved submission ÷ Total active locations) × 100', flag: 'Green ≥ 80% · Amber 70–79% · Red < 70%.' },
           approval: { what: 'Percentage of submitted cash counts that were approved by a manager (vs rejected).', how: 'Counts approved submissions and divides by total non-draft submissions.', formula: '(Approved ÷ Total submitted) × 100', flag: 'Target ≥ 85%. Low rate signals operator accuracy problems.' },
           sla: { what: 'Percentage of submissions reviewed within the 48-hour SLA window.', how: 'Hours between submitted_at and approved_at. Counts those ≤ 48h.', formula: '(Reviewed ≤ 48h ÷ Total reviewed) × 100', flag: 'Target ≥ 90%. Check Slowest Approvers for bottlenecks.' },
-          cashAtRisk: { what: 'Total dollar variance across all exception submissions (>5% tolerance).', how: 'Sums |actual − imprest| for every variance exception.', formula: 'Σ |actual cash − imprest| for exceptions', flag: 'Report this to finance. Rising trend = systemic issue.' },
-          exceptions: { what: 'Submissions where cash deviated from imprest by more than 5%.', how: '|actual − imprest| ÷ imprest × 100 > 5%.', formula: 'COUNT(variance > 5%)', flag: 'Written explanation required. Repeat exceptions = training gap.' },
+          cashAtRisk: { what: `Total dollar variance across all exception submissions (>${tolerance}% tolerance).`, how: 'Sums |actual − imprest| for every variance exception.', formula: 'Σ |actual cash − imprest| for exceptions', flag: 'Report this to finance. Rising trend = systemic issue.' },
+          exceptions: { what: `Submissions where cash deviated from imprest by more than ${tolerance}%.`, how: `|actual − imprest| ÷ imprest × 100 > ${tolerance}%.`, formula: `COUNT(variance > ${tolerance}%)`, flag: 'Written explanation required. Repeat exceptions = training gap.' },
         }
 
         const realCards: KpiCard[] = [
@@ -1087,7 +1096,7 @@ export default function RcBizDash({ adminName }: Props) {
                       none:     { dotHealth: 'amber', label: 'No submission' },
                     }
                     const ss = SUB_STYLE[subDisplayStatus]
-                    const isException = sub ? Math.abs(sub.variance_pct) > 5 : false
+                    const isException = sub ? Math.abs(sub.variance_pct) > tolerance : false
 
                     return (
                       <tr key={loc.id}>
@@ -1117,7 +1126,7 @@ export default function RcBizDash({ adminName }: Props) {
                               ${sub.total_cash.toLocaleString()}
                               <span style={{
                                 marginLeft: 4, fontWeight: 600,
-                                color: isException ? 'var(--red)' : Math.abs(sub.variance_pct) > 2 ? 'var(--amb)' : 'var(--ts)',
+                                color: isException ? 'var(--red)' : Math.abs(sub.variance_pct) > tolerance / 2 ? 'var(--amb)' : 'var(--ts)',
                               }}>
                                 {sub.variance_pct >= 0 ? '+' : ''}{sub.variance_pct.toFixed(2)}%
                               </span>

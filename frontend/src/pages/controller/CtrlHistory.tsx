@@ -2,8 +2,10 @@ import { useState, useMemo, useEffect } from 'react'
 import { VERIFICATIONS, LOCATIONS, getLocation, formatCurrency, IMPREST } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
 import { listControllerVerifications } from '../../api/verifications'
+import { api } from '../../api/client'
 import type { ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { varColor, DEFAULT_TOLERANCE } from '../../utils/variance'
 
 function mapApiVerif(v: ApiVerification): VerificationRecord {
   return {
@@ -31,9 +33,6 @@ interface Props {
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const PAGE_SIZE  = 10
 
-const varColor = (pct: number) =>
-  Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)'
-
 function pageNums(cur: number, total: number): (number | 'gap')[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i)
   if (cur <= 3)         return [0, 1, 2, 3, 'gap', total - 1]
@@ -45,6 +44,13 @@ export default function CtrlHistory({ controllerName, locationIds, onNavigate }:
   const [locationFilter, setLocationFilter] = useState('all')
   const [page,           setPage]           = useState(0)
   const [apiVerifs,      setApiVerifs]      = useState<VerificationRecord[]>([])
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
+
+  useEffect(() => {
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     Promise.all(locationIds.map(id =>
@@ -232,7 +238,7 @@ export default function CtrlHistory({ controllerName, locationIds, onNavigate }:
                   const expCash  = Number((loc as unknown as Record<string, number>)?.expected_cash || (loc as unknown as Record<string, number>)?.expectedCash || IMPREST)
                   const variance = v.observedTotal !== undefined ? v.observedTotal - expCash : null
                   const pct      = variance !== null && expCash > 0 ? (variance / expCash) * 100 : null
-                  const col      = pct !== null ? varColor(pct) : 'var(--wg)'
+                  const col      = pct !== null ? varColor(pct, tolerance) : 'var(--wg)'
                   const dateLabel = new Date(v.date + 'T12:00:00').toLocaleDateString('en-GB', {
                     day: 'numeric', month: 'short', year: 'numeric',
                   })

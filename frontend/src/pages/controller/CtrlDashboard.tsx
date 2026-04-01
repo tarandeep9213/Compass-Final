@@ -7,6 +7,7 @@ import { listLocations } from '../../api/locations'
 import { api } from '../../api/client'
 import type { ApiVerification, ApiLocation } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
 
 function mapApiVerification(v: ApiVerification): VerificationRecord {
@@ -108,11 +109,15 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   const [page,           setPage]          = useState(0)
   const [apiLocations,   setApiLocations]  = useState<ApiLocation[]>([])
   const [slaHours,       setSlaHours]      = useState(48)
+  const [tolerance,      setTolerance]     = useState(DEFAULT_TOLERANCE)
 
   useEffect(() => {
     listLocations().then(setApiLocations).catch(() => {})
-    api.get<{ global_config?: { approval_sla_hours?: number } }>('/config')
-      .then(cfg => { if (cfg.global_config?.approval_sla_hours) setSlaHours(cfg.global_config.approval_sla_hours) })
+    api.get<{ global_config?: { approval_sla_hours?: number; default_tolerance_pct?: number } }>('/config')
+      .then(cfg => {
+        if (cfg.global_config?.approval_sla_hours) setSlaHours(cfg.global_config.approval_sla_hours)
+        if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct)
+      })
       .catch(() => {})
   }, [])
 
@@ -666,7 +671,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                   const variance   = hasObserved ? (v.varianceVsImprest ?? null) : null
                   const pct        = hasObserved ? (v.variancePct ?? null) : null
                   const varCol     = pct !== null
-                    ? (Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)')
+                    ? (Math.abs(pct) > tolerance ? 'var(--red)' : Math.abs(pct) > tolerance / 2 ? 'var(--amb)' : 'var(--g7)')
                     : 'var(--wg)'
                   const dateLabel  = new Date(v.date + 'T12:00:00').toLocaleDateString('en-GB', {
                     day: 'numeric', month: 'short', year: 'numeric',

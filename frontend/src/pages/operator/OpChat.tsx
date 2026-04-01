@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { getLocation, formatCurrency, IMPREST, SUBMISSIONS } from '../../mock/data'
+import { api } from '../../api/client'
+import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
 interface Props {
   ctx: Record<string, string>
@@ -46,6 +48,13 @@ export default function OpChat({ ctx, onNavigate }: Props) {
   const location = getLocation(ctx.locationId)
   const dateLabel = new Date(ctx.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
+  useEffect(() => {
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
+  }, [])
+
   const [step, setStep] = useState(-1)   // -1 = intro, STEPS.length = done
   const [values, setValues] = useState<Record<string, number>>({})
   const [input, setInput] = useState('')
@@ -78,13 +87,13 @@ export default function OpChat({ ctx, onNavigate }: Props) {
       // All done
       const variance = runningTotal - IMPREST
       const pct = (variance / IMPREST * 100).toFixed(2)
-      const color = Math.abs(parseFloat(pct)) > 5 ? '⚠️' : '✅'
+      const color = Math.abs(parseFloat(pct)) > tolerance ? '⚠️' : '✅'
       pushMsg('bot', `All done! Here's your summary:`)
       setTimeout(() => pushMsg('bot',
         `Total Fund: ${formatCurrency(runningTotal)}\nImprest: ${formatCurrency(IMPREST)}\nVariance: ${variance >= 0 ? '+' : ''}${formatCurrency(variance)} (${pct}%) ${color}`
       ), 300)
-      setTimeout(() => pushMsg('bot', Math.abs(parseFloat(pct)) > 5
-        ? `⚠️ Variance exceeds 5%. You'll need to provide an explanation before submitting.`
+      setTimeout(() => pushMsg('bot', Math.abs(parseFloat(pct)) > tolerance
+        ? `⚠️ Variance exceeds ${tolerance}%. You'll need to provide an explanation before submitting.`
         : `Everything looks good! You can now submit for approval.`
       ), 600)
       return

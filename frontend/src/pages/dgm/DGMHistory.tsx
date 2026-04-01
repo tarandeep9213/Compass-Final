@@ -1,10 +1,12 @@
 import { useState, useMemo, useEffect } from 'react'
 import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
 import { listLocations } from '../../api/locations'
+import { api } from '../../api/client'
 import type { VerificationRecord } from '../../mock/data'
 import { listDgmVerifications } from '../../api/verifications'
 import type { ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { varColor, DEFAULT_TOLERANCE } from '../../utils/variance'
 
 function mapApiVerif(v: ApiVerification): VerificationRecord {
   return {
@@ -63,6 +65,13 @@ export default function DGMHistory({ dgmName, locationIds, onNavigate }: Props) 
   const [apiLocs, setApiLocs] = useState<{id:string;name:string}[]>([])
   useEffect(() => {
     listLocations().then(locs => setApiLocs(locs.map(l => ({ id: l.id, name: l.name })))).catch(() => {})
+  }, [])
+
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
+  useEffect(() => {
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
   }, [])
 
   const [filterLoc,      setFilterLoc]      = useState('all')
@@ -127,9 +136,9 @@ export default function DGMHistory({ dgmName, locationIds, onNavigate }: Props) 
       if (filterVariance !== 'all') {
         if (v.observedTotal === undefined) return filterVariance === 'none'
         const pct = Math.abs((v.observedTotal - IMPREST) / IMPREST) * 100
-        if (filterVariance === 'ok'   && pct  > 2)  return false
-        if (filterVariance === 'warn' && (pct <= 2 || pct > 5)) return false
-        if (filterVariance === 'over' && pct  <= 5) return false
+        if (filterVariance === 'ok'   && pct  > tolerance / 2) return false
+        if (filterVariance === 'warn' && (pct <= tolerance / 2 || pct > tolerance)) return false
+        if (filterVariance === 'over' && pct  <= tolerance) return false
         if (filterVariance === 'none' && v.observedTotal !== undefined) return false
       }
       return true
@@ -252,9 +261,9 @@ export default function DGMHistory({ dgmName, locationIds, onNavigate }: Props) 
 
           <select value={filterVariance} onChange={e => setFilterVariance(e.target.value)} style={SEL}>
             <option value="all">All Variance</option>
-            <option value="ok">✅ In tolerance (≤2%)</option>
-            <option value="warn">⚠ Warning (2–5%)</option>
-            <option value="over">🔴 Over threshold (&gt;5%)</option>
+            <option value="ok">{`✅ In tolerance (≤${tolerance / 2}%)`}</option>
+            <option value="warn">{`⚠ Warning (${tolerance / 2}–${tolerance}%)`}</option>
+            <option value="over">{`🔴 Over threshold (>${tolerance}%)`}</option>
             <option value="none">— No observed total</option>
           </select>
 
@@ -290,7 +299,7 @@ export default function DGMHistory({ dgmName, locationIds, onNavigate }: Props) 
                     const loc      = getLocation(v.locationId)
                     const variance = v.observedTotal !== undefined ? v.observedTotal - IMPREST : null
                     const pct      = variance !== null ? (variance / IMPREST) * 100 : null
-                    const varCol   = pct !== null ? (Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)') : 'var(--wg)'
+                    const varCol   = pct !== null ? varColor(pct, tolerance) : 'var(--wg)'
                     const dateLabel = new Date(v.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                     const my       = v.monthYear ?? v.date.slice(0, 7)
                     const [vy, vm] = my.split('-')

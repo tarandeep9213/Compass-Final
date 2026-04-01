@@ -5,6 +5,8 @@ import { listControllerVerifications, listDgmVerifications } from '../../api/ver
 import { listLocations } from '../../api/locations'
 import type { ApiSubmission, ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { api } from '../../api/client'
+import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
 interface Props { adminName: string }
 
@@ -41,6 +43,12 @@ function rangeLabel(range: string) {
 }
 
 export default function AdmReports({ adminName }: Props) {
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
+  useEffect(() => {
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
+  }, [])
   const [range,      setRange]      = useState<'today'|'week'|'month'|'custom'>('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo,   setCustomTo]   = useState(todayStr())
@@ -164,7 +172,7 @@ export default function AdmReports({ adminName }: Props) {
     pending: number            // pending (op) or scheduled (ctrl/dgm) — 0 for mgr
     rate: number               // approval rate (op/mgr) or completion rate (ctrl/dgm)
     variance: number | null    // avg variancePct — operators/managers only
-    excepts: number | null     // >5% count — operators only
+    excepts: number | null     // exceeds tolerance count — operators only
     locs: number
   }
   const actorSummary = useMemo((): ActorRow[] => {
@@ -178,7 +186,7 @@ export default function AdmReports({ adminName }: Props) {
       const rejected = subs.filter(s => s.status === 'rejected').length
       const pending  = subs.filter(s => s.status === 'pending_approval').length
       const variance = subs.length ? subs.reduce((n,s) => n + s.variancePct, 0) / subs.length : 0
-      const excepts  = subs.filter(s => Math.abs(s.variancePct) > 5).length
+      const excepts  = subs.filter(s => Math.abs(s.variancePct) > tolerance).length
       const rate     = subs.length ? Math.round((approved / subs.length) * 100) : 0
       const locs     = new Set(subs.map(s => s.locationId)).size
       rows.push({ name, role:'Operator', actions:subs.length, positive:approved, negative:rejected, pending, rate, variance, excepts, locs })
@@ -309,7 +317,7 @@ export default function AdmReports({ adminName }: Props) {
       rows.push([
         s.date, loc?.name ?? s.locationId, s.operatorName,
         s.status, String(s.totalCash.toFixed(2)), String(s.variance.toFixed(2)),
-        String(s.variancePct.toFixed(2)), Math.abs(s.variancePct) > 5 ? 'Yes' : 'No',
+        String(s.variancePct.toFixed(2)), Math.abs(s.variancePct) > tolerance ? 'Yes' : 'No',
       ])
     })
 
@@ -481,13 +489,13 @@ export default function AdmReports({ adminName }: Props) {
         <KpiCard
           label="Variance Exceptions"
           value={exceptionCount}
-          sub=">5% tolerance"
+          sub={`>${tolerance}% tolerance`}
           accent={exceptionCount>0?'var(--red)':'var(--g7)'}
           highlight={exceptionCount>0?'red':false}
           tooltip={{
-            what: "Submissions where the cash count deviates from imprest by more than 5%.",
-            how: "Each submission's variance % is calculated as |actual − imprest| ÷ imprest × 100. Any result above 5% is an exception.",
-            formula: "|actual − imprest| ÷ imprest × 100 > 5%",
+            what: `Submissions where the cash count deviates from imprest by more than ${tolerance}%.`,
+            how: `Each submission's variance % is calculated as |actual − imprest| ÷ imprest × 100. Any result above ${tolerance}% is an exception.`,
+            formula: `|actual − imprest| ÷ imprest × 100 > ${tolerance}%`,
             flag: "Turns red when any exception exists — operator must provide written explanation.",
           }}
         />
@@ -751,7 +759,7 @@ export default function AdmReports({ adminName }: Props) {
       {exceptions.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Variance Exceptions (&gt;5%)</span>
+            <span className="card-title">Variance Exceptions (&gt;{tolerance}%)</span>
             <span className="card-sub">{exceptions.length} records</span>
           </div>
           <div className="card-body" style={{padding:0}}>

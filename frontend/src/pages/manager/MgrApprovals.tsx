@@ -3,8 +3,10 @@ import { getLocation, formatCurrency } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
+import { api } from '../../api/client'
 import type { ApiSubmission, ApiLocation } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { varColor, varHighlight, DEFAULT_TOLERANCE } from '../../utils/variance'
 
 
 function mapApiSub(s: ApiSubmission): Submission {
@@ -57,18 +59,19 @@ function timeAgo(iso: string): string {
   return `${m}m ago`
 }
 
-const varColor = (pct: number) =>
-  Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)'
-
 export default function MgrApprovals({ managerName, locationIds, onNavigate }: Props) {
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>('all')
   const [dateRange,      setDateRange]      = useState<DateRange>('7d')
   const [locationFilter, setLocationFilter] = useState<string>('all')
   const [page, setPage] = useState(0)
   const [apiLocations, setApiLocations] = useState<ApiLocation[]>([])
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
 
   useEffect(() => {
     listLocations().then(setApiLocations).catch(() => {})
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
   }, [])
   // API-fetched submissions
   const [apiSubs, setApiSubs] = useState<Submission[]>([])
@@ -222,13 +225,13 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
           label="Avg Variance"
           value={avgVariance !== null ? `${avgVariance.toFixed(2)}%` : '—'}
           sub={dateRangeLabel}
-          accent={avgVariance !== null ? varColor(avgVariance) : 'var(--ts)'}
-          highlight={avgVariance !== null && avgVariance > 5 ? 'red' : avgVariance !== null && avgVariance > 2 ? 'amber' : false}
+          accent={avgVariance !== null ? varColor(avgVariance, tolerance) : 'var(--ts)'}
+          highlight={avgVariance !== null ? varHighlight(avgVariance, tolerance) : false}
           tooltip={{
             what: "Average absolute variance percentage across submissions in the selected period.",
             how: "Sums the absolute variance % of every submission in the period and divides by count.",
             formula: "Σ|variancePct| ÷ COUNT(submissions in period)",
-            flag: "Amber >2%, red >5%. Consistently high values suggest a systemic cash handling issue.",
+            flag: `Amber >${tolerance / 2}%, red >${tolerance}%. Consistently high values suggest a systemic cash handling issue.`,
           }}
         />
       </div>
@@ -391,7 +394,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
                           {formatCurrency(sub.totalCash)}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <span style={{ color: varColor(calcVariancePct), fontWeight: 500, fontSize: 13 }}>
+                          <span style={{ color: varColor(calcVariancePct, tolerance), fontWeight: 500, fontSize: 13 }}>
                             {calcVariance >= 0 ? '+' : ''}{formatCurrency(calcVariance)}
                           </span>
                           <div style={{ fontSize: 11, color: 'var(--ts)' }}>

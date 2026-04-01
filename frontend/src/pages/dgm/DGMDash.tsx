@@ -6,6 +6,7 @@ import { listSubmissions } from '../../api/submissions'
 import { api } from '../../api/client'
 import type { ApiVerification } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
 function mapApiVerification(v: ApiVerification): VerificationRecord {
   return {
@@ -171,10 +172,14 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number }>>({})
   const [slaHours, setSlaHours] = useState(48)
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
 
   useEffect(() => {
-    api.get<{ global_config?: { approval_sla_hours?: number } }>('/config')
-      .then(cfg => { if (cfg.global_config?.approval_sla_hours) setSlaHours(cfg.global_config.approval_sla_hours) })
+    api.get<{ global_config?: { approval_sla_hours?: number; default_tolerance_pct?: number } }>('/config')
+      .then(cfg => {
+        if (cfg.global_config?.approval_sla_hours) setSlaHours(cfg.global_config.approval_sla_hours)
+        if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct)
+      })
       .catch(() => {})
   }, [])
 
@@ -550,7 +555,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                   const variance   = effObsTotal !== null && effObsTotal !== undefined ? Math.round((effObsTotal - expCash) * 100) / 100 : null
                   const pct        = variance !== null && expCash > 0 ? (variance / expCash) * 100 : null
                   const varCol     = pct !== null
-                    ? (Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)')
+                    ? (Math.abs(pct) > tolerance ? 'var(--red)' : Math.abs(pct) > tolerance / 2 ? 'var(--amb)' : 'var(--g7)')
                     : 'var(--wg)'
                   const dateLabel  = new Date(v.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                   const my         = v.monthYear ?? v.date.slice(0, 7)

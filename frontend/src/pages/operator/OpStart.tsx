@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
-  SUBMISSIONS, formatCurrency, IMPREST, todayStr, EXPLAINED_MISSED,
+  SUBMISSIONS, formatCurrency, todayStr, EXPLAINED_MISSED,
 } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
+import { api } from '../../api/client'
 import type { ApiSubmission, ApiLocation } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { varColor, DEFAULT_TOLERANCE } from '../../utils/variance'
 
 function mapApiSub(s: ApiSubmission): Submission {
   const forceUTC = (d?: string | null) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
@@ -79,6 +81,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
   const [jumpDate, setJumpDate] = useState('')
   const [page, setPage] = useState(0)
   const [fetchError, setFetchError] = useState('')
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
   const PAGE_SIZE = 10
 
   // Fetch location details from API to get cost_center and other live data
@@ -89,6 +92,12 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
       setLocation(found)
     }).catch(() => { /* keep null */ })
   }, [locationId])
+
+  useEffect(() => {
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
+  }, [])
 
   // API-fetched submissions — overlay over mock data when available
   const [apiSubs, setApiSubs] = useState<Submission[]>([])
@@ -182,10 +191,6 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
       onNavigate('op-method', { locationId, date: jumpDate, from: 'op-start' })
     }
   }
-
-  // ── Variance helpers ────────────────────────────────────────────────────
-  const varColor = (pct: number) =>
-    Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)'
 
   const statusConfig = {
     pending_approval: { badge: 'badge-amber', label: 'Pending Approval', icon: '⏳' },
@@ -285,21 +290,12 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                   </span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--ts)' }}>
-                  {(() => {
-                    const expCash = todaySub.expectedCash || location?.expected_cash || IMPREST;
-                    const dynamicVar = Math.round((todaySub.totalCash - expCash) * 100) / 100;
-                    const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
-                    return (
-                      <>
-                        Variance:&nbsp;
-                        <strong style={{ color: varColor(dynamicVarPct) }}>
-                          {dynamicVar >= 0 ? '+' : ''}{formatCurrency(dynamicVar)}
-                          &nbsp;({dynamicVarPct >= 0 ? '+' : ''}{dynamicVarPct.toFixed(2)}%)
-                        </strong>
-                        &nbsp;·&nbsp;Imprest: {formatCurrency(expCash)}
-                      </>
-                    );
-                  })()}
+                  Variance:&nbsp;
+                  <strong style={{ color: varColor(todaySub.variancePct ?? 0, tolerance) }}>
+                    {(todaySub.variance ?? 0) >= 0 ? '+' : ''}{formatCurrency(todaySub.variance ?? 0)}
+                    &nbsp;({(todaySub.variancePct ?? 0) >= 0 ? '+' : ''}{(todaySub.variancePct ?? 0).toFixed(2)}%)
+                  </strong>
+                  &nbsp;·&nbsp;Imprest: {formatCurrency(todaySub.expectedCash ?? 0)}
                 </div>
                 {todaySub.rejectionReason && (
                   <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6, fontStyle: 'italic' }}>
@@ -553,19 +549,14 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                           {row.sub ? formatCurrency(row.sub.totalCash) : <span style={{ color: 'var(--wg)' }}>—</span>}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          {row.sub ? (() => {
-                            const expCash = row.sub.expectedCash || location?.expected_cash || IMPREST;
-                            const dynamicVar = Math.round((row.sub.totalCash - expCash) * 100) / 100;
-                            const dynamicVarPct = expCash > 0 ? (dynamicVar / expCash) * 100 : 0;
-                            return (
-                              <span style={{ color: varColor(dynamicVarPct), fontWeight: 500, fontSize: 13 }}>
-                                {dynamicVar >= 0 ? '+' : ''}{formatCurrency(dynamicVar)}
-                                <div style={{ fontSize: 11, color: varColor(dynamicVarPct) }}>
-                                  ({dynamicVarPct >= 0 ? '+' : ''}{dynamicVarPct.toFixed(2)}%)
+                          {row.sub ? (
+                              <span style={{ color: varColor(row.sub.variancePct, tolerance), fontWeight: 500, fontSize: 13 }}>
+                                {row.sub.variance >= 0 ? '+' : ''}{formatCurrency(row.sub.variance)}
+                                <div style={{ fontSize: 11, color: varColor(row.sub.variancePct, tolerance) }}>
+                                  ({row.sub.variancePct >= 0 ? '+' : ''}{row.sub.variancePct.toFixed(2)}%)
                                 </div>
                               </span>
-                            );
-                          })() : (
+                          ) : (
                             <span style={{ color: 'var(--wg)' }}>—</span>
                           )}
                         </td>

@@ -2,8 +2,10 @@ import { useState, useMemo, useEffect } from 'react'
 import { SUBMISSIONS, getLocation, formatCurrency, IMPREST } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
+import { api } from '../../api/client'
 import type { ApiSubmission } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { varColor, varHighlight, DEFAULT_TOLERANCE } from '../../utils/variance'
 
 function mapApiSub(s: ApiSubmission): Submission {
   return {
@@ -35,9 +37,6 @@ interface Props {
 type StatusFilter = 'all' | 'approved' | 'rejected'
 type DateRange    = '7d'  | '30d' | 'all'
 
-const varColor = (pct: number) =>
-  Math.abs(pct) > 5 ? 'var(--red)' : Math.abs(pct) > 2 ? 'var(--amb)' : 'var(--g7)'
-
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
   const h  = Math.floor(ms / 3600000)
@@ -51,6 +50,13 @@ export default function MgrHistory({ managerName, locationIds, onNavigate }: Pro
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [dateRange,    setDateRange]    = useState<DateRange>('30d')
   const [apiSubs,      setApiSubs]      = useState<Submission[]>([])
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
+
+  useEffect(() => {
+    api.get<{ global_config?: { default_tolerance_pct?: number } }>('/config')
+      .then(cfg => { if (cfg.global_config?.default_tolerance_pct != null) setTolerance(cfg.global_config.default_tolerance_pct) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     Promise.all(locationIds.map(id =>
@@ -156,12 +162,13 @@ export default function MgrHistory({ managerName, locationIds, onNavigate }: Pro
         <KpiCard
           label="Avg Variance"
           value={allActioned.length > 0 ? `${avgVariance.toFixed(2)}%` : '—'}
-          accent={avgVariance > 5 ? 'var(--red)' : avgVariance > 2 ? 'var(--amb)' : 'var(--g7)'}
+          accent={varColor(avgVariance, tolerance)}
+          highlight={varHighlight(avgVariance, tolerance)}
           tooltip={{
             what: "Average absolute variance percentage across all submissions you actioned.",
             how: "Sums the absolute variance % of every actioned submission and divides by total count.",
             formula: "Σ|variancePct| ÷ COUNT(actioned)",
-            flag: "Amber >2%, red >5%. Consistently high values suggest a location-level cash handling issue.",
+            flag: `Amber >${tolerance / 2}%, red >${tolerance}%. Consistently high values suggest a location-level cash handling issue.`,
           }}
         />
       </div>
@@ -267,7 +274,7 @@ export default function MgrHistory({ managerName, locationIds, onNavigate }: Pro
                         {formatCurrency(sub.totalCash)}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <span style={{ color: varColor(sub.variancePct), fontWeight: 500, fontSize: 13 }}>
+                        <span style={{ color: varColor(sub.variancePct, tolerance), fontWeight: 500, fontSize: 13 }}>
                           {sub.variance >= 0 ? '+' : ''}{formatCurrency(sub.variance)}
                         </span>
                         <div style={{ fontSize: 11, color: 'var(--ts)' }}>
