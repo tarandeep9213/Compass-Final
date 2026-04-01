@@ -33,6 +33,7 @@ import CtrlLog       from './pages/controller/CtrlLog'
 import CtrlDashboard from './pages/controller/CtrlDashboard'
 import CtrlHistory   from './pages/controller/CtrlHistory'
 import CtrlDgmReview from './pages/controller/CtrlDgmReview'
+import CtrlReasonableness from './pages/controller/CtrlReasonableness'
 import OpDrafts      from './pages/operator/OpDrafts'
 import DGMDash        from './pages/dgm/DGMDash'
 import DGMLog         from './pages/dgm/DGMLog'
@@ -42,6 +43,7 @@ import AdmUsers       from './pages/admin/AdmUsers'
 import AdmConfig      from './pages/admin/AdmConfig'
 import AdmAudit       from './pages/admin/AdmAudit'
 import AdmReports     from './pages/admin/AdmReports'
+import AdmReasonableness from './pages/admin/AdmReasonableness'
 import AdmImport      from './pages/admin/AdmImport'
 import RcTrends       from './pages/regional-controller/RcTrends'
 import RcBizDash      from './pages/regional-controller/RcBizDash'
@@ -60,6 +62,7 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'daily-report', icon: '📋', label: 'Daily Review Dashboard',  panel: 'ctrl-daily-report' },
       { id: 'dashboard',    icon: '📊', label: 'Weekly Review Dashboard', panel: 'ctrl-dashboard'    },
       { id: 'dgm-review',   icon: '🔍', label: 'Review DGM Visits',      panel: 'ctrl-dgm-review'   },
+      { id: 'reasonableness', icon: '🧮', label: 'Cash Reasonableness Test', panel: 'ctrl-reasonableness' },
     ]
     case 'dgm': return [
       { id: 'dashboard', icon: '📊', label: 'Coverage Dashboard', panel: 'dgm-dash' },
@@ -70,6 +73,7 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'locations', icon: '📍', label: 'Locations',     panel: 'adm-locations' },
       { id: 'users',     icon: '👥', label: 'Users',         panel: 'adm-users' },
       { id: 'import',    icon: '📥', label: 'Import Roster', panel: 'adm-import' },
+      { id: 'reasonableness', icon: '🧮', label: 'Reasonableness Reports', panel: 'adm-reasonableness' },
     ]
     case 'regional-controller': return [
       { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard',   panel: 'rc-biz-dash'   },
@@ -264,6 +268,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       case 'ctrl-history':      return <CtrlHistory    controllerName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
       case 'ctrl-daily-report': return <MgrApprovals   managerName={auth.name}   locationIds={auth.locationIds} onNavigate={navigate} />
       case 'ctrl-dgm-review':   return <CtrlDgmReview  controllerName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
+      case 'ctrl-reasonableness': return <CtrlReasonableness controllerName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
 
       // ── DGM panels ────────────────────────────────────────────────────
       case 'dgm-dash':    return <DGMDash    dgmName={auth.name} locationIds={auth.locationIds} ctx={nav.ctx} onNavigate={navigate} />
@@ -280,6 +285,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       case 'adm-audit':      return <AdmAudit      adminName={auth.name} />
       case 'adm-reports':    return <AdmReports    adminName={auth.name} />
       case 'adm-import':     return <AdmImport     adminName={auth.name} />
+      case 'adm-reasonableness': return <AdmReasonableness adminName={auth.name} />
 
       // ── Regional Controller extra panel ──────────────────────────────
       case 'rc-trends': return <RcTrends adminName={auth.name} />

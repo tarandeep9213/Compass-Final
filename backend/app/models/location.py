@@ -19,6 +19,7 @@ class Location(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     cost_center: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    group: Mapped[str | None] = mapped_column(String(50), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     address: Mapped[str] = mapped_column(String(500), nullable=False, default="")
 
