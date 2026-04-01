@@ -94,19 +94,46 @@ backend/app/
 ```
 
 **Database**: SQLite (`cashroom.db`) in dev; PostgreSQL in prod (set `DATABASE_URL`).
-**Background jobs**: APScheduler (daily 08:00 UTC submission reminders).
+**Background jobs**: APScheduler (daily submission reminders at configured time, local timezone).
 **Auth**: JWT access token (1 hr) + refresh token (7 days).
 
 ### Key Business Rules
 
 | Rule | Detail |
 |------|--------|
-| Imprest Balance | Fixed cash fund per location (£9,575 default); submissions track deviation |
-| Variance Tolerance | >5% variance from imprest requires written explanation |
-| Approval SLA | Manager must approve/reject within 48 hours |
-| Controller DOW Rule | Warn (don't block) if controller visits same location on same weekday two weeks running |
-| DGM Monthly Rule | Block a second DGM visit to same location in a calendar month |
+| Imprest Balance | Fixed cash fund per location ($9,575 default); submissions track deviation |
+| Variance Tolerance | Configurable via admin (`default_tolerance_pct`); red > tolerance, amber > tolerance/2 |
+| Approval SLA | Configurable `approval_sla_hours` (default 48hrs); used for visit completion window |
 | One Submission Per Day | Location cannot have two submissions for the same date |
+| Controller DOW Rule | Warn (don't block) if controller visits same location on same weekday two weeks running |
+
+### Controller Visit Rules
+
+| Rule | Detail |
+|------|--------|
+| Scheduling | One visit per location per business week (Mon-Fri). Weekends blocked. |
+| Complete | Available immediately after scheduling. SLA window: scheduled_time + `approval_sla_hours` (today only). Hidden after SLA expires. |
+| Miss | Available after scheduled time has passed (today) or for past dates. Hidden for future. |
+| Cancel | Available for future dates and today before scheduled time. Hidden after scheduled time arrives. |
+| DOW Warning | Warn if same weekday visited in past 2 weeks (configurable `dow_lookback_weeks`). Must acknowledge to proceed. |
+| Submission Gate | Operator's cash count submission must be approved before visit can be completed. |
+| Signature | Digital signature required for completion. |
+
+### DGM Visit Rules
+
+| Rule | Detail |
+|------|--------|
+| Scheduling | One visit per location per calendar month. No time slots. |
+| Complete | Available immediately after scheduling. SLA window: visit_date + `approval_sla_hours`. Hidden after SLA expires. |
+| Miss | Available for past dates only. Hidden for today and future. |
+| Cancel | Available for today and future dates. Hidden for past. |
+| DOM Warning | Informational warning if same day-of-month visited in past 3 months. No acknowledgement required. |
+| Submission Gate | Operator's cash count submission must be approved before visit can be completed. |
+| Signature | Digital signature required for completion. |
+
+### Time & Timezone
+
+All backend time comparisons use server local time (`datetime.now()`). Scheduler jobs run in local timezone.
 
 ## Key Documentation Files
 

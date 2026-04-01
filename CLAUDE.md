@@ -97,11 +97,16 @@ DGM/RC users can receive temporary `operator`/`controller` access via `access_gr
 ### Key Business Rules
 
 - **Imprest Balance**: Fixed cash fund per location (£9,575 default); submissions track deviation
-- **Variance Tolerance**: >5% from imprest requires written explanation (configurable per location)
-- **Approval SLA**: Manager must approve/reject within 24-48 hours (configurable)
+- **Variance Tolerance**: Configurable `default_tolerance_pct` in admin; red > tolerance, amber > tolerance/2
+- **Approval SLA**: Configurable `approval_sla_hours` (default 48hrs); used for visit completion window
 - **One Submission Per Day**: per location per date
-- **Controller DOW Rule**: Warn if same location visited on same weekday two weeks running
-- **DGM Monthly Rule**: Block second DGM visit to same location in same calendar month
+- **Controller Scheduling**: One visit per location per business week (Mon-Fri). Weekends blocked.
+- **Controller Complete/Miss/Cancel**: Complete available immediately (hidden after SLA expires). Miss after scheduled time. Cancel before scheduled time.
+- **Controller DOW Rule**: Warn if same location visited on same weekday in past 2 weeks (must acknowledge)
+- **DGM Scheduling**: One visit per location per calendar month
+- **DGM Complete/Miss/Cancel**: Complete available immediately (hidden after SLA expires from visit date). Miss for past dates only. Cancel for today/future.
+- **Submission Gate**: Operator submission must be approved before controller/DGM can complete visit
+- **Time**: All backend time comparisons use server local time
 
 ## Git Conventions
 
