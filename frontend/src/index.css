@@ -197,3 +197,53 @@ table.dt tr:hover td { background: var(--g0); }
 /* ── ANIMATION ── */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .fade-up { animation: fadeUp 0.2s ease; }
+
+/* ── PRINT ── */
+@media print {
+  /* Hide non-printable elements */
+  .sidebar, .sidebar-overlay, .topbar, nav, button, .btn,
+  [style*="cursor: pointer"] { display: none !important; visibility: hidden !important; }
+
+  /* Reset layout — remove sidebar offset, full width */
+  html, body { height: auto !important; overflow: visible !important; }
+  body > div { height: auto !important; overflow: visible !important; }
+  body > div > div { display: block !important; }
+  .main-content, .content-area,
+  [style*="marginLeft"], [style*="margin-left"] {
+    margin-left: 0 !important; padding: 8px !important;
+    width: 100% !important; max-width: 100% !important;
+    position: static !important; overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* All containers flow naturally */
+  div { position: static !important; overflow: visible !important; height: auto !important; max-height: none !important; }
+
+  /* Force all grids and flex to stack vertically */
+  [style*="grid-template-columns"], [style*="gridTemplateColumns"] {
+    display: block !important;
+  }
+  [style*="grid-template-columns"] > *, [style*="gridTemplateColumns"] > * {
+    width: 100% !important; margin-bottom: 12px !important;
+  }
+
+  /* Cards: no shadows, avoid page breaks inside */
+  .card {
+    break-inside: avoid; page-break-inside: avoid;
+    box-shadow: none !important; border: 1px solid #ddd !important;
+    margin-bottom: 12px !important;
+  }
+  .kpi-row { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Tables span full width, rows don't break */
+  table { width: 100% !important; break-inside: auto; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Charts: fixed height so they don't collapse */
+  .recharts-responsive-container, .recharts-wrapper {
+    height: 200px !important; min-height: 200px !important;
+    overflow: visible !important;
+  }
+
+  @page { margin: 1cm; size: A4 landscape; }
+}
