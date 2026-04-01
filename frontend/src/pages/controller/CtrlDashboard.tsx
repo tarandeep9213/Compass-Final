@@ -854,7 +854,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                       {isExpanded && expandAction === 'complete' && (() => {
                         const subStatus = getSubStatus(v.locationId, v.date)
                         const subApproved = subStatus === 'approved'
-                        const canConfirm = subApproved && !!cSig
+                        const reviewDone = !!sessionStorage.getItem(`visit_review_${v.id}`)
+                        const canConfirm = subApproved && reviewDone && !!cSig
 
                         return (
                         <tr>
@@ -1014,7 +1015,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
                                   {!canConfirm && (
                                     <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>
-                                      Please sign before confirming.
+                                      {!reviewDone ? 'Please complete the section review via "View & Approve" first.' : 'Please sign before confirming.'}
                                     </div>
                                   )}
 

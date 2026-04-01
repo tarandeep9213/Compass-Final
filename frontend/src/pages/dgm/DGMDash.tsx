@@ -646,7 +646,8 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                       {isExpanded && expandAction === 'complete' && (() => {
                         const subStatus = getSubStatus(v.locationId, v.date)
                         const subApproved = subStatus === 'approved'
-                        const canConfirm = subApproved && !!cSig
+                        const reviewDone = !!sessionStorage.getItem(`visit_review_${v.id}`)
+                        const canConfirm = subApproved && reviewDone && !!cSig
 
                         return (
                         <tr>
@@ -722,7 +723,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                   </div>
 
                                   {cErrors.api && <div style={{ fontSize: 11, color: 'var(--red)', fontWeight: 500 }}>{cErrors.api}</div>}
-                                  {!canConfirm && <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>Please sign before confirming.</div>}
+                                  {!canConfirm && <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>{!reviewDone ? 'Please complete the section review via "View & Approve" first.' : 'Please sign before confirming.'}</div>}
 
                                   <div style={{ display: 'flex', gap: 8 }}>
                                     <button className="btn btn-primary" style={{ fontSize: 12, padding: '7px 20px', opacity: canConfirm ? 1 : 0.5 }} onClick={() => handleComplete(v.id)} disabled={!canConfirm}>✓ Confirm Completion</button>
