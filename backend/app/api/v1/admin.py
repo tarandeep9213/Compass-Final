@@ -17,6 +17,8 @@ from app.models.location import Location
 from app.models.config import SystemConfig, LocationToleranceOverride
 from app.models.access_grant import AccessGrant
 from app.models.audit import AuditEvent
+from app.models.submission import Submission
+from app.models.verification import Verification
 from app.schemas.config import GlobalConfigOut, LocationOverrideOut
 from app.services.email import send_email_background, send_welcome_background
 from app.services.audit import log_event
@@ -334,21 +336,21 @@ def admin_reset_all(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    users_deleted = db.query(User).filter(User.id != current_user.id).all()
-    users_count = len(users_deleted)
-    for u in users_deleted:
-        db.delete(u)
-    locs_deleted = db.query(Location).all()
-    locs_count = len(locs_deleted)
-    for l in locs_deleted:
-        db.delete(l)
+    # Delete all dependent data first
+    subs_count = db.query(Submission).delete()
+    verifs_count = db.query(Verification).delete()
+    grants_count = db.query(AccessGrant).delete()
+    db.query(LocationToleranceOverride).delete()
     db.query(AuditEvent).delete()
+    # Delete users (except current admin) and locations
+    users_count = db.query(User).filter(User.id != current_user.id).delete()
+    locs_count = db.query(Location).delete()
     log_event(db, current_user, "ADMIN_RESET_EXECUTED",
-              f"Full system reset: {users_count} users deleted, {locs_count} locations deleted",
-              old_value=f"users:{users_count},locations:{locs_count}", new_value="reset",
-              entity_type="System")
+              f"Full system reset: {users_count} users, {locs_count} locations, {subs_count} submissions, {verifs_count} visits, {grants_count} grants deleted",
+              old_value=f"users:{users_count},locations:{locs_count},submissions:{subs_count},verifications:{verifs_count}",
+              new_value="reset", entity_type="System")
     db.commit()
-    return {"users_deleted": users_count, "locations_deleted": locs_count}
+    return {"users_deleted": users_count, "locations_deleted": locs_count, "submissions_deleted": subs_count, "verifications_deleted": verifs_count, "grants_deleted": grants_count}
 
 @router.delete("/users/{user_id}", dependencies=_ADMIN)
 def admin_deactivate_user(
