@@ -72,25 +72,8 @@ export default function AdmImport({ adminName }: Props) {
         const data  = new Uint8Array(e.target!.result as ArrayBuffer)
         const wb    = XLSX.read(data, { type: 'array' })
 
-        // Pick the best sheet: prefer tall format (Designation+Name+Email → has real emails),
-        // then wide format (Cashroom+District), then fall back to first sheet.
-        let bestSheet = wb.Sheets[wb.SheetNames[0]]
-        let foundTall = false
-        for (const sheetName of wb.SheetNames) {
-          const candidate = wb.Sheets[sheetName]
-          const sampleRows = XLSX.utils.sheet_to_json<string[]>(candidate, { header: 1, defval: '' }) as string[][]
-          const hasTall = sampleRows.some(r =>
-            r.some(c => String(c).trim().toUpperCase() === 'DESIGNATION') &&
-            r.some(c => String(c).trim().toUpperCase() === 'NAME')
-          )
-          if (hasTall) { bestSheet = candidate; foundTall = true; break }
-          const hasWide = sampleRows.some(r =>
-            r.some(c => String(c).trim().toUpperCase().includes('CASHROOM')) &&
-            r.some(c => String(c).trim().toUpperCase().includes('DISTRICT'))
-          )
-          if (hasWide && !foundTall) bestSheet = candidate
-        }
-        const ws  = bestSheet
+        // Use the first sheet by default
+        const ws  = wb.Sheets[wb.SheetNames[0]]
         const raw = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' }) as string[][]
 
         // Find the header row
