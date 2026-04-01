@@ -26,7 +26,8 @@ export default function KpiCard({ label, value, sub, accent, highlight, tooltip,
   const [isClicked, setIsClicked] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLSpanElement>(null)
-  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
 
   // Dismiss tooltip when clicking outside of the card
   useEffect(() => {
@@ -51,9 +52,16 @@ export default function KpiCard({ label, value, sub, accent, highlight, tooltip,
         : tooltipAlign === 'left'
         ? rect.left
         : rect.left + rect.width / 2 - tooltipWidth / 2
-      // Clamp to viewport
       left = Math.max(8, Math.min(left, window.innerWidth - tooltipWidth - 8))
-      setTooltipPos({ top: rect.bottom + 8, left })
+      setTooltipPos({ left, top: rect.bottom + 8 })
+      requestAnimationFrame(() => {
+        if (tipRef.current) {
+          const tipH = tipRef.current.offsetHeight
+          if (rect.bottom + tipH + 8 > window.innerHeight) {
+            setTooltipPos({ left, bottom: window.innerHeight - rect.top + 8 })
+          }
+        }
+      })
     }
   }, [show, tooltipAlign])
 
@@ -103,9 +111,10 @@ export default function KpiCard({ label, value, sub, accent, highlight, tooltip,
 
       {show && tooltipPos && createPortal(
         <div
+          ref={tipRef}
           onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'fixed', top: tooltipPos.top, left: tooltipPos.left,
+            position: 'fixed', top: tooltipPos.top, bottom: tooltipPos.bottom, left: tooltipPos.left,
             zIndex: 9999, width: 280,
             background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0',
             boxShadow: '0 12px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',

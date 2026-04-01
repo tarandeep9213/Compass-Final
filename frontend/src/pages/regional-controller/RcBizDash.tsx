@@ -28,7 +28,8 @@ function TipBtn({ tip, label, align = 'center' }: { tip: TipContent; label: stri
   const [hovered, setHovered] = useState(false)
   const [clicked, setClicked] = useState(false)
   const btnRef = useRef<HTMLSpanElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
   const show = hovered || clicked
 
   useEffect(() => {
@@ -45,7 +46,18 @@ function TipBtn({ tip, label, align = 'center' }: { tip: TipContent; label: stri
       const w = 280
       let left = align === 'right' ? r.right - w : align === 'left' ? r.left : r.left + r.width / 2 - w / 2
       left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
-      setPos({ top: r.bottom + 8, left })
+      // Initially position below
+      setPos({ left, top: r.bottom + 8 })
+      // After render, measure actual tooltip height and reposition if needed
+      requestAnimationFrame(() => {
+        if (tipRef.current) {
+          const tipH = tipRef.current.offsetHeight
+          if (r.bottom + tipH + 8 > window.innerHeight) {
+            // Not enough space below — position above using bottom
+            setPos({ left, bottom: window.innerHeight - r.top + 8 })
+          }
+        }
+      })
     }
   }, [show, align])
 
@@ -66,9 +78,10 @@ function TipBtn({ tip, label, align = 'center' }: { tip: TipContent; label: stri
 
       {show && pos && createPortal(
         <div
+          ref={tipRef}
           onClick={e => e.stopPropagation()}
           style={{
-            position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, width: 280,
+            position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, zIndex: 9999, width: 280,
             background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0',
             boxShadow: '0 12px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
             pointerEvents: 'auto', overflow: 'hidden',
