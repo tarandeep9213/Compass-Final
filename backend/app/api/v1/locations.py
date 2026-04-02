@@ -46,7 +46,7 @@ def list_locations(
 ):
     q = db.query(Location).filter(Location.active == True)
     # Non-admin roles only see their assigned locations
-    if current_user.role not in (UserRole.ADMIN, UserRole.DGM, UserRole.AUDITOR, UserRole.REGIONAL_CONTROLLER):
+    if current_user.role not in (UserRole.ADMIN, UserRole.AUDITOR, UserRole.REGIONAL_CONTROLLER):
         if not current_user.location_ids:
             return []
         q = q.filter(Location.id.in_(current_user.location_ids))
