@@ -355,15 +355,19 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
       if (raw) visitSectionReviews = JSON.parse(raw)
     } catch { /* ignore parse errors */ }
 
+    // Use submission total as observed total
+    const rec = allRecords.find(r => r.id === id)
+    const subTotal = rec ? getSubTotalCash(rec.locationId, rec.date) : null
+
     try {
-      await completeDgmVisit(id, { signature_data: cSig, notes: fullNotes || undefined, visit_section_reviews: visitSectionReviews })
+      await completeDgmVisit(id, { signature_data: cSig, notes: fullNotes || undefined, visit_section_reviews: visitSectionReviews, observed_total: subTotal ?? undefined })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
       return
     }
     sessionStorage.removeItem(`visit_review_${id}`)
-    setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: 0, notes: fullNotes, signatureData: cSig } }))
+    setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: subTotal ?? 0, notes: fullNotes, signatureData: cSig } }))
     closeExpand()
   }
 

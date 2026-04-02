@@ -396,8 +396,12 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
       if (raw) visitSectionReviews = JSON.parse(raw)
     } catch { /* ignore parse errors */ }
 
+    // Use submission total as observed total (controller verified the operator's count)
+    const rec = allRecords.find(r => r.id === id)
+    const subTotal = rec ? getSubTotalCash(rec.locationId, rec.date) : null
+
     try {
-      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews })
+      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: subTotal ?? undefined })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
@@ -409,7 +413,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
     setSessionUpdates(prev => ({
       ...prev,
-      [id]: { status: 'completed', observedTotal: 0, notes: fullNotes, warningFlag: !!dowWarning, signatureData: cSig },
+      [id]: { status: 'completed', observedTotal: subTotal ?? 0, notes: fullNotes, warningFlag: !!dowWarning, signatureData: cSig },
     }))
     closeExpand()
   }
