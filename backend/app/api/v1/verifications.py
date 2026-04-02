@@ -63,7 +63,7 @@ def _today_local() -> dt_date:
 
 
 def _check_dow(db: Session, location_id: str, visit_date: str, vtype: VerificationType, lookback_weeks: int) -> DowCheckResponse:
-    """Check if this location has been visited on the same weekday in the recent past (2-week lookback, threshold 1)."""
+    """Check if this location has been visited on the same weekday within the configurable lookback window."""
     d = dt_date.fromisoformat(visit_date)
     dow = d.weekday()
     day_name = DAY_NAMES[dow]
@@ -75,8 +75,8 @@ def _check_dow(db: Session, location_id: str, visit_date: str, vtype: Verificati
         Verification.status.in_([VerificationStatus.SCHEDULED, VerificationStatus.COMPLETED]),
     ).all()
 
-    # 2-week lookback, threshold 1 (any same-weekday visit triggers warning)
-    lookback_days = 14
+    # Configurable lookback window (default 4 weeks from admin config)
+    lookback_days = lookback_weeks * 7
     matching_dates = [
         v.verification_date for v in past
         if dt_date.fromisoformat(v.verification_date).weekday() == dow
@@ -90,7 +90,7 @@ def _check_dow(db: Session, location_id: str, visit_date: str, vtype: Verificati
         day_name=day_name,
         match_count=len(matching_dates),
         previous_dates=sorted(matching_dates, reverse=True)[:5],
-        lookback_weeks=2,
+        lookback_weeks=lookback_weeks,
     )
 
 
