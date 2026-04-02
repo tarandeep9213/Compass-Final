@@ -158,8 +158,6 @@ export default function AdmReports({ adminName }: Props) {
   
   const exceptions     = locFilteredSubs.filter(s=>Math.abs(s.variancePct)>5) 
   const exceptionCount = exceptions.length
-  const avgVariance    = locFilteredSubs.length ? locFilteredSubs.reduce((n,s)=>n+Math.abs(s.variancePct),0)/locFilteredSubs.length : 0
-
   const ctrlCount      = locFilteredVerifs.filter(v=>v.type==='controller' && v.status==='completed').length
   const dgmCount       = locFilteredVerifs.filter(v=>v.type==='dgm' && v.status==='completed').length
 
@@ -486,18 +484,6 @@ export default function AdmReports({ adminName }: Props) {
             how: `Each submission's variance % is calculated as |actual − imprest| ÷ imprest × 100. Any result above ${tolerance}% is an exception.`,
             formula: `|actual − imprest| ÷ imprest × 100 > ${tolerance}%`,
             flag: "Turns red when any exception exists — operator must provide written explanation.",
-          }}
-        />
-        <KpiCard
-          label="Avg |Variance|"
-          value={`${avgVariance.toFixed(2)}%`}
-          sub="across all submissions"
-          accent={avgVariance>2?'var(--amb)':'var(--g7)'}
-          tooltip={{
-            what: "Average absolute variance percentage across all submissions in the period.",
-            how: "Sums the absolute variance % of every submission and divides by total count. Uses absolute value so overages and shortages don't cancel each other out.",
-            formula: "Σ|variancePct| ÷ COUNT(submissions)",
-            flag: "Amber when >2%; no hard threshold but high values indicate systemic cash handling issues.",
           }}
         />
         <KpiCard
