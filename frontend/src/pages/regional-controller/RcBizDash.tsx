@@ -900,12 +900,6 @@ export default function RcBizDash({ adminName }: Props) {
                   <th style={{ textAlign: 'center' }}>Assigned</th>
                   <th style={{ textAlign: 'center' }}>Visited</th>
                   <th style={{ textAlign: 'center' }}>Coverage</th>
-                  <th style={{ textAlign: 'center' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      Avg Variance Found
-                      <TipBtn tip={TIPS.dgmFindings} label="DGM Findings" align="right" />
-                    </span>
-                  </th>
                   <th>Pending Locations</th>
                 </tr>
               </thead>
@@ -926,9 +920,6 @@ export default function RcBizDash({ adminName }: Props) {
                       }}>
                         {d.coveragePct}%
                       </span>
-                    </td>
-                    <td style={{ textAlign: 'center', fontSize: 13, color: 'var(--td)' }}>
-                      ${d.avgVarianceFound.toLocaleString()}
                     </td>
                     <td>
                       {d.pendingLocations.length === 0
