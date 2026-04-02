@@ -131,13 +131,13 @@ export default function RcTrends({ adminName }: Props) {
     return apiTrends.data.map(p => ({ period: p.period, [sectionKey]: p.avg_total }))
   }, [apiTrends, sectionKey])
 
-  const values    = chartData.map((r: DataPoint) => Number(r[sectionKey] ?? 0))
-  const latest    = values.length > 0 ? values[values.length - 1] : 0
-  const prev      = values.length > 1 ? values[values.length - 2] : latest
-  const avg       = values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0
-  const peak      = values.length > 0 ? Math.max(...values) : 0
-  const total     = values.reduce((a, b) => a + b, 0)
-  const pctChange = prev > 0 ? ((latest - prev) / prev) * 100 : 0
+  // Use backend summary for correct KPI values (computed from raw individual submissions)
+  const summary   = apiTrends?.summary
+  const latest    = summary?.latest_value ?? 0
+  const avg       = summary?.period_avg ?? 0
+  const peak      = summary?.peak ?? 0
+  const total     = summary?.total ?? 0
+  const pctChange = summary?.change_pct ?? 0
   const changeUp  = pctChange >= 0
 
   const periodUnit = granularity === 'daily' ? 'days' : granularity === 'weekly' ? 'wks' : granularity === 'monthly' ? 'mo' : 'qtrs'

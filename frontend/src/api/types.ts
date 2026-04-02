@@ -373,6 +373,10 @@ export interface ReportSummary {
 export interface SectionTrendPoint {
   period: string
   avg_total: number
+  sum_total?: number
+  count?: number
+  max_val?: number
+  latest_val?: number
 }
 
 export interface SectionTrends {
@@ -386,6 +390,7 @@ export interface SectionTrends {
     change_pct: number
     period_avg: number
     peak: number
+    total?: number
   }
 }
 

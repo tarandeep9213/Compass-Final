@@ -232,15 +232,24 @@ def get_section_trends(
     all_periods = sorted(bucket.keys(), reverse=True)[:periods]
     all_periods = sorted(all_periods)
 
-    data = [{"period": p, "avg_total": round(sum(bucket[p]) / len(bucket[p]), 2)}
-            for p in all_periods]
+    data = [{
+        "period": p,
+        "avg_total": round(sum(bucket[p]) / len(bucket[p]), 2),
+        "sum_total": round(sum(bucket[p]), 2),
+        "count": len(bucket[p]),
+        "max_val": round(max(bucket[p]), 2),
+        "latest_val": round(bucket[p][-1], 2),
+    } for p in all_periods]
 
-    values = [d["avg_total"] for d in data]
-    latest = values[-1] if values else 0.0
-    prev   = values[-2] if len(values) >= 2 else 0.0
-    peak   = max(values) if values else 0.0
-    avg    = round(sum(values) / len(values), 2) if values else 0.0
-    chg    = round((latest - prev) / prev * 100, 1) if prev else 0.0
+    # Summary uses raw values across all periods
+    all_raw = [v for p in all_periods for v in bucket[p]]
+    latest = all_raw[-1] if all_raw else 0.0
+    prev_period_vals = bucket[all_periods[-2]] if len(all_periods) >= 2 else []
+    prev = prev_period_vals[-1] if prev_period_vals else 0.0
+    peak = max(all_raw) if all_raw else 0.0
+    avg = round(sum(all_raw) / len(all_raw), 2) if all_raw else 0.0
+    total = round(sum(all_raw), 2) if all_raw else 0.0
+    chg = round((latest - prev) / prev * 100, 1) if prev else 0.0
 
     return {
         "section": section,
@@ -248,11 +257,12 @@ def get_section_trends(
         "location_id": location_id,
         "data": data,
         "summary": {
-            "latest_value": latest,
-            "previous_value": prev,
+            "latest_value": round(latest, 2),
+            "previous_value": round(prev, 2),
             "change_pct": chg,
             "period_avg": avg,
-            "peak": peak,
+            "peak": round(peak, 2),
+            "total": total,
         },
     }
 
