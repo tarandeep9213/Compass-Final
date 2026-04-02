@@ -1,13 +1,23 @@
-/** Variance color based on configurable tolerance (red = exceeds tolerance, amber = exceeds half) */
-export function varColor(pct: number, tolerance: number): string {
+/**
+ * Variance color based on per-location exception flag (preferred) or global tolerance (fallback).
+ * When varianceException is provided (from API), use it directly — it already accounts for per-location tolerance.
+ * When not provided, fall back to comparing against the global tolerance.
+ */
+export function varColor(pct: number, tolerance: number, varianceException?: boolean): string {
+  if (varianceException !== undefined) {
+    return varianceException ? 'var(--red)' : 'var(--g7)'
+  }
   const amber = tolerance / 2
   return Math.abs(pct) > tolerance ? 'var(--red)'
        : Math.abs(pct) > amber     ? 'var(--amb)'
        : 'var(--g7)'
 }
 
-/** Variance highlight for KpiCard (red/amber/false) */
-export function varHighlight(pct: number, tolerance: number): 'red' | 'amber' | false {
+/** Variance highlight for KpiCard */
+export function varHighlight(pct: number, tolerance: number, varianceException?: boolean): 'red' | 'amber' | false {
+  if (varianceException !== undefined) {
+    return varianceException ? 'red' : false
+  }
   const amber = tolerance / 2
   return Math.abs(pct) > tolerance ? 'red'
        : Math.abs(pct) > amber     ? 'amber'

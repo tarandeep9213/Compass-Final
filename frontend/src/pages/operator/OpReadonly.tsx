@@ -360,8 +360,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const locAny = location as any
   const tolerance = realTolerance ?? locAny?.tolerance_pct_override ?? locAny?.effective_tolerance_pct ?? locAny?.tolerance_pct ?? location?.tolerancePct ?? 0.5
-  const exceedsTolerance = Math.abs(calcVariancePct) > tolerance
-  const varColor = sharedVarColor(calcVariancePct, tolerance)
+  const exceedsTolerance = sub.varianceException ?? Math.abs(calcVariancePct) > tolerance
+  const varColor = sharedVarColor(calcVariancePct, tolerance, sub.varianceException)
 
   return (
     <div className="fade-up">

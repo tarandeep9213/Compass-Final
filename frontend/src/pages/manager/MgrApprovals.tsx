@@ -361,9 +361,8 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
                   const loc     = apiLocations.find(l => l.id === sub.locationId)
                   const eff     = effectiveStatus(sub)
                   const isOver  = eff === 'pending_approval' && Date.now() - new Date(sub.submittedAt).getTime() > 48 * 3600000
-                  const expCash = sub.expectedCash || loc?.expected_cash || 0
-                  const calcVariance = sub.totalCash - expCash
-                  const calcVariancePct = expCash > 0 ? (calcVariance / expCash) * 100 : 0
+                  const calcVariance = sub.variance
+                  const calcVariancePct = sub.variancePct
 
                   function goReview() {
                     onNavigate('op-readonly', {
@@ -394,7 +393,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
                           {formatCurrency(sub.totalCash)}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <span style={{ color: varColor(calcVariancePct, tolerance), fontWeight: 500, fontSize: 13 }}>
+                          <span style={{ color: varColor(calcVariancePct, tolerance, sub.varianceException), fontWeight: 500, fontSize: 13 }}>
                             {calcVariance >= 0 ? '+' : ''}{formatCurrency(calcVariance)}
                           </span>
                           <div style={{ fontSize: 11, color: 'var(--ts)' }}>

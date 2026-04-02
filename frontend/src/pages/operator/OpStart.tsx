@@ -291,7 +291,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--ts)' }}>
                   Variance:&nbsp;
-                  <strong style={{ color: varColor(todaySub.variancePct ?? 0, tolerance) }}>
+                  <strong style={{ color: varColor(todaySub.variancePct ?? 0, tolerance, todaySub.varianceException) }}>
                     {(todaySub.variance ?? 0) >= 0 ? '+' : ''}{formatCurrency(todaySub.variance ?? 0)}
                     &nbsp;({(todaySub.variancePct ?? 0) >= 0 ? '+' : ''}{(todaySub.variancePct ?? 0).toFixed(2)}%)
                   </strong>
@@ -550,9 +550,9 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           {row.sub ? (
-                              <span style={{ color: varColor(row.sub.variancePct, tolerance), fontWeight: 500, fontSize: 13 }}>
+                              <span style={{ color: varColor(row.sub.variancePct, tolerance, row.sub.varianceException), fontWeight: 500, fontSize: 13 }}>
                                 {row.sub.variance >= 0 ? '+' : ''}{formatCurrency(row.sub.variance)}
-                                <div style={{ fontSize: 11, color: varColor(row.sub.variancePct, tolerance) }}>
+                                <div style={{ fontSize: 11, color: varColor(row.sub.variancePct, tolerance, row.sub.varianceException) }}>
                                   ({row.sub.variancePct >= 0 ? '+' : ''}{row.sub.variancePct.toFixed(2)}%)
                                 </div>
                               </span>

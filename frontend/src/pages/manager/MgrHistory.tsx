@@ -274,7 +274,7 @@ export default function MgrHistory({ managerName, locationIds, onNavigate }: Pro
                         {formatCurrency(sub.totalCash)}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <span style={{ color: varColor(sub.variancePct, tolerance), fontWeight: 500, fontSize: 13 }}>
+                        <span style={{ color: varColor(sub.variancePct, tolerance, sub.varianceException), fontWeight: 500, fontSize: 13 }}>
                           {sub.variance >= 0 ? '+' : ''}{formatCurrency(sub.variance)}
                         </span>
                         <div style={{ fontSize: 11, color: 'var(--ts)' }}>
