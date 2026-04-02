@@ -765,22 +765,23 @@ function AddEditForm({ form, setForm, errors, setErrors, locNeeded, toggleLoc, l
               Location{form.role !== 'operator' ? 's' : ''} {['operator','controller','dgm'].includes(form.role) ? '*' : ''}
               {form.role === 'operator' && <span style={{fontSize:10,fontWeight:400,color:'var(--ts)',marginLeft:6}}>(single only)</span>}
             </span>
-            {form.role === 'regional-controller' && locations.length > 0 && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--ts)', cursor: 'pointer', fontWeight: 400 }}>
-                <input
-                  type="checkbox"
-                  style={{ accentColor: 'var(--g7)' }}
-                  checked={form.locationIds.length === locations.length}
-                  onChange={(e) => {
-                    const isChecked = e.target.checked;
-                    setForm(p => ({ ...p, locationIds: isChecked ? locations.map(l => l.id) : [] }));
-                    setErrors(p => ({ ...p, locationIds: '' }));
-                  }}
-                />
-                Select All
-              </label>
-            )}
           </label>
+          {form.role === 'regional-controller' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 6, background: 'var(--g0)', border: '1px solid var(--g2)' }}>
+              <input
+                type="checkbox"
+                style={{ accentColor: 'var(--g7)' }}
+                checked={form.locationIds.length === locations.length}
+                onChange={(e) => {
+                  setForm(p => ({ ...p, locationIds: e.target.checked ? locations.map(l => l.id) : [] }));
+                  setErrors(p => ({ ...p, locationIds: '' }));
+                }}
+              />
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--g7)' }}>All Locations ({locations.length})</span>
+              <span style={{ fontSize: 10, color: 'var(--ts)', marginLeft: 4 }}>Regional Controllers have access to all locations</span>
+            </div>
+          ) : (
+          <>
           <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
             {locations.map(l=>(
               <label key={l.id} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,cursor:'pointer',padding:'4px 8px',borderRadius:6,border:`1px solid ${form.locationIds.includes(l.id)?'var(--g3)':errors.locationIds?'var(--red)':'var(--ow2)'}`,background:form.locationIds.includes(l.id)?'var(--g0)':'#fff',color:form.locationIds.includes(l.id)?'var(--g7)':'var(--ts)'}}>
@@ -797,6 +798,8 @@ function AddEditForm({ form, setForm, errors, setErrors, locNeeded, toggleLoc, l
             ))}
           </div>
           {errors.locationIds && <div style={{fontSize:11,color:'var(--red)',marginTop:4}}>{errors.locationIds}</div>}
+          </>
+          )}
         </div>
       )}
       <div style={{display:'flex',gap:8,alignSelf:'flex-end',paddingBottom:2}}>
