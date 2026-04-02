@@ -990,7 +990,6 @@ export default function RcBizDash({ adminName }: Props) {
               <thead>
                 <tr>
                   <th>DGM</th>
-                  <th style={{ textAlign: 'center' }}>Assigned</th>
                   <th style={{ textAlign: 'center' }}>Visited</th>
                   <th style={{ textAlign: 'center' }}>Coverage</th>
                   <th>Pending Locations</th>
@@ -1000,7 +999,6 @@ export default function RcBizDash({ adminName }: Props) {
                 {dgmCov.dgms.map(d => (
                   <tr key={d.name}>
                     <td style={{ fontWeight: 600, fontSize: 13 }}>{d.name}</td>
-                    <td style={{ textAlign: 'center', fontSize: 13, color: 'var(--ts)' }}>{d.locationsAssigned}</td>
                     <td style={{ textAlign: 'center' }}>
                       <span style={{ color: 'var(--g7)', fontWeight: 600, fontSize: 13 }}>{d.locationsVisited}</span>
                     </td>

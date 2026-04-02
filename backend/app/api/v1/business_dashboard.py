@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.submission import Submission, SubmissionStatus, SubmissionSource
 from app.models.verification import Verification, VerificationType, VerificationStatus
 
@@ -242,14 +242,19 @@ def get_dgm_coverage(
     for d in by_dgm.values():
         all_visited |= d["visited_ids"]
 
+    # Build DGM user lookup for assigned locations
+    dgm_users = db.query(User).filter(User.role == UserRole.DGM, User.active == True).all()
+    dgm_assigned: dict = {u.id: set(u.location_ids or []) & all_loc_ids for u in dgm_users}
+
     # Per-DGM output
     dgm_rows = []
-    for dgm in by_dgm.values():
+    for dgm_id, dgm in by_dgm.items():
         visited = dgm["visited_ids"]
-        # Assign all locations to each DGM (since DGMs cover all locations)
-        assigned = len(all_loc_ids)
+        # Use the DGM's assigned locations (filtered to active only)
+        assigned_locs = dgm_assigned.get(dgm_id, all_loc_ids)
+        assigned = len(assigned_locs)
         variances = dgm["variances"]
-        pending = [loc_names.get(lid, lid) for lid in all_loc_ids - visited]
+        pending = [loc_names.get(lid, lid) for lid in assigned_locs - visited]
         dgm_rows.append({
             "name": dgm["name"],
             "locationsAssigned": assigned,
