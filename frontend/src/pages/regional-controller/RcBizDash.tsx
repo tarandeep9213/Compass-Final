@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -334,12 +334,46 @@ export default function RcBizDash({ adminName }: Props) {
           ? Math.round(prevSummary.approval_rate_pct)
           : curCompPct
 
+        const dashLocs = 'locations' in dash ? (dash as { locations: LocationCompliance[] }).locations : []
+        const totalLocs = ('total_locations' in dash.summary ? (dash.summary as { total_locations: number }).total_locations : 0) || dashLocs.length || 0
+        const greenCount = dashLocs.filter(l => l.health === 'green').length
+        const redCount = dashLocs.filter(l => l.health === 'red').length
+        const noSubCount = dashLocs.filter(l => !l.submission).length
+        const approvalPct = Math.round(curSummary.approval_rate_pct)
+        const rejCount = curSummary.total_submissions - Math.round(curSummary.total_submissions * curSummary.approval_rate_pct / 100)
+
         const tt = {
-          compliance: { what: 'How many of your locations are fully compliant today — submitted, approved, and verified on schedule.', how: 'A low rate means most locations have gaps: missing submissions, pending approvals, or overdue visits. Focus on red locations first.', flag: 'Green ≥ 80% · Amber 70–79% · Red < 70%. Aim for all green by end of day.' },
-          approval: { what: 'How often operator cash counts are approved vs rejected by controllers.', how: 'A low approval rate means operators are making frequent errors in their counts. Look at the Most Rejected Operators section below for specifics.', flag: 'Target ≥ 85%. Below that, consider additional operator training.' },
-          sla: { what: 'Whether controllers are reviewing submissions within the required timeframe.', how: 'Submissions should be reviewed within 48 hours. A low SLA rate means controllers are falling behind. Check the Slowest Approvers section for who needs follow-up.', flag: 'Target ≥ 90%. Below that, escalate to controller supervisors.' },
-          cashAtRisk: { what: `Total dollar amount at risk across locations where the cash count deviated more than ${tolerance}% from the expected balance.`, how: `This is real money exposure. A rising trend means cash handling discipline is weakening across the region. Report large amounts to finance immediately.`, flag: 'Any amount above $0 requires investigation. Escalate to finance if trending upward.' },
-          exceptions: { what: `Number of cash counts this month where the variance exceeded the ${tolerance}% tolerance threshold.`, how: 'Each exception means a location had significantly more or less cash than expected. Operators must provide a written explanation for each one.', flag: 'Repeat exceptions at the same location = systemic issue. Review with the location supervisor.' },
+          compliance: {
+            what: curCompPct >= 80
+              ? `${greenCount} of ${totalLocs} locations are fully compliant. Your region is in good shape.`
+              : curCompPct >= 50
+              ? `Only ${greenCount} of ${totalLocs} locations are compliant. ${noSubCount > 0 ? `${noSubCount} locations have no submission today.` : ''} ${redCount > 0 ? `${redCount} locations are non-compliant (red).` : ''}`
+              : `Critical: only ${greenCount} of ${totalLocs} locations are compliant. ${noSubCount} locations have not submitted today. Follow up with operators at missing locations immediately.`,
+            how: curCompPct < 70 ? 'Focus on red locations first — contact location supervisors to get submissions in today.' : 'Monitor amber locations to prevent them from turning red.',
+            flag: `Currently ${curCompPct}%. ${curCompPct >= 80 ? 'On track.' : curCompPct >= 70 ? 'Approaching target — push for green.' : 'Below target — escalate.'}`,
+          },
+          approval: {
+            what: approvalPct >= 85
+              ? `${approvalPct}% of submissions were approved — operators are performing well.`
+              : `${approvalPct}% approval rate is below the 85% target. ${rejCount > 0 ? `${rejCount} submissions were rejected this month.` : ''} Check the Most Rejected Operators section below.`,
+            how: approvalPct < 85 ? 'Low approval rate means operators are making errors. Identify repeat offenders and arrange training.' : 'Approval rate is healthy. Continue monitoring.',
+            flag: `${approvalPct >= 85 ? 'On target.' : 'Below 85% — investigate rejection patterns.'}`,
+          },
+          sla: { what: 'Whether controllers are reviewing submissions within the required 48-hour timeframe.', how: 'Check the Slowest Approvers section below for who needs follow-up.', flag: 'Target ≥ 90%.' },
+          cashAtRisk: {
+            what: curSummary.cash_at_risk > 0
+              ? `$${Math.round(curSummary.cash_at_risk).toLocaleString()} in cash variance across exception locations. This is real money exposure that needs investigation.`
+              : 'No cash at risk this month — all locations are within tolerance.',
+            how: curSummary.cash_at_risk > 0 ? 'Report to finance. Check which locations have the largest variances in the table below.' : 'No action needed.',
+            flag: curSummary.cash_at_risk > 5000 ? 'Above $5,000 — escalate to finance immediately.' : curSummary.cash_at_risk > 0 ? 'Monitor and investigate.' : 'All clear.',
+          },
+          exceptions: {
+            what: curSummary.variance_exceptions > 0
+              ? `${curSummary.variance_exceptions} cash count${curSummary.variance_exceptions > 1 ? 's' : ''} exceeded the ${tolerance}% tolerance this month. Each requires a written explanation from the operator.`
+              : `No variance exceptions this month — all counts are within the ${tolerance}% tolerance.`,
+            how: curSummary.variance_exceptions > 3 ? 'Multiple exceptions suggest a systemic issue. Review with location supervisors.' : curSummary.variance_exceptions > 0 ? 'Follow up on each exception individually.' : 'No action needed.',
+            flag: curSummary.variance_exceptions > 0 ? 'Ensure written explanations are on file for each exception.' : 'All clear.',
+          },
         }
 
         const realCards: KpiCard[] = [
@@ -381,6 +415,65 @@ export default function RcBizDash({ adminName }: Props) {
   // Alert detail expand state (keyed by index)
   const [alertOpen, setAlertOpen] = useState<Record<number, boolean>>({})
   const toggleAlert = (i: number) => setAlertOpen(prev => ({ ...prev, [i]: !prev[i] }))
+
+  // ── Dynamic tooltips based on live data ──────────────────────────────────
+  const dynTips = useMemo(() => {
+    const tips = { ...TIPS }
+
+    // At-Risk
+    if (atRiskData && atRiskData.length > 0) {
+      const top = atRiskData[0]
+      tips.atRisk = { ...TIPS.atRisk, what: `${atRiskData.length} location${atRiskData.length > 1 ? 's' : ''} flagged. ${top.name} has the highest risk score (${top.score}) with flags: ${top.flags.join(', ')}. ${atRiskData.length > 1 ? `Next: ${atRiskData[1]?.name} (${atRiskData[1]?.score}).` : ''}`, how: TIPS.atRisk.how }
+    } else if (atRiskData && atRiskData.length === 0) {
+      tips.atRisk = { ...TIPS.atRisk, what: 'All locations are compliant — no at-risk locations detected. Great job.' }
+    }
+
+    // Slowest Approvers
+    if (approvers && approvers.length > 0) {
+      const slow = approvers[0]
+      const breaching = approvers.filter(a => a.avgHours > 48)
+      tips.slowestApprovers = { ...TIPS.slowestApprovers,
+        what: breaching.length > 0
+          ? `${breaching.length} controller${breaching.length > 1 ? 's' : ''} averaging over 48 hours — SLA breached. ${slow.name} is the slowest at ${slow.avgHours.toFixed(1)}h. Contact them immediately.`
+          : `${slow.name} is the slowest at ${slow.avgHours.toFixed(1)}h — still within the 48h SLA. All approvers are on track.`
+      }
+    }
+
+    // Controller Activity
+    if (ctrlActivity && ctrlActivity.length > 0) {
+      const missed = ctrlActivity.filter(c => c.missed > 0)
+      const perfect = ctrlActivity.filter(c => c.completionRate === 100)
+      tips.controllerActivity = { ...TIPS.controllerActivity,
+        what: missed.length > 0
+          ? `${missed.length} controller${missed.length > 1 ? 's have' : ' has'} missed visits this month: ${missed.map(c => `${c.name} (${c.missed} missed)`).join(', ')}. Follow up on the reasons.`
+          : `All ${ctrlActivity.length} controllers have zero missed visits. ${perfect.length} have 100% completion rate.`
+      }
+    }
+
+    // DGM Coverage
+    if (dgmCov && dgmCov.dgms.length > 0) {
+      const pending = dgmCov.dgms.filter(d => d.coveragePct < 100)
+      tips.dgmCoverage = { ...TIPS.dgmCoverage,
+        what: pending.length > 0
+          ? `${pending.length} DGM${pending.length > 1 ? 's' : ''} still ha${pending.length > 1 ? 've' : 's'} locations to visit: ${pending.map(d => `${d.name} (${d.locationsVisited}/${d.locationsAssigned})`).join(', ')}.`
+          : 'All DGMs have completed their monthly rounds. 100% coverage achieved.'
+      }
+    }
+
+    // Late submitters
+    if (opBehaviour) {
+      tips.lateSubmitters = { ...TIPS.lateSubmitters,
+        what: opBehaviour.lateSubmitters > 0
+          ? `${opBehaviour.lateSubmitters} operator${opBehaviour.lateSubmitters > 1 ? 's' : ''} submitted after 6 PM or the next day this month. This means cash discrepancies could go undetected overnight.`
+          : 'No late submissions this month — all operators are submitting on time.'
+      }
+      tips.platformUsage = { ...TIPS.platformUsage,
+        what: `${opBehaviour.platformSplit.form}% of submissions use the online form, ${opBehaviour.platformSplit.excel}% use Excel upload. ${opBehaviour.platformSplit.excel > 30 ? 'High Excel usage — consider whether the online form needs improvement.' : 'Form usage is dominant — good adoption.'}`
+      }
+    }
+
+    return tips
+  }, [atRiskData, approvers, ctrlActivity, dgmCov, opBehaviour])
 
   // ── Task 7: Derive alert banner from real API data ──────────────────────
   type AlertItem = { type: 'red' | 'amber'; message: string; details: string[] }
@@ -571,7 +664,7 @@ export default function RcBizDash({ adminName }: Props) {
             <div>
               <div style={{ fontSize: 11, color: 'var(--ts)', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                 Controller Visits This Month
-                <TipBtn tip={TIPS.controllerVisits} label="Controller Visit Coverage" />
+                <TipBtn tip={dynTips.controllerVisits} label="Controller Visit Coverage" />
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <span style={{ fontSize: 22, fontWeight: 700, fontFamily: 'DM Serif Display,serif', color: coverage.controllerVisits.pct >= 80 ? 'var(--g7)' : 'var(--amb)' }}>
@@ -590,7 +683,7 @@ export default function RcBizDash({ adminName }: Props) {
             <div>
               <div style={{ fontSize: 11, color: 'var(--ts)', fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                 DGM Visits This Month
-                <TipBtn tip={TIPS.dgmVisits} label="DGM Visit Coverage" />
+                <TipBtn tip={dynTips.dgmVisits} label="DGM Visit Coverage" />
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <span style={{ fontSize: 22, fontWeight: 700, fontFamily: 'DM Serif Display,serif', color: coverage.dgmVisits.pct >= 60 ? 'var(--amb)' : 'var(--red)' }}>
@@ -647,7 +740,7 @@ export default function RcBizDash({ adminName }: Props) {
           <div className="card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span className="card-title">Top At-Risk Locations</span>
-              <TipBtn tip={TIPS.atRisk} label="At-Risk Location Score" />
+              <TipBtn tip={dynTips.atRisk} label="At-Risk Location Score" />
             </div>
             <span className="card-sub">{atRiskLoading ? 'Loading…' : atRiskData ? `${atRiskData.length} flagged · Risk score ↓` : 'No data'}</span>
           </div>
@@ -705,14 +798,14 @@ export default function RcBizDash({ adminName }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 20, marginBottom: 24 }}>
             <div style={{ padding: '12px 16px', background: opBehaviour.lateSubmitters > 0 ? '#fffbeb' : 'var(--ow)', border: `1.5px solid ${opBehaviour.lateSubmitters > 0 ? '#fcd34d' : 'var(--ow2)'}`, borderRadius: 10 }}>
               <div style={{ fontSize: 11, color: 'var(--ts)', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                Late submitters <TipBtn tip={TIPS.lateSubmitters} label="Late Submitters" align="right" />
+                Late submitters <TipBtn tip={dynTips.lateSubmitters} label="Late Submitters" align="right" />
               </div>
               <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'DM Serif Display,serif', color: opBehaviour.lateSubmitters > 0 ? 'var(--amb)' : 'var(--g7)', textAlign: 'center' }}>{opBehaviour.lateSubmitters}</div>
               <div style={{ fontSize: 10, color: 'var(--ts)', textAlign: 'center', marginTop: 2 }}>after 18:00 or next day</div>
             </div>
             <div style={{ padding: '12px 16px', background: 'var(--ow)', border: '1.5px solid var(--ow2)', borderRadius: 10 }}>
               <div style={{ fontSize: 11, color: 'var(--ts)', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                Platform usage <TipBtn tip={TIPS.platformUsage} label="Platform Usage" align="right" />
+                Platform usage <TipBtn tip={dynTips.platformUsage} label="Platform Usage" align="right" />
               </div>
               {[
                 { label: 'FORM',  pct: opBehaviour.platformSplit.form,  color: 'var(--g6)' },
@@ -736,7 +829,7 @@ export default function RcBizDash({ adminName }: Props) {
           ) : rejections && (rejections.operators.length > 0 || rejections.reasons.length > 0) ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
             <div>
-              <SectionTitle tip={TIPS.rejectedOperators} tipLabel="Most Rejected Operators">Most Rejected Operators</SectionTitle>
+              <SectionTitle tip={dynTips.rejectedOperators} tipLabel="Most Rejected Operators">Most Rejected Operators</SectionTitle>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {rejections.operators.map(op => (
                   <div key={op.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#fff1f2', border: '1px solid #fca5a5', borderRadius: 8 }}>
@@ -755,7 +848,7 @@ export default function RcBizDash({ adminName }: Props) {
               </div>
             </div>
             <div>
-              <SectionTitle tip={TIPS.rejectionReasons} tipLabel="Top Rejection Reasons">Top Rejection Reasons</SectionTitle>
+              <SectionTitle tip={dynTips.rejectionReasons} tipLabel="Top Rejection Reasons">Top Rejection Reasons</SectionTitle>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {rejections.reasons.map(r => (
                   <div key={r.reason} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -779,7 +872,7 @@ export default function RcBizDash({ adminName }: Props) {
         <div className="card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="card-title">Controller Activity</span>
-            <TipBtn tip={TIPS.controllerActivity} label="Controller Activity" />
+            <TipBtn tip={dynTips.controllerActivity} label="Controller Activity" />
           </div>
           <span className="card-sub">{ctrlActivityLoading ? 'Loading…' : ctrlActivity ? `${ctrlActivity.length} controller${ctrlActivity.length !== 1 ? 's' : ''} · this month` : 'No data'}</span>
         </div>
@@ -800,13 +893,13 @@ export default function RcBizDash({ adminName }: Props) {
                 <th style={{ textAlign: 'center' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     Avg Variance Found
-                    <TipBtn tip={TIPS.controllerActivity} label="Variance Found" align="right" />
+                    <TipBtn tip={dynTips.controllerActivity} label="Variance Found" align="right" />
                   </span>
                 </th>
                 <th style={{ textAlign: 'center' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     DOW Warnings
-                    <TipBtn tip={TIPS.dowRotation} label="Day-of-Week Rotation" align="right" />
+                    <TipBtn tip={dynTips.dowRotation} label="Day-of-Week Rotation" align="right" />
                   </span>
                 </th>
               </tr>
@@ -857,7 +950,7 @@ export default function RcBizDash({ adminName }: Props) {
         <div className="card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="card-title">DGM Coverage</span>
-            <TipBtn tip={TIPS.dgmCoverage} label="DGM Coverage" />
+            <TipBtn tip={dynTips.dgmCoverage} label="DGM Coverage" />
           </div>
           <span className="card-sub">{dgmCovLoading ? 'Loading…' : 'Monthly visit completion · pending locations · findings'}</span>
         </div>
@@ -947,7 +1040,7 @@ export default function RcBizDash({ adminName }: Props) {
         <div className="card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="card-title">Slowest Approvers</span>
-            <TipBtn tip={TIPS.slowestApprovers} label="Slowest Approvers" />
+            <TipBtn tip={dynTips.slowestApprovers} label="Slowest Approvers" />
           </div>
           <span className="card-sub">
             {approversLoading ? 'Loading…' : approvers ? `${approvers.length} approver${approvers.length !== 1 ? 's' : ''} · this month · 48h SLA` : 'No data'}
@@ -1053,7 +1146,7 @@ export default function RcBizDash({ adminName }: Props) {
                       {h === 'all' ? 'All' : h === 'red' ? '✕ Non-Compliant' : h === 'amber' ? '⚠ At Risk' : '✓ Compliant'}
                       <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: 'rgba(0,0,0,0.06)', color: c.color }}>{count}</span>
                     </button>
-                    {tipKey && <TipBtn tip={TIPS[tipKey]} label={tipLabel} />}
+                    {tipKey && <TipBtn tip={dynTips[tipKey]} label={tipLabel} />}
                   </div>
                 )
               })}
