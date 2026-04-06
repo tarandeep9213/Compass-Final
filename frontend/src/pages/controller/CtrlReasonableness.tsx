@@ -732,6 +732,73 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
             </div>
           </div>
 
+          {/* ── Conclusions per location ── */}
+          {liveCalcRows.map(cr => {
+            const isOver2 = cr.net > 0
+            const isDone2 = completed[cr.loc.id]
+            return (
+              <div key={`conc-${cr.loc.id}`} className="card" style={{ marginBottom: 12, opacity: isDone2 ? 0.65 : 1 }}>
+                <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>Conclusion — {cr.loc.label}</span>
+                  <span className={`badge ${isOver2 ? 'badge-red' : 'badge-green'}`}>
+                    <span className="bdot"></span>{isOver2 ? 'Overfunded' : 'Reasonable'}
+                  </span>
+                </div>
+                <div style={{ padding: 16 }}>
+                  <div style={{ marginBottom: 13 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--tm)', marginBottom: 5, letterSpacing: '.04em', textTransform: 'uppercase' }}>
+                      Conclusion Notes <span style={{ color: 'var(--red)' }}>*</span>
+                    </label>
+                    <textarea
+                      value={conclusions[cr.loc.id] || ''} disabled={isDone2}
+                      onChange={e => setConclusions(prev => ({ ...prev, [cr.loc.id]: e.target.value }))}
+                      placeholder="e.g. Funds are reasonable, driver bags were reduced due to Loomis schedule."
+                      style={{ width: '100%', minHeight: 70, padding: '9px 12px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 13.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 13 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--tm)', marginBottom: 5, letterSpacing: '.04em', textTransform: 'uppercase' }}>Required Actions</label>
+                      <select
+                        value={reqActions[cr.loc.id] || ''} disabled={isDone2}
+                        onChange={e => setReqActions(prev => ({ ...prev, [cr.loc.id]: e.target.value }))}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 13.5, background: 'var(--bg-muted)' }}>
+                        <option value="">— Select —</option>
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                    {reqActions[cr.loc.id] === 'yes' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--tm)', marginBottom: 5, letterSpacing: '.04em', textTransform: 'uppercase' }}>
+                          Action Details <span style={{ color: 'var(--red)' }}>*</span>
+                        </label>
+                        <textarea
+                          value={actionDetails[cr.loc.id] || ''} disabled={isDone2}
+                          onChange={e => setActionDetails(prev => ({ ...prev, [cr.loc.id]: e.target.value }))}
+                          placeholder="Describe corrective actions required..."
+                          style={{ width: '100%', minHeight: 55, padding: '9px 12px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 13.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {!isDone2 ? (
+                      <button onClick={() => handleMarkComplete(cr.loc.id)}
+                        style={{ padding: '8px 20px', borderRadius: 7, border: 'none', background: 'var(--g7, #1f6138)', color: '#fff', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
+                        ✓ Confirm & Mark Complete
+                      </button>
+                    ) : (
+                      <span className="badge badge-green" style={{ fontSize: 13, padding: '7px 14px' }}>
+                        <span className="bdot"></span>✓ Completed
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
           {/* ── Section A — Daily Data ── */}
           <div className="card" style={{ marginBottom: 16 }}>
             <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -817,73 +884,6 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
               </table>
             </div>
           </div>
-
-          {/* ── Conclusions per location ── */}
-          {liveCalcRows.map(cr => {
-            const isOver = cr.net > 0
-            const isDone = completed[cr.loc.id]
-            return (
-              <div key={cr.loc.id} className="card" style={{ marginBottom: 12, opacity: isDone ? 0.65 : 1 }}>
-                <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>Conclusion — {cr.loc.label}</span>
-                  <span className={`badge ${isOver ? 'badge-red' : 'badge-green'}`}>
-                    <span className="bdot"></span>{isOver ? 'Overfunded' : 'Reasonable'}
-                  </span>
-                </div>
-                <div style={{ padding: 16 }}>
-                  <div style={{ marginBottom: 13 }}>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--tm)', marginBottom: 5, letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                      Conclusion Notes <span style={{ color: 'var(--red)' }}>*</span>
-                    </label>
-                    <textarea
-                      value={conclusions[cr.loc.id] || ''} disabled={isDone}
-                      onChange={e => setConclusions(prev => ({ ...prev, [cr.loc.id]: e.target.value }))}
-                      placeholder="e.g. Funds are reasonable, driver bags were reduced due to Loomis schedule."
-                      style={{ width: '100%', minHeight: 70, padding: '9px 12px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 13.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
-                    />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 13 }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--tm)', marginBottom: 5, letterSpacing: '.04em', textTransform: 'uppercase' }}>Required Actions</label>
-                      <select
-                        value={reqActions[cr.loc.id] || ''} disabled={isDone}
-                        onChange={e => setReqActions(prev => ({ ...prev, [cr.loc.id]: e.target.value }))}
-                        style={{ width: '100%', padding: '9px 12px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 13.5, background: 'var(--bg-muted)' }}>
-                        <option value="">— Select —</option>
-                        <option value="no">No</option>
-                        <option value="yes">Yes</option>
-                      </select>
-                    </div>
-                    {reqActions[cr.loc.id] === 'yes' && (
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--tm)', marginBottom: 5, letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                          Action Details <span style={{ color: 'var(--red)' }}>*</span>
-                        </label>
-                        <textarea
-                          value={actionDetails[cr.loc.id] || ''} disabled={isDone}
-                          onChange={e => setActionDetails(prev => ({ ...prev, [cr.loc.id]: e.target.value }))}
-                          placeholder="Describe corrective actions required..."
-                          style={{ width: '100%', minHeight: 55, padding: '9px 12px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 13.5, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {!isDone ? (
-                      <button onClick={() => handleMarkComplete(cr.loc.id)}
-                        style={{ padding: '8px 20px', borderRadius: 7, border: 'none', background: 'var(--g7, #1f6138)', color: '#fff', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
-                        ✓ Confirm & Mark Complete
-                      </button>
-                    ) : (
-                      <span className="badge badge-green" style={{ fontSize: 13, padding: '7px 14px' }}>
-                        <span className="bdot"></span>✓ Completed
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
 
           {/* ── Action Buttons ── */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
