@@ -230,7 +230,6 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
     ? effStatus === 'approved'
     : (ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard') && effStatus === 'pending_approval'
   const allDecided = SECTIONS.every(k => secDecisions[k] !== null)
-  const allAccepted = SECTIONS.every(k => secDecisions[k] === 'accept')
   const allNoted   = SECTIONS.every(k => secDecisions[k] !== 'reject' || secNotes[k].trim() !== '')
   const canSubmit  = allDecided && allNoted
 

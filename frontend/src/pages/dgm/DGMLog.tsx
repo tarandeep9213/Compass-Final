@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { getLocation, todayStr } from '../../mock/data'
 import { listLocations } from '../../api/locations'
 import type { VerificationRecord } from '../../mock/data'
-import { scheduleDgmVisit, cancelDgmVisit, listDgmVerifications } from '../../api/verifications'
+import { scheduleDgmVisit, listDgmVerifications } from '../../api/verifications'
 import type { ApiVerification } from '../../api/types'
 
 interface Props {
@@ -331,7 +331,6 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
   const selectedMonthYear     = selectedDate ? monthYearOf(selectedDate) : null
   const selectedBlocker       = selectedDate ? getBlockingVisit(selectedDate) : undefined
   const selectedIsVisitDay    = selectedBlocker?.date === selectedDate
-  const selectedMonthBooked   = selectedMonthYear ? bookedMonths.has(selectedMonthYear) : false
   const existingVisit         = selectedBlocker || (selectedMonthYear ? bookedMonths.get(selectedMonthYear) : undefined)
   const selectedDateLabel     = selectedDate
     ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', {

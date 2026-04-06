@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
-import { formatCurrency, IMPREST, getLocation } from '../../mock/data'
+import { formatCurrency, getLocation } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
 import { listControllerVerifications, completeControllerVisit, missControllerVisit, cancelControllerVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
 import { api } from '../../api/client'
-import type { ApiVerification, ApiLocation } from '../../api/types'
+import type { ApiVerification, ApiLocation, DowWarningReason } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
@@ -137,7 +137,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
   // Complete inline form
   const [cNotes,      setCNotes]      = useState('')
-  const [cWarnReason, setCWarnReason] = useState('')
+  const [cWarnReason, setCWarnReason] = useState<DowWarningReason | ''>('')
   const [cSig,        setCSig]        = useState('')
   const [cErrors,     setCErrors]     = useState<Record<string, string>>({})
 
@@ -401,7 +401,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     const subTotal = rec ? getSubTotalCash(rec.locationId, rec.date) : null
 
     try {
-      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: subTotal ?? undefined })
+      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning && cWarnReason ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: subTotal ?? undefined })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
@@ -948,7 +948,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                       <select
                                         className="f-inp"
                                         value={cWarnReason}
-                                        onChange={e => { setCWarnReason(e.target.value); setCErrors(p => ({ ...p, warn: '' })) }}
+                                        onChange={e => { setCWarnReason(e.target.value as DowWarningReason | ''); setCErrors(p => ({ ...p, warn: '' })) }}
                                         style={{ fontSize: 12, width: 360 }}
                                       >
                                         <option value="">— Select reason to proceed —</option>

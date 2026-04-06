@@ -101,7 +101,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
   const [cNotes,  setCNotes]  = useState('')
   const [cSig,    setCSig]    = useState('')
   const [cErrors, setCErrors] = useState<Record<string, string>>({})
-  const [ctrlVerifs, setCtrlVerifs] = useState<{locationId:string;date:string;status:string;notes:string}[]>([])
+  const [, setCtrlVerifs] = useState<{locationId:string;date:string;status:string;notes:string}[]>([])
 
   const cSigRef    = useRef<HTMLCanvasElement | null>(null)
   const isDrawing  = useRef(false)
