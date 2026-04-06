@@ -691,7 +691,7 @@ export default function AdmReports({ adminName }: Props) {
                       </td>
                       <td style={{textAlign:'center'}}>
                         {variance!==null
-                          ? <span style={{fontSize:13,color:Math.abs(variance)>2?'var(--amb)':'var(--ts)'}}>{variance>=0?'+':''}{variance.toFixed(2)}%</span>
+                          ? <span style={{fontSize:13,color:Math.abs(variance)>tolerance/2?'var(--amb)':'var(--ts)'}}>{variance>=0?'+':''}{variance.toFixed(2)}%</span>
                           : <span style={{color:'#bbb',fontSize:12}}>—</span>}
                       </td>
                       <td style={{textAlign:'center'}}>
