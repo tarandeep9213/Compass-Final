@@ -494,8 +494,8 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <KpiCard label="Quarterly Test" value={periodLabel || 'Select dates'} tooltip={{ what: 'Fiscal period for this reasonableness test', how: 'Fiscal year runs Oct 1 – Sep 30. Periods P1 (Oct) through P12 (Sep).' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <KpiCard label="Quarterly Test" value={<span style={{ fontSize: 18 }}>{periodLabel || 'Select dates'}</span>} tooltip={{ what: 'Fiscal period for this reasonableness test', how: 'Fiscal year runs Oct 1 – Sep 30. Periods P1 (Oct) through P12 (Sep).' }} />
         <KpiCard label="Locations" value={String(locationGroups.reduce((s, g) => s + g.subLocs.length, 0))} sub="active cash rooms" tooltip={{ what: 'Number of active cash room locations', how: 'Count of all sub-locations across all cost center groups' }} />
         <KpiCard label="Reports Saved" value={String(RTEST_STORE.length)} highlight={RTEST_STORE.length > 0 ? 'green' : 'gray'} tooltip={{ what: 'Reasonableness reports saved this session', how: 'Reports saved to Admin dashboard via the Save button' }} />
       </div>
