@@ -4,7 +4,7 @@ import { LOCATION_GROUPS, rtGetMaxValues, formatCurrency, todayStr, RTEST_STORE 
 import type { LocationGroup, RtMaxValues, RtLocReport } from '../../mock/data'
 import { getFiscalPeriod, groupByFiscalPeriod } from '../../utils/fiscal'
 import type { PeriodGroup } from '../../utils/fiscal'
-import { getLocationGroups, generateReport, saveReport as apiSaveReport } from '../../api/reasonableness'
+import { getLocationGroups, generateReport, saveReport as apiSaveReport, listReports } from '../../api/reasonableness'
 import type { LocationGroupApi } from '../../api/reasonableness'
 import { getToken } from '../../api/client'
 
@@ -34,6 +34,7 @@ interface CalcRow {
 export default function CtrlReasonableness({ controllerName }: Props) {
   // ── API vs mock mode ─────────────────────────────────────────────────
   const [apiGroups, setApiGroups] = useState<LocationGroupApi[] | null>(null)
+  const [apiReportCount, setApiReportCount] = useState<number | null>(null)
   const useApi = !!getToken() && apiGroups !== null
 
   useEffect(() => {
@@ -41,6 +42,9 @@ export default function CtrlReasonableness({ controllerName }: Props) {
     getLocationGroups()
       .then(groups => setApiGroups(groups))
       .catch(() => setApiGroups(null))  // fallback to mock
+    listReports({})
+      .then(r => setApiReportCount(r.total ?? r.items.length))
+      .catch(() => {})
   }, [])
 
   // Adapt API groups to same shape as mock LOCATION_GROUPS
@@ -304,6 +308,7 @@ export default function CtrlReasonableness({ controllerName }: Props) {
         })),
       }).then(() => {
         setSaved(true)
+        setApiReportCount(prev => (prev ?? 0) + 1)
         alert('Report saved to Admin → Reasonableness Reports.')
       }).catch(err => {
         alert(`Save failed: ${err.message}. Saving locally.`)
@@ -504,7 +509,7 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
         <KpiCard label="Quarterly Test" value={<span style={{ fontSize: 18 }}>{periodLabel || 'Select dates'}</span>} tooltip={{ what: 'Fiscal period for this reasonableness test', how: 'Fiscal year runs Oct 1 – Sep 30. Periods P1 (Oct) through P12 (Sep).' }} />
         <KpiCard label="Locations" value={String(locationGroups.reduce((s, g) => s + g.subLocs.length, 0))} sub="active cash rooms" tooltip={{ what: 'Number of active cash room locations', how: 'Count of all sub-locations across all cost center groups' }} />
-        <KpiCard label="Reports Saved" value={String(RTEST_STORE.length)} highlight={RTEST_STORE.length > 0 ? 'green' : 'gray'} tooltip={{ what: 'Reasonableness reports saved this session', how: 'Reports saved to Admin dashboard via the Save button' }} />
+        <KpiCard label="Reports Saved" value={String(apiReportCount ?? RTEST_STORE.length)} highlight={(apiReportCount ?? RTEST_STORE.length) > 0 ? 'green' : 'gray'} tooltip={{ what: 'Total reasonableness reports saved to Admin dashboard', how: 'Count of all saved reports across all cost center groups' }} />
       </div>
 
       {/* ═══ STEP 1 — Parameter Selection ═══ */}
