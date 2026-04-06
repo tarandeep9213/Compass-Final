@@ -398,14 +398,14 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
                       </div>
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 3 }}>Over/(Under)</div>
-                        <strong style={{ color: lr.over > 0 ? 'var(--red, #dc2626)' : 'var(--g6, #3a9458)' }}>{fmtSigned(lr.over)}</strong>
+                        <strong style={{ color: 'var(--td)' }}>{fmtSigned(lr.over)}</strong>
                       </div>
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 3 }}>Less Cushion</div>
                         <strong>{fmtSigned(lr.cushion)}</strong>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 3 }}>Net Result</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 3 }}>Net</div>
                         <strong style={{ color: lr.net > 0 ? 'var(--red, #dc2626)' : 'var(--g6, #3a9458)' }}>{fmtSigned(lr.net)}</strong>
                       </div>
                     </div>
