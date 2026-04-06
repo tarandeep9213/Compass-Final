@@ -1,7 +1,8 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { formatCurrency, todayStr } from '../../mock/data'
 import { listLocations } from '../../api/locations'
 import { getSectionTrends } from '../../api/reports'
+import * as XLSX from 'xlsx'
 import type { SectionTrends } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 import {
@@ -87,6 +88,7 @@ export default function RcTrends({ adminName }: Props) {
   const [apiLocs,        setApiLocs]        = useState<{id:string;name:string;active:boolean;cost_center?:string|null}[]>([])
   const [fetchError,     setFetchError]     = useState('')
   const [isLoading,      setIsLoading]      = useState(false)
+  const [exporting,      setExporting]      = useState(false)
 
   useEffect(() => {
     listLocations().then(locs => setApiLocs(locs.map(l => ({
@@ -102,6 +104,47 @@ export default function RcTrends({ adminName }: Props) {
   const effectivePeriodN = useCustomRange && customFrom && customTo
     ? calcPeriodsFromRange(granularity, customFrom, customTo)
     : periodN
+
+  const exportAllSections = useCallback(async () => {
+    setExporting(true)
+    try {
+      const wb = XLSX.utils.book_new()
+      for (const sec of SECTIONS) {
+        const data = await getSectionTrends({
+          section: sec.short,
+          granularity,
+          periods: effectivePeriodN,
+          location_id: locationId === 'all' ? undefined : locationId,
+        })
+        const rows = (data.data || []).map(p => ({
+          Period: p.period,
+          'Avg Total': p.avg_total,
+          'Sum Total': p.sum_total ?? '',
+          Count: p.count ?? '',
+          'Max Value': p.max_val ?? '',
+          'Latest Value': p.latest_val ?? '',
+        }))
+        if (data.summary) {
+          rows.push({} as typeof rows[0])
+          rows.push({
+            Period: 'SUMMARY',
+            'Avg Total': data.summary.period_avg,
+            'Sum Total': data.summary.total ?? '',
+            Count: '',
+            'Max Value': data.summary.peak,
+            'Latest Value': data.summary.latest_value,
+          })
+        }
+        const ws = XLSX.utils.json_to_sheet(rows)
+        XLSX.utils.book_append_sheet(wb, ws, `${sec.short} - ${sec.label}`.slice(0, 31))
+      }
+      XLSX.writeFile(wb, `cash_trends_all_sections_${new Date().toISOString().split('T')[0]}.xlsx`)
+    } catch (err) {
+      console.error('Export failed:', err)
+    } finally {
+      setExporting(false)
+    }
+  }, [granularity, effectivePeriodN, locationId])
 
   function handleGranularityChange(g: Granularity) {
     setGranularity(g)
@@ -314,6 +357,18 @@ export default function RcTrends({ adminName }: Props) {
             </button>
           )
         })}
+      </div>
+
+      {/* ── Export All Sections ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button
+          className="btn btn-outline"
+          style={{ fontSize: 12, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={exportAllSections}
+          disabled={exporting}
+        >
+          {exporting ? '⏳ Exporting…' : '📥 Export All Sections'}
+        </button>
       </div>
 
       {/* ── KPI summary ── */}

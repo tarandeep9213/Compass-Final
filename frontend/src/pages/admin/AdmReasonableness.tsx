@@ -252,7 +252,7 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
           <table className="dtable" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Location', 'Cost Center', 'Last Test Date', 'Period Tested', 'Status', 'Notes', 'Factor', 'Prepared By', ''].map(h => (
+                {['Location', 'Cost Center', 'Last Test Date', 'Period Tested', 'Status', 'Required Action', 'Factor', 'Prepared By', ''].map(h => (
                   <th key={h} style={{
                     fontSize: 10.5, fontWeight: 700, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '.07em',
                     padding: '9px 12px', background: 'var(--bg-muted, #f7f5f0)', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap',
@@ -268,7 +268,7 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
                   </td>
                 </tr>
               ) : pagedReports.map(r => {
-                const notesPreview = r.locReports.map(lr => `${lr.locLabel}: ${(lr.conclusion || '—').slice(0, 35)}`).join(' | ')
+                const hasAction = r.locReports.some(lr => lr.requiredActions === 'yes')
                 return (
                   <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>{r.locLabels}</td>
@@ -281,7 +281,7 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
                         : <span className="badge badge-green"><span className="bdot"></span>Reasonable</span>
                       }
                     </td>
-                    <td style={{ padding: '10px 12px', fontSize: 11.5, color: 'var(--ts)', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{notesPreview}</td>
+                    <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 600, color: hasAction ? 'var(--red)' : 'var(--g7)' }}>{hasAction ? 'Yes' : 'No'}</td>
                     <td style={{ padding: '10px 12px', fontSize: 13 }}>{r.factor}×</td>
                     <td style={{ padding: '10px 12px', fontSize: 13 }}>{r.preparer}</td>
                     <td style={{ padding: '10px 12px' }}>
