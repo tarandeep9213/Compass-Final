@@ -255,7 +255,14 @@ export default function CtrlReasonableness({ controllerName }: Props) {
       const det = actionDetails[locId] || ''
       if (det.trim().length < 5) { alert('Please enter action details (min 5 characters).'); return }
     }
-    setCompleted(prev => ({ ...prev, [locId]: true }))
+    const nextCompleted = { ...completed, [locId]: true }
+    setCompleted(nextCompleted)
+
+    // Auto-save to admin when ALL locations are confirmed
+    const allDone = liveCalcRows.every(cr => nextCompleted[cr.loc.id])
+    if (allDone && !saved) {
+      handleSave()
+    }
   }
 
   // ── Save to admin dashboard ────────────────────────────────────────────
@@ -886,21 +893,27 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
           </div>
 
           {/* ── Action Buttons ── */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-            <button onClick={handleDownload}
-              style={{ padding: '10px 20px', borderRadius: 7, border: 'none', background: 'var(--g7, #1f6138)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              Generate & Download Report
-            </button>
-            <button onClick={handleSave} disabled={saved}
-              style={{ padding: '10px 20px', borderRadius: 7, border: '1.5px solid var(--g4, #52b06e)', background: 'transparent', color: 'var(--g7, #1f6138)', fontSize: 13, fontWeight: 500, cursor: saved ? 'not-allowed' : 'pointer', opacity: saved ? 0.5 : 1 }}>
-              {saved ? '✓ Saved' : 'Save to Admin Dashboard'}
-            </button>
-            {saved && (
-              <div style={{ background: '#d6f0dc', border: '1px solid #84cc96', borderRadius: 8, padding: '8px 14px', fontSize: 12.5, color: '#1a4d30', alignSelf: 'center' }}>
-                ✓ Report saved to Admin dashboard
+          {(() => {
+            const allCompleted = liveCalcRows.length > 0 && liveCalcRows.every(cr => completed[cr.loc.id])
+            return (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)', alignItems: 'center' }}>
+                <button onClick={handleDownload} disabled={!allCompleted}
+                  style={{ padding: '10px 20px', borderRadius: 7, border: 'none', background: 'var(--g7, #1f6138)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: allCompleted ? 'pointer' : 'not-allowed', opacity: allCompleted ? 1 : 0.45 }}>
+                  Generate & Download Report
+                </button>
+                {!allCompleted && (
+                  <span style={{ fontSize: 12, color: 'var(--ts)', fontStyle: 'italic' }}>
+                    Confirm & Mark Complete all locations to enable report download
+                  </span>
+                )}
+                {saved && (
+                  <div style={{ background: '#d6f0dc', border: '1px solid #84cc96', borderRadius: 8, padding: '8px 14px', fontSize: 12.5, color: '#1a4d30' }}>
+                    ✓ Report saved to Admin dashboard
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
+          })()}
         </>
       )}
     </div>
