@@ -257,6 +257,15 @@ def save_report(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid status: {body.status}. Must be 'Reasonable' or 'Overfunded'.")
 
+    # Check for duplicate — same group, same date range
+    existing = db.query(ReasonablenessReport).filter(
+        ReasonablenessReport.group_key == body.group_key,
+        ReasonablenessReport.from_date == date.fromisoformat(body.from_date),
+        ReasonablenessReport.to_date == date.fromisoformat(body.to_date),
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="A report for this location group and date range already exists.")
+
     report = ReasonablenessReport(
         id=str(uuid.uuid4()),
         group_key=body.group_key,

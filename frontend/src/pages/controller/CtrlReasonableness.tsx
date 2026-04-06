@@ -891,9 +891,9 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
               style={{ padding: '10px 20px', borderRadius: 7, border: 'none', background: 'var(--g7, #1f6138)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               Generate & Download Report
             </button>
-            <button onClick={handleSave}
-              style={{ padding: '10px 20px', borderRadius: 7, border: '1.5px solid var(--g4, #52b06e)', background: 'transparent', color: 'var(--g7, #1f6138)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-              Save to Admin Dashboard
+            <button onClick={handleSave} disabled={saved}
+              style={{ padding: '10px 20px', borderRadius: 7, border: '1.5px solid var(--g4, #52b06e)', background: 'transparent', color: 'var(--g7, #1f6138)', fontSize: 13, fontWeight: 500, cursor: saved ? 'not-allowed' : 'pointer', opacity: saved ? 0.5 : 1 }}>
+              {saved ? '✓ Saved' : 'Save to Admin Dashboard'}
             </button>
             {saved && (
               <div style={{ background: '#d6f0dc', border: '1px solid #84cc96', borderRadius: 8, padding: '8px 14px', fontSize: 12.5, color: '#1a4d30', alignSelf: 'center' }}>
