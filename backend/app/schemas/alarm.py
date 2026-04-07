@@ -146,6 +146,71 @@ class AlarmComplianceRulesOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+# ── Alarm Test schemas ────────────────────────────────────────────────────────
+
+class AlarmTestOut(BaseModel):
+    id: str
+    building_id: str
+    test_date: str
+    test_month: str
+    tester_id: str
+    tester_name: str
+    status: str
+    test_start_time: Optional[str] = None
+    test_end_time: Optional[str] = None
+    notes: Optional[str] = None
+    zones_total: int
+    zones_tested: int
+    zones_issue: int
+    submitted_at: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_by_name: Optional[str] = None
+    approved_at: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AlarmTestZoneOut(BaseModel):
+    id: str
+    alarm_test_id: str
+    alarm_zone_id: str
+    result: str
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class AlarmTestDetailOut(BaseModel):
+    test: AlarmTestOut
+    zones: list[AlarmTestZoneOut]
+    attachments: list  # placeholder for now
+
+
+class CreateAlarmTestBody(BaseModel):
+    building_id: str
+    test_date: str
+    test_month: str
+    test_start_time: Optional[str] = None
+    test_end_time: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SaveZoneResultsBody(BaseModel):
+    results: dict[str, dict]  # {zone_id: {result: str, notes: str}}
+
+
+class ApproveRejectBody(BaseModel):
+    notes: Optional[str] = None
+    reason: Optional[str] = None  # for reject
+
+
+class RejectBody(BaseModel):
+    reason: str
+
+
 # ── Access Grant schemas ──────────────────────────────────────────────────────
 
 class AlarmAccessGrantOut(BaseModel):

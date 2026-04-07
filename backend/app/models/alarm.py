@@ -49,6 +49,48 @@ class AlarmZone(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now, nullable=False)
 
 
+class AlarmTest(Base):
+    __tablename__ = "alarm_tests"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    building_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    test_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    test_month: Mapped[str] = mapped_column(String(7), nullable=False, index=True)
+    tester_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    tester_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="DRAFT")  # DRAFT, SUBMITTED, APPROVED, REJECTED
+    test_start_time: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    test_end_time: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    zones_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    zones_tested: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    zones_issue: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    submitted_at: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    approved_by_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    approved_at: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now, nullable=False)
+
+
+class AlarmTestZone(Base):
+    __tablename__ = "alarm_test_zones"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    alarm_test_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    alarm_zone_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    result: Mapped[str] = mapped_column(String(20), nullable=False)  # TESTED, NOT_TESTED, ISSUE_FOUND
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
 class AlarmAccessGrant(Base):
     __tablename__ = "alarm_access_grants"
 
