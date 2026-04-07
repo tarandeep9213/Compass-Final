@@ -146,6 +146,42 @@ class AlarmComplianceRulesOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+# ── Access Grant schemas ──────────────────────────────────────────────────────
+
+class AlarmAccessGrantOut(BaseModel):
+    id: str
+    user_id: str
+    user_name: str
+    access_type: str
+    building_ids: list[str]
+    notes: str
+    granted_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CreateAlarmAccessGrantBody(BaseModel):
+    user_id: str
+    access_type: str  # tester, approver
+    building_ids: list[str]
+    notes: str = ""
+
+
+class ImportAccessGrantsBody(BaseModel):
+    grants: list[CreateAlarmAccessGrantBody]
+
+
+class ImportAccessGrantsResponse(BaseModel):
+    imported: int
+    grants: list[AlarmAccessGrantOut]
+
+
+class AlarmUserOut(BaseModel):
+    id: str
+    name: str
+    role: str
+
+
 class UpdateAlarmComplianceRulesBody(BaseModel):
     monthly_deadline_day: Optional[int] = None
     approval_sla_days: Optional[int] = None
