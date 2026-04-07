@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Boolean, DateTime, Integer, JSON, Text
+from sqlalchemy import String, Boolean, DateTime, Float, Integer, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -46,4 +46,40 @@ class AlarmZone(Base):
     other_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now, nullable=False)
+
+
+# Default escalation/biannual/notification config stored as JSON
+_DEFAULT_ESCALATION = {
+    "tier1": {"days_before": 7, "recipients": ["tester"]},
+    "tier2": {"days_after": 0, "recipients": ["tester", "approver"]},
+    "tier3": {"days_after": 3, "recipients": ["tester", "approver", "regional"]},
+}
+
+_DEFAULT_BIANNUAL = {
+    "cellular_frequency_months": 6,
+    "camera_check_frequency_days": 30,
+    "reminder_days_before": 30,
+    "escalation": {
+        "tier1": {"days_overdue": 7, "recipients": ["tester", "approver"]},
+        "tier2": {"days_overdue": 14, "recipients": ["tester", "approver", "regional"]},
+        "tier3": {"days_overdue": 30, "recipients": ["tester", "approver", "regional", "dgm"]},
+    },
+}
+
+_DEFAULT_NOTIFICATIONS = {"enable_email": True, "enable_in_app": True}
+
+
+class AlarmComplianceRules(Base):
+    __tablename__ = "alarm_compliance_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    monthly_deadline_day: Mapped[int] = mapped_column(Integer, nullable=False, default=28)
+    approval_sla_days: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    require_all_zones_tested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    require_report_upload: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    require_approver_signoff: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    escalation: Mapped[dict] = mapped_column(JSON, nullable=False, default=lambda: _DEFAULT_ESCALATION.copy())
+    biannual: Mapped[dict] = mapped_column(JSON, nullable=False, default=lambda: _DEFAULT_BIANNUAL.copy())
+    notifications: Mapped[dict] = mapped_column(JSON, nullable=False, default=lambda: _DEFAULT_NOTIFICATIONS.copy())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now, nullable=False)
