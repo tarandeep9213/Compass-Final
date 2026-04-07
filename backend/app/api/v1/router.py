@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, locations, users, config, submissions, verifications, compliance, reports, audit, admin, business_dashboard, reasonableness, alarm_buildings, alarm_zones, alarm_rules, alarm_access, alarm_tests, alarm_audit, alarm_biannual
+from app.api.v1 import auth, locations, users, config, submissions, verifications, compliance, reports, audit, admin, business_dashboard, reasonableness, alarm_buildings, alarm_zones, alarm_rules, alarm_access, alarm_tests, alarm_audit, alarm_biannual, alarm_escalation
 
 router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
@@ -21,3 +21,4 @@ router.include_router(alarm_access.router)
 router.include_router(alarm_tests.router)
 router.include_router(alarm_audit.router)
 router.include_router(alarm_biannual.router)
+router.include_router(alarm_escalation.router)
