@@ -355,18 +355,22 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
       if (raw) visitSectionReviews = JSON.parse(raw)
     } catch { /* ignore parse errors */ }
 
-    // Use submission total as observed total
+    // Use submission total as observed total — Path A from operator, Path B from DGM's own form
     const rec = allRecords.find(r => r.id === id)
     const subTotal = rec ? getSubTotalCash(rec.locationId, rec.date) : null
+    const verifierFormTotal = sessionStorage.getItem(`verifier_form_total_${id}`)
+    const observedTotal = subTotal ?? (verifierFormTotal ? parseFloat(verifierFormTotal) : undefined)
 
     try {
-      await completeDgmVisit(id, { signature_data: cSig, notes: fullNotes || undefined, visit_section_reviews: visitSectionReviews, observed_total: subTotal ?? undefined })
+      await completeDgmVisit(id, { signature_data: cSig, notes: fullNotes || undefined, visit_section_reviews: visitSectionReviews, observed_total: observedTotal })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
       return
     }
     sessionStorage.removeItem(`visit_review_${id}`)
+    sessionStorage.removeItem(`verifier_form_${id}`)
+    sessionStorage.removeItem(`verifier_form_total_${id}`)
     setSessionUpdates(prev => ({ ...prev, [id]: { status: 'completed', observedTotal: subTotal ?? 0, notes: fullNotes, signatureData: cSig } }))
     closeExpand()
   }
@@ -649,37 +653,21 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                       {/* Expand: Complete */}
                       {isExpanded && expandAction === 'complete' && (() => {
                         const subStatus = getSubStatus(v.locationId, v.date)
-                        const subApproved = subStatus === 'approved'
+                        const isPathA = subStatus === 'pending_approval' || subStatus === 'approved'
+                        const isPathB = !subStatus || subStatus === 'rejected'
                         const reviewDone = !!sessionStorage.getItem(`visit_review_${v.id}`)
-                        const canConfirm = subApproved && reviewDone && !!cSig
+                        const verifierFormDone = !!sessionStorage.getItem(`verifier_form_${v.id}`)
+                        const canConfirm = isPathA ? (reviewDone && !!cSig) : (verifierFormDone && !!cSig)
 
                         return (
                         <tr>
                           <td colSpan={7} style={{ padding: 0, borderBottom: '1px solid var(--ow2)' }}>
                             <div style={{ background: 'var(--g0)', borderLeft: '4px solid var(--g4)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                              {/* Gate: operator submission must be approved */}
-                              {!subApproved && (
-                                <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 8, padding: '16px 20px' }}>
-                                  <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>
-                                    🔒 Submission not yet approved
-                                  </div>
-                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55, marginBottom: 12 }}>
-                                    The operator's cash count submission must be <strong>approved</strong> before this visit can be completed.
-                                    {subStatus === 'pending_approval' && ' The submission is currently pending review.'}
-                                    {subStatus === 'rejected' && ' The submission was rejected — the operator needs to resubmit.'}
-                                    {!subStatus && ' The operator has not yet submitted a cash count for this date.'}
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
-                                  </div>
-                                </div>
-                              )}
 
-                              {/* Full completion form — only when operator submission is approved */}
-                              {subApproved && (
-                                <>
-                                  {/* View submission link + Submission Total */}
-                                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                              {/* Path A: Submission exists (pending or approved) — View & Approve */}
+                              {isPathA && (
+                                <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <button className="btn btn-ghost"
                                       style={{ fontSize: 11, padding: '6px 12px' }}
                                       onClick={() => onNavigate('op-readonly', {
@@ -691,17 +679,58 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                       })}>
                                       👁 View & Approve
                                     </button>
-                                    {(() => {
-                                      const subTotal = getSubTotalCash(v.locationId, v.date)
-                                      return subTotal !== null ? (
-                                        <div>
-                                          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 4 }}>Submission Total</label>
-                                          <div style={{ fontSize: 18, fontFamily: 'DM Serif Display,serif', color: 'var(--g8)' }}>{formatCurrency(subTotal)}</div>
-                                        </div>
-                                      ) : null
-                                    })()}
+                                    {subStatus === 'approved' && <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Approved</span>}
+                                    {subStatus === 'pending_approval' && <span style={{ fontSize: 11, color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Pending approval</span>}
                                   </div>
+                                  {(() => {
+                                    const subTotal = getSubTotalCash(v.locationId, v.date)
+                                    return subTotal !== null ? (
+                                      <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 4 }}>Submission Total</label>
+                                        <div style={{ fontSize: 18, fontFamily: 'DM Serif Display,serif', color: 'var(--g8)' }}>{formatCurrency(subTotal)}</div>
+                                        <div style={{ fontSize: 10, color: 'var(--ts)' }}>from operator form</div>
+                                      </div>
+                                    ) : null
+                                  })()}
+                                </div>
+                              )}
 
+                              {/* Path B: No submission or rejected — DGM fills form */}
+                              {isPathB && (
+                                <div style={{
+                                  background: subStatus === 'rejected' ? '#fff5f5' : '#fffbeb',
+                                  border: `1px solid ${subStatus === 'rejected' ? '#fca5a5' : '#fcd34d'}`,
+                                  borderRadius: 8, padding: '16px 20px',
+                                }}>
+                                  <div style={{ fontWeight: 700, fontSize: 12, color: subStatus === 'rejected' ? 'var(--red)' : '#92400e', marginBottom: 6 }}>
+                                    {subStatus === 'rejected' ? '❌ Operator\'s form was rejected' : '📋 No operator submission'}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55, marginBottom: 12 }}>
+                                    {subStatus === 'rejected'
+                                      ? 'The operator\'s cash count was rejected. Please fill a new cash count form to complete this visit.'
+                                      : 'The operator has not submitted a cash count for this date. Please fill the form to complete this visit.'}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    {!verifierFormDone ? (
+                                      <button className="btn btn-primary" style={{ fontSize: 12 }}
+                                        onClick={() => onNavigate('op-form', {
+                                          locationId: v.locationId, date: v.date,
+                                          visitId: v.id, from: 'dgm-dash',
+                                          verifierFillMode: 'true', verifierRole: 'DGM',
+                                        })}>
+                                        📝 Fill Cash Count Form
+                                      </button>
+                                    ) : (
+                                      <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Form submitted & auto-approved</span>
+                                    )}
+                                    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Full completion form — when Path A review is done OR Path B form is done */}
+                              {((isPathA && reviewDone) || (isPathB && verifierFormDone)) && (
+                                <>
                                   <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'stretch' }}>
                                     <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column' }}>
                                       <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 5 }}>
@@ -727,7 +756,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                                   </div>
 
                                   {cErrors.api && <div style={{ fontSize: 11, color: 'var(--red)', fontWeight: 500 }}>{cErrors.api}</div>}
-                                  {!canConfirm && <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>{!reviewDone ? 'Please complete the section review via "View & Approve" first.' : 'Please sign before confirming.'}</div>}
+                                  {!canConfirm && <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>Please sign before confirming.</div>}
 
                                   <div style={{ display: 'flex', gap: 8 }}>
                                     <button className="btn btn-primary" style={{ fontSize: 12, padding: '7px 20px', opacity: canConfirm ? 1 : 0.5 }} onClick={() => handleComplete(v.id)} disabled={!canConfirm}>✓ Confirm Completion</button>

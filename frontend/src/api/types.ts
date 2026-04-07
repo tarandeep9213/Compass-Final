@@ -99,7 +99,7 @@ export interface ApiSubmission {
   approved_at: string | null
   rejection_reason: string | null
   section_reviews: Record<string, { decision: string; note: string }> | null
-  submitted_by_role: 'OPERATOR' | 'CONTROLLER'
+  submitted_by_role: 'OPERATOR' | 'CONTROLLER' | 'DGM'
   submitted_at: string | null
   created_at: string
   updated_at: string
@@ -116,7 +116,7 @@ export interface CreateSubmissionBody {
   sections: Record<string, unknown>
   variance_note: string | null
   save_as_draft: boolean
-  submitted_by_role?: 'OPERATOR' | 'CONTROLLER'
+  submitted_by_role?: 'OPERATOR' | 'CONTROLLER' | 'DGM'
 }
 
 export interface ApproveBody {

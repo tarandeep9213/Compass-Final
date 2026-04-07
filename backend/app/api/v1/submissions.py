@@ -175,10 +175,10 @@ def create_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN, UserRole.CONTROLLER) and not _has_operator_grant(current_user):
-        raise HTTPException(403, "Only operators or controllers can create submissions")
+    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DGM) and not _has_operator_grant(current_user):
+        raise HTTPException(403, "Only operators, controllers, or DGMs can create submissions")
 
-    is_controller_submission = body.submitted_by_role == "CONTROLLER" or current_user.role == UserRole.CONTROLLER
+    is_verifier_submission = current_user.role in (UserRole.CONTROLLER, UserRole.DGM)
 
     loc = db.get(Location, body.location_id)
     if not loc:
@@ -192,7 +192,7 @@ def create_submission(
     ).first()
     if existing and not body.save_as_draft:
         # Controller can replace a rejected submission with a fresh one
-        if is_controller_submission and existing.status == SubmissionStatus.REJECTED:
+        if is_verifier_submission and existing.status == SubmissionStatus.REJECTED:
             db.delete(existing)
             db.flush()
         else:
@@ -227,7 +227,7 @@ def create_submission(
     totals = _calc_totals(body.sections, expected, tolerance)
 
     # Controller submissions are auto-approved
-    if is_controller_submission and not body.save_as_draft:
+    if is_verifier_submission and not body.save_as_draft:
         initial_status = SubmissionStatus.APPROVED
     elif body.save_as_draft:
         initial_status = SubmissionStatus.DRAFT
@@ -245,14 +245,14 @@ def create_submission(
         sections=body.sections,
         variance_note=body.variance_note,
         expected_cash=expected,
-        submitted_by_role="CONTROLLER" if is_controller_submission else "OPERATOR",
+        submitted_by_role=current_user.role.value if is_verifier_submission else "OPERATOR",
         **totals,
     )
     now = datetime.now(timezone.utc)
     if not body.save_as_draft:
         s.submitted_at = now
     # Auto-approve controller submissions
-    if is_controller_submission and not body.save_as_draft:
+    if is_verifier_submission and not body.save_as_draft:
         s.approved_by = current_user.id
         s.approved_by_name = current_user.name
         s.approved_at = now
@@ -266,7 +266,7 @@ def create_submission(
     db.refresh(s)
 
     # N-01: Notify controllers assigned to this location when submitted (not draft, not controller-submitted)
-    if not body.save_as_draft and not is_controller_submission:
+    if not body.save_as_draft and not is_verifier_submission:
         reviewers = db.query(User).filter(
             User.active == True,
             User.role == UserRole.CONTROLLER,

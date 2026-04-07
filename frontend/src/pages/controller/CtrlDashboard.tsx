@@ -399,7 +399,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     // Use submission total as observed total — Path A from operator, Path B from controller's own form
     const rec = allRecords.find(r => r.id === id)
     const subTotal = rec ? getSubTotalCash(rec.locationId, rec.date) : null
-    const ctrlFormTotal = sessionStorage.getItem(`ctrl_form_total_${id}`)
+    const ctrlFormTotal = sessionStorage.getItem(`verifier_form_total_${id}`)
     const observedTotal = subTotal ?? (ctrlFormTotal ? parseFloat(ctrlFormTotal) : undefined)
 
     try {
@@ -413,7 +413,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     // Clean up session storage after successful save
     sessionStorage.removeItem(`visit_review_${id}`)
     sessionStorage.removeItem(`ctrl_form_${id}`)
-    sessionStorage.removeItem(`ctrl_form_total_${id}`)
+    sessionStorage.removeItem(`verifier_form_total_${id}`)
 
     setSessionUpdates(prev => ({
       ...prev,
@@ -864,7 +864,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                         const isPathA = subStatus === 'pending_approval' || subStatus === 'approved'
                         const isPathB = !subStatus || subStatus === 'rejected'
                         const reviewDone = !!sessionStorage.getItem(`visit_review_${v.id}`)
-                        const ctrlFormDone = !!sessionStorage.getItem(`ctrl_form_${v.id}`)
+                        const ctrlFormDone = !!sessionStorage.getItem(`verifier_form_${v.id}`)
                         const canConfirm = isPathA ? (reviewDone && !!cSig) : (ctrlFormDone && !!cSig)
 
                         return (
@@ -927,7 +927,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                         onClick={() => onNavigate('op-form', {
                                           locationId: v.locationId, date: v.date,
                                           visitId: v.id, from: 'ctrl-dashboard',
-                                          controllerFillMode: 'true',
+                                          verifierFillMode: 'true', verifierRole: 'CONTROLLER',
                                         })}>
                                         📝 Fill Cash Count Form
                                       </button>
