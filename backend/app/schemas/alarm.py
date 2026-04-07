@@ -211,6 +211,43 @@ class RejectBody(BaseModel):
     reason: str
 
 
+# ── Biannual Check schemas ────────────────────────────────────────────────────
+
+class AlarmBiannualCheckOut(BaseModel):
+    id: str
+    building_id: str
+    check_type: str
+    check_date: str
+    next_due_date: Optional[str]
+    checked_by: str
+    checked_by_name: str
+    status: str
+    days_verified: Optional[int] = None
+    notes: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CreateAlarmBiannualCheckBody(BaseModel):
+    building_id: str
+    check_type: str  # CELLULAR_BACKUP, CAMERA_BACKUP
+    check_date: str
+    status: str = "PENDING"
+    days_verified: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class BiannualStatusRow(BaseModel):
+    building_id: str
+    building_name: str
+    region: str
+    cellular_status: str  # COMPLIANT, NON_COMPLIANT, PENDING, NO_CHECK
+    cellular_next_due: Optional[str] = None
+    camera_status: str
+    camera_next_due: Optional[str] = None
+
+
 class AlarmTestAttachmentOut(BaseModel):
     id: str
     alarm_test_id: str

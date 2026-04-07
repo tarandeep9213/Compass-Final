@@ -91,6 +91,25 @@ class AlarmTestZone(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 
 
+class AlarmBiannualCheck(Base):
+    __tablename__ = "alarm_biannual_checks"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    building_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    check_type: Mapped[str] = mapped_column(String(20), nullable=False)  # CELLULAR_BACKUP, CAMERA_BACKUP
+    check_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    next_due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    checked_by: Mapped[str] = mapped_column(String(36), nullable=False, default="")
+    checked_by_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")  # COMPLIANT, NON_COMPLIANT, PENDING
+    days_verified: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
 class AlarmTestAttachment(Base):
     __tablename__ = "alarm_test_attachments"
 
