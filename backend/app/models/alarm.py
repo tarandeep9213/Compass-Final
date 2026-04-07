@@ -91,6 +91,20 @@ class AlarmTestZone(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 
 
+class AlarmTestAttachment(Base):
+    __tablename__ = "alarm_test_attachments"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    alarm_test_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    file_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_type: Mapped[str] = mapped_column(String(20), nullable=False)  # PDF, EXCEL, IMAGE
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    file_path: Mapped[str | None] = mapped_column(Text, nullable=True)  # local path or S3 key
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
 class AlarmAccessGrant(Base):
     __tablename__ = "alarm_access_grants"
 

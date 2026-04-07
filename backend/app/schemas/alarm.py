@@ -211,6 +211,17 @@ class RejectBody(BaseModel):
     reason: str
 
 
+class AlarmTestAttachmentOut(BaseModel):
+    id: str
+    alarm_test_id: str
+    file_name: str
+    file_type: str
+    file_size: int
+    uploaded_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ── Access Grant schemas ──────────────────────────────────────────────────────
 
 class AlarmAccessGrantOut(BaseModel):

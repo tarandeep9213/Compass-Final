@@ -1,16 +1,17 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
-from app.models.alarm import AlarmTest, AlarmTestZone
+from app.models.alarm import AlarmTest, AlarmTestZone, AlarmTestAttachment
 from app.schemas.alarm import (
     AlarmTestOut,
     AlarmTestDetailOut,
     AlarmTestZoneOut,
+    AlarmTestAttachmentOut,
     CreateAlarmTestBody,
     SaveZoneResultsBody,
     ApproveRejectBody,
@@ -53,10 +54,11 @@ def get_test(
     if not t:
         raise HTTPException(404, "Test not found")
     zones = db.query(AlarmTestZone).filter(AlarmTestZone.alarm_test_id == test_id).all()
+    attachments = db.query(AlarmTestAttachment).filter(AlarmTestAttachment.alarm_test_id == test_id).all()
     return AlarmTestDetailOut(
         test=t,
         zones=[AlarmTestZoneOut.model_validate(z) for z in zones],
-        attachments=[],
+        attachments=[AlarmTestAttachmentOut.model_validate(a) for a in attachments],
     )
 
 
@@ -219,3 +221,67 @@ def reopen_test(
     db.commit()
     db.refresh(t)
     return t
+
+
+# ── Attachments ──────────────────────────────────────────────────────────────
+
+def _detect_file_type(filename: str) -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext in ("xls", "xlsx", "csv"):
+        return "EXCEL"
+    if ext in ("png", "jpg", "jpeg", "gif", "webp"):
+        return "IMAGE"
+    return "PDF"
+
+
+@router.get("/{test_id}/attachments", response_model=list[AlarmTestAttachmentOut])
+def list_attachments(
+    test_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    t = db.get(AlarmTest, test_id)
+    if not t:
+        raise HTTPException(404, "Test not found")
+    return db.query(AlarmTestAttachment).filter(AlarmTestAttachment.alarm_test_id == test_id).all()
+
+
+@router.post("/{test_id}/attachments", response_model=AlarmTestAttachmentOut, status_code=201)
+async def upload_attachment(
+    test_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    t = db.get(AlarmTest, test_id)
+    if not t:
+        raise HTTPException(404, "Test not found")
+
+    content = await file.read()
+    file_size = len(content)
+
+    att = AlarmTestAttachment(
+        alarm_test_id=test_id,
+        file_name=file.filename or "unknown",
+        file_type=_detect_file_type(file.filename or ""),
+        file_size=file_size,
+    )
+    db.add(att)
+    db.commit()
+    db.refresh(att)
+    return att
+
+
+@router.delete("/{test_id}/attachments/{attachment_id}")
+def delete_attachment(
+    test_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    att = db.get(AlarmTestAttachment, attachment_id)
+    if not att or att.alarm_test_id != test_id:
+        raise HTTPException(404, "Attachment not found")
+    db.delete(att)
+    db.commit()
+    return {"deleted": attachment_id}
