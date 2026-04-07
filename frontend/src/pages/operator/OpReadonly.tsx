@@ -227,7 +227,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   // Show review form when pending approval OR in completion mode
   const isCompletionMode = ctx.completionMode === 'true'
   const showSecReview = isCompletionMode
-    ? effStatus === 'approved'
+    ? (effStatus === 'approved' || effStatus === 'pending_approval')
     : (ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard') && effStatus === 'pending_approval'
   const allDecided = SECTIONS.every(k => secDecisions[k] !== null)
   const allNoted   = SECTIONS.every(k => secDecisions[k] !== 'reject' || secNotes[k].trim() !== '')
@@ -242,6 +242,22 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
       SECTIONS.forEach(k => {
         sections[k] = { decision: secDecisions[k] as string, note: secNotes[k] }
       })
+
+      // If submission is pending, approve it inline as part of the completion flow
+      if (effStatus === 'pending_approval') {
+        const allAccepted = SECTIONS.every(k => secDecisions[k] === 'accept')
+        try {
+          if (allAccepted) {
+            await approveSubmission(sub.id)
+          } else {
+            const rejectedSections = SECTIONS.filter(k => secDecisions[k] === 'reject').map(k => `§${k}: ${secNotes[k]}`)
+            await rejectSubmission(sub.id, { reason: rejectedSections.join(' | ') || 'Rejected by controller.', section_reviews: sections })
+          }
+        } catch {
+          // If approval fails, still proceed — the review data is stored for the visit
+        }
+      }
+
       sessionStorage.setItem(`visit_review_${ctx.visitId}`, JSON.stringify(sections))
       const vid = ctx.visitId
       if (ctx.fromPanel === 'ctrl-dashboard') {

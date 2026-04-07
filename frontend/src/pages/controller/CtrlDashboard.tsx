@@ -396,12 +396,14 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
       if (raw) visitSectionReviews = JSON.parse(raw)
     } catch { /* ignore parse errors */ }
 
-    // Use submission total as observed total (controller verified the operator's count)
+    // Use submission total as observed total — Path A from operator, Path B from controller's own form
     const rec = allRecords.find(r => r.id === id)
     const subTotal = rec ? getSubTotalCash(rec.locationId, rec.date) : null
+    const ctrlFormTotal = sessionStorage.getItem(`ctrl_form_total_${id}`)
+    const observedTotal = subTotal ?? (ctrlFormTotal ? parseFloat(ctrlFormTotal) : undefined)
 
     try {
-      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning && cWarnReason ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: subTotal ?? undefined })
+      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning && cWarnReason ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: observedTotal })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
@@ -410,6 +412,8 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
     // Clean up session storage after successful save
     sessionStorage.removeItem(`visit_review_${id}`)
+    sessionStorage.removeItem(`ctrl_form_${id}`)
+    sessionStorage.removeItem(`ctrl_form_total_${id}`)
 
     setSessionUpdates(prev => ({
       ...prev,
@@ -857,9 +861,11 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                       {/* ── Expand: Complete Visit ── */}
                       {isExpanded && expandAction === 'complete' && (() => {
                         const subStatus = getSubStatus(v.locationId, v.date)
-                        const subApproved = subStatus === 'approved'
+                        const isPathA = subStatus === 'pending_approval' || subStatus === 'approved'
+                        const isPathB = !subStatus || subStatus === 'rejected'
                         const reviewDone = !!sessionStorage.getItem(`visit_review_${v.id}`)
-                        const canConfirm = subApproved && reviewDone && !!cSig
+                        const ctrlFormDone = !!sessionStorage.getItem(`ctrl_form_${v.id}`)
+                        const canConfirm = isPathA ? (reviewDone && !!cSig) : (ctrlFormDone && !!cSig)
 
                         return (
                         <tr>
@@ -868,33 +874,9 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                               background: 'var(--g0)', borderLeft: '4px solid var(--g4)',
                               padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16,
                             }}>
-                              {/* Gate: submission must be approved in Daily Review first */}
-                              {!subApproved && (
-                                <div style={{
-                                  background: '#fff5f5', border: '1px solid #fca5a5',
-                                  borderRadius: 8, padding: '16px 20px',
-                                }}>
-                                  <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--red)', marginBottom: 6 }}>
-                                    🔒 Submission not yet approved
-                                  </div>
-                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55, marginBottom: 12 }}>
-                                    The operator's cash count submission must be <strong>approved</strong> in the Daily Review Dashboard before this visit can be completed.
-                                    {subStatus === 'pending_approval' && ' The submission is currently pending your review.'}
-                                    {subStatus === 'rejected' && ' The submission was rejected — the operator needs to resubmit.'}
-                                    {!subStatus && ' The operator has not yet submitted a cash count for this date.'}
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn btn-outline" style={{ fontSize: 12 }}
-                                      onClick={() => onNavigate('ctrl-daily-report')}>
-                                      ← Go to Daily Review
-                                    </button>
-                                    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
-                                  </div>
-                                </div>
-                              )}
 
-                              {/* Submission status + View & Approve */}
-                              {subStatus && (
+                              {/* Path A: Submission exists (pending or approved) — View & Approve */}
+                              {isPathA && (
                                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <button className="btn btn-ghost"
@@ -909,7 +891,6 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                       👁 View & Approve
                                     </button>
                                     {subStatus === 'approved' && <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Approved</span>}
-                                    {subStatus === 'rejected' && <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Rejected</span>}
                                     {subStatus === 'pending_approval' && <span style={{ fontSize: 11, color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Pending approval</span>}
                                   </div>
                                   {(() => {
@@ -918,18 +899,48 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                       <div>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--td)', marginBottom: 4 }}>Submission Total</label>
                                         <div style={{ fontSize: 18, fontFamily: 'DM Serif Display,serif', color: 'var(--g8)' }}>{formatCurrency(subTotal)}</div>
-                                        <div style={{ fontSize: 10, color: 'var(--ts)' }}>from approved form</div>
+                                        <div style={{ fontSize: 10, color: 'var(--ts)' }}>from operator form</div>
                                       </div>
                                     ) : null
                                   })()}
                                 </div>
                               )}
-                              {!subStatus && (
-                                <span style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>⏳ Waiting for operator to submit</span>
+
+                              {/* Path B: No submission or rejected — Controller fills form */}
+                              {isPathB && (
+                                <div style={{
+                                  background: subStatus === 'rejected' ? '#fff5f5' : '#fffbeb',
+                                  border: `1px solid ${subStatus === 'rejected' ? '#fca5a5' : '#fcd34d'}`,
+                                  borderRadius: 8, padding: '16px 20px',
+                                }}>
+                                  <div style={{ fontWeight: 700, fontSize: 12, color: subStatus === 'rejected' ? 'var(--red)' : '#92400e', marginBottom: 6 }}>
+                                    {subStatus === 'rejected' ? '❌ Operator\'s form was rejected' : '📋 No operator submission'}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: 'var(--td)', lineHeight: 1.55, marginBottom: 12 }}>
+                                    {subStatus === 'rejected'
+                                      ? 'The operator\'s cash count was rejected. Please fill a new cash count form to complete this visit.'
+                                      : 'The operator has not submitted a cash count for this date. Please fill the form to complete this visit.'}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    {!ctrlFormDone ? (
+                                      <button className="btn btn-primary" style={{ fontSize: 12 }}
+                                        onClick={() => onNavigate('op-form', {
+                                          locationId: v.locationId, date: v.date,
+                                          visitId: v.id, from: 'ctrl-dashboard',
+                                          controllerFillMode: 'true',
+                                        })}>
+                                        📝 Fill Cash Count Form
+                                      </button>
+                                    ) : (
+                                      <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Form submitted & auto-approved</span>
+                                    )}
+                                    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={closeExpand}>Close</button>
+                                  </div>
+                                </div>
                               )}
 
-                              {/* Full completion form — only when submission is approved */}
-                              {subApproved && (
+                              {/* Full completion form — when Path A review is done OR Path B form is done */}
+                              {((isPathA && reviewDone) || (isPathB && ctrlFormDone)) && (
                                 <>
                                   {/* DOW warning */}
                                   {dowWarning && (
@@ -1019,7 +1030,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
                                   {!canConfirm && (
                                     <div style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic' }}>
-                                      {!reviewDone ? 'Please complete the section review via "View & Approve" first.' : 'Please sign before confirming.'}
+                                      Please sign before confirming.
                                     </div>
                                   )}
 

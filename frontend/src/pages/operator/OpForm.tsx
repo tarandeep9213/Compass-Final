@@ -552,9 +552,19 @@ export default function OpForm({ ctx, onNavigate }: Props) {
           sections: buildSections(),
           variance_note: requiresNote ? varianceNote.trim() : null,
           save_as_draft: false,
+          ...(ctx.controllerFillMode === 'true' ? { submitted_by_role: 'CONTROLLER' as const } : {}),
         })
         submissionId = res.id
       }
+
+      // Controller fill mode: store total for visit completion and navigate back
+      if (ctx.controllerFillMode === 'true') {
+        sessionStorage.setItem(`ctrl_form_${ctx.visitId}`, submissionId)
+        sessionStorage.setItem(`ctrl_form_total_${ctx.visitId}`, String(totalFund))
+        onNavigate('ctrl-dashboard', { expandVisitId: ctx.visitId, expandAction: 'complete' })
+        return
+      }
+
       sessionStorage.setItem(`op_status_${submissionId}`, 'pending_approval')
       sessionStorage.setItem(`op_status_${ctx.locationId}_${ctx.date}`, 'pending_approval')
       sessionStorage.setItem(`denom_${submissionId}`, JSON.stringify(denomDetail))
@@ -1324,7 +1334,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
 
           <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
             <button className="btn btn-primary" onClick={handleSubmit} disabled={totalFund === 0 || submitting}>
-              ✓ Submit for Approval
+              {ctx.controllerFillMode === 'true' ? '✓ Submit & Complete' : '✓ Submit for Approval'}
             </button>
             <button className="btn btn-outline" onClick={handleSaveDraft}>
               {editingStatus === 'pending_approval' ? '💾 Save Changes' : '💾 Save Draft'}

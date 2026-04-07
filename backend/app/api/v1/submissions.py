@@ -83,6 +83,7 @@ def _to_out(s: Submission) -> SubmissionOut:
         approved_at=s.approved_at.isoformat() if s.approved_at else None,
         rejection_reason=s.rejection_reason,
         section_reviews=s.section_reviews,
+        submitted_by_role=getattr(s, 'submitted_by_role', 'OPERATOR'),
         submitted_at=s.submitted_at.isoformat() if s.submitted_at else None,
         created_at=s.created_at.isoformat(),
         updated_at=s.updated_at.isoformat(),
@@ -174,8 +175,10 @@ def create_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN) and not _has_operator_grant(current_user):
-        raise HTTPException(403, "Only operators can create submissions")
+    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN, UserRole.CONTROLLER) and not _has_operator_grant(current_user):
+        raise HTTPException(403, "Only operators or controllers can create submissions")
+
+    is_controller_submission = body.submitted_by_role == "CONTROLLER" or current_user.role == UserRole.CONTROLLER
 
     loc = db.get(Location, body.location_id)
     if not loc:
@@ -188,7 +191,12 @@ def create_submission(
         Submission.status != SubmissionStatus.DRAFT,
     ).first()
     if existing and not body.save_as_draft:
-        raise HTTPException(409, f"A submission already exists for this location on {body.submission_date}. Use the Update feature instead.")
+        # Controller can replace a rejected submission with a fresh one
+        if is_controller_submission and existing.status == SubmissionStatus.REJECTED:
+            db.delete(existing)
+            db.flush()
+        else:
+            raise HTTPException(409, f"A submission already exists for this location on {body.submission_date}. Use the Update feature instead.")
 
     # Prevent duplicate drafts — return existing draft if one exists for same location+date+operator
     if body.save_as_draft:
@@ -218,21 +226,36 @@ def create_submission(
     expected = loc.expected_cash or 0.0
     totals = _calc_totals(body.sections, expected, tolerance)
 
+    # Controller submissions are auto-approved
+    if is_controller_submission and not body.save_as_draft:
+        initial_status = SubmissionStatus.APPROVED
+    elif body.save_as_draft:
+        initial_status = SubmissionStatus.DRAFT
+    else:
+        initial_status = SubmissionStatus.PENDING_APPROVAL
+
     s = Submission(
         location_id=body.location_id,
         location_name=loc.name,
         operator_id=current_user.id,
         operator_name=current_user.name,
         submission_date=body.submission_date,
-        status=SubmissionStatus.DRAFT if body.save_as_draft else SubmissionStatus.PENDING_APPROVAL,
+        status=initial_status,
         source=SubmissionSource(body.source),
         sections=body.sections,
         variance_note=body.variance_note,
         expected_cash=expected,
+        submitted_by_role="CONTROLLER" if is_controller_submission else "OPERATOR",
         **totals,
     )
+    now = datetime.now(timezone.utc)
     if not body.save_as_draft:
-        s.submitted_at = datetime.now(timezone.utc)
+        s.submitted_at = now
+    # Auto-approve controller submissions
+    if is_controller_submission and not body.save_as_draft:
+        s.approved_by = current_user.id
+        s.approved_by_name = current_user.name
+        s.approved_at = now
 
     db.add(s)
     log_event(db, current_user, "SUBMISSION_CREATED",
@@ -242,8 +265,8 @@ def create_submission(
     db.commit()
     db.refresh(s)
 
-    # N-01: Notify controllers assigned to this location when submitted (not draft)
-    if not body.save_as_draft:
+    # N-01: Notify controllers assigned to this location when submitted (not draft, not controller-submitted)
+    if not body.save_as_draft and not is_controller_submission:
         reviewers = db.query(User).filter(
             User.active == True,
             User.role == UserRole.CONTROLLER,
