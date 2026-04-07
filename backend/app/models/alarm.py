@@ -105,6 +105,20 @@ class AlarmAccessGrant(Base):
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 
 
+class AlarmAuditEvent(Base):
+    __tablename__ = "alarm_audit_events"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    category: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # access, building, testing, config
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    user_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    details: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False, index=True)
+
+
 # Default escalation/biannual/notification config stored as JSON
 _DEFAULT_ESCALATION = {
     "tier1": {"days_before": 7, "recipients": ["tester"]},

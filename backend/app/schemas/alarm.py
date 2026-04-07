@@ -247,6 +247,33 @@ class AlarmUserOut(BaseModel):
     role: str
 
 
+# ── Alarm Audit schemas ───────────────────────────────────────────────────────
+
+class AlarmAuditEventOut(BaseModel):
+    id: str
+    action: str
+    category: str
+    user_id: str
+    user_name: str
+    details: str
+    timestamp: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CreateAlarmAuditEventBody(BaseModel):
+    action: str
+    category: str
+    details: str
+
+
+class PaginatedAlarmAudit(BaseModel):
+    items: list[AlarmAuditEventOut]
+    total: int
+    page: int
+    page_size: int
+
+
 class UpdateAlarmComplianceRulesBody(BaseModel):
     monthly_deadline_day: Optional[int] = None
     approval_sla_days: Optional[int] = None
