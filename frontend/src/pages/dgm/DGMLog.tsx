@@ -58,6 +58,10 @@ export default function DGMLog({ dgmName, locationIds, ctx, onNavigate }: Props)
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   const [verifsLoaded, setVerifsLoaded] = useState(false)
   const [apiLocs, setApiLocs] = useState<{id:string;name:string;cost_center?:string|null}[]>([])
+
+  // Clear stale session overrides on mount so fresh API data is used
+  useEffect(() => { sessionStorage.removeItem('dgm_session_updates') }, [])
+
   useEffect(() => {
     setVerifsLoaded(false)
     listDgmVerifications({ page_size: 200 })
