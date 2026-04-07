@@ -55,3 +55,48 @@ class ImportBuildingsResponse(BaseModel):
 
 class ResetResponse(BaseModel):
     deleted: int
+
+
+# ── Zone schemas ─────────────────────────────────────────────────────────────
+
+class AlarmZoneOut(BaseModel):
+    id: str
+    building_id: str
+    zone_number: int
+    zone_name: str
+    zone_type: str
+    area_number: int
+    is_active: bool
+    other_description: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CreateAlarmZoneBody(BaseModel):
+    building_id: str
+    zone_number: int
+    zone_name: str
+    zone_type: str
+    area_number: int = 1
+    is_active: bool = True
+    other_description: Optional[str] = None
+
+
+class UpdateAlarmZoneBody(BaseModel):
+    zone_number: Optional[int] = None
+    zone_name: Optional[str] = None
+    zone_type: Optional[str] = None
+    area_number: Optional[int] = None
+    is_active: Optional[bool] = None
+    other_description: Optional[str] = None
+
+
+class ImportZonesBody(BaseModel):
+    zones: list[CreateAlarmZoneBody]
+
+
+class ImportZonesResponse(BaseModel):
+    imported: int
+    zones: list[AlarmZoneOut]

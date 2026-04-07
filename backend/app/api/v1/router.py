@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, locations, users, config, submissions, verifications, compliance, reports, audit, admin, business_dashboard, reasonableness, alarm_buildings
+from app.api.v1 import auth, locations, users, config, submissions, verifications, compliance, reports, audit, admin, business_dashboard, reasonableness, alarm_buildings, alarm_zones
 
 router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
@@ -15,3 +15,4 @@ router.include_router(admin.router)
 router.include_router(business_dashboard.router)
 router.include_router(reasonableness.router)
 router.include_router(alarm_buildings.router)
+router.include_router(alarm_zones.router)
