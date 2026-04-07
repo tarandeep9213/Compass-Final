@@ -307,7 +307,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
               color: dec === 'accept' ? 'white' : 'var(--g7)',
               border: '1.5px solid var(--g7)',
             }}
-          >✓ Accept</button>
+          >✓ Approve</button>
           <button
             onClick={() => setSecDecisions(prev => ({ ...prev, [secKey]: 'reject' }))}
             style={{
@@ -438,7 +438,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           <div className="card-body">
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, color: 'var(--ts)', marginRight: 4 }}>
-                Accept or Reject each section (A–K) below, then:
+                Approve or Reject each section (A–K) below, then:
               </span>
               <button className="btn btn-primary" style={{ padding: '8px 24px', opacity: canSubmit ? 1 : 0.45 }}
                 disabled={!canSubmit} onClick={handleSubmitReview}>
@@ -463,7 +463,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
               <div style={{ marginTop: 10, fontSize: 12, color: 'var(--amb)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>⚠️</span>
                 <span>
-                  Please <strong>Accept</strong> or <strong>Reject</strong> each section (A–K) before submitting.
+                  Please <strong>Approve</strong> or <strong>Reject</strong> each section (A–K) before submitting.
                   {' '}{SECTIONS.filter(k => secDecisions[k] === null).length} section(s) remaining.
                 </span>
               </div>

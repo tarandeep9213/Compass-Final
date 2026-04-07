@@ -457,7 +457,7 @@ export default function CtrlDgmReview({ locationIds, onNavigate }: Props) {
                                         <td style={{ padding: '7px 12px', fontWeight: 700, fontSize: 13 }}>§{k}</td>
                                         <td style={{ padding: '7px 12px', textAlign: 'center' }}>
                                           {sec?.decision === 'accept' ? (
-                                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--g7)', background: 'var(--g0)', border: '1px solid var(--g2)', padding: '2px 10px', borderRadius: 12 }}>Accept</span>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--g7)', background: 'var(--g0)', border: '1px solid var(--g2)', padding: '2px 10px', borderRadius: 12 }}>Approve</span>
                                           ) : sec?.decision === 'reject' ? (
                                             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', background: '#fff5f5', border: '1px solid #fca5a5', padding: '2px 10px', borderRadius: 12 }}>Reject</span>
                                           ) : (
