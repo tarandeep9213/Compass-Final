@@ -47,6 +47,23 @@ import AdmReasonableness from './pages/admin/AdmReasonableness'
 import AdmImport      from './pages/admin/AdmImport'
 import RcTrends       from './pages/regional-controller/RcTrends'
 import RcBizDash      from './pages/regional-controller/RcBizDash'
+// ── Alarm Testing Module (Phase 3) ───────────────────────────────────────
+import AlarmTestForm       from './pages/alarm/tester/AlarmTestForm'
+import AlarmUpload         from './pages/alarm/tester/AlarmUpload'
+import AlarmHistory        from './pages/alarm/tester/AlarmHistory'
+import BiannualCheck       from './pages/alarm/tester/BiannualCheck'
+import AlarmApproval       from './pages/alarm/approver/AlarmApproval'
+import AlarmReview         from './pages/alarm/approver/AlarmReview'
+import AlarmEscalation     from './pages/alarm/approver/AlarmEscalation'
+import AlarmOverview       from './pages/alarm/management/AlarmOverview'
+import AlarmTrends         from './pages/alarm/management/AlarmTrends'
+import AlarmDrillDown      from './pages/alarm/management/AlarmDrillDown'
+import BiannualStatus      from './pages/alarm/management/BiannualStatus'
+import AlarmZoneConfig     from './pages/alarm/admin/AlarmZoneConfig'
+import AlarmBuildingSetup  from './pages/alarm/admin/AlarmBuildingSetup'
+import AlarmComplianceRules from './pages/alarm/admin/AlarmComplianceRules'
+import AlarmUserAccess     from './pages/alarm/admin/AlarmUserAccess'
+import AlarmAuditTrail     from './pages/alarm/admin/AlarmAuditTrail'
 import './index.css'
 
 interface AuthState { userId: string; role: Role; name: string; locationIds: string[] }
@@ -63,10 +80,13 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'dashboard',    icon: '📊', label: 'Weekly Review Dashboard', panel: 'ctrl-dashboard'    },
       { id: 'dgm-review',   icon: '🔍', label: 'Review DGM Visits',      panel: 'ctrl-dgm-review'   },
       { id: 'reasonableness', icon: '🧮', label: 'Cash Reasonableness Test', panel: 'ctrl-reasonableness' },
+      { id: 'alarm-testing', icon: '🔔', label: 'Alarm Testing',          panel: 'alarm-test-form'   },
     ]
     case 'dgm': return [
       { id: 'dashboard', icon: '📊', label: 'Coverage Dashboard', panel: 'dgm-dash' },
       { id: 'history',   icon: '🕓', label: 'History',            panel: 'dgm-history' },
+      { id: 'alarm-testing',  icon: '🔔', label: 'Alarm Testing',     panel: 'alarm-test-form' },
+      { id: 'alarm-overview', icon: '🛡', label: 'Alarm Dashboard',   panel: 'alarm-overview'  },
     ]
     case 'admin': return [
       { id: 'audit',     icon: '📑', label: 'Audit Trail',   panel: 'adm-audit'    },
@@ -74,12 +94,18 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'users',     icon: '👥', label: 'Users',         panel: 'adm-users' },
       { id: 'import',    icon: '📥', label: 'Import Roster', panel: 'adm-import' },
       { id: 'reasonableness', icon: '🧮', label: 'Reasonableness Reports', panel: 'adm-reasonableness' },
+      { id: 'alarm-config',    icon: '🔔', label: 'Alarm Config',       panel: 'alarm-building-setup' },
+      { id: 'alarm-approvals', icon: '🛡', label: 'Alarm Approvals',    panel: 'alarm-approval'    },
+      { id: 'alarm-audit',     icon: '📋', label: 'Alarm Audit Trail',  panel: 'alarm-audit-trail' },
     ]
     case 'regional-controller': return [
       { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard',   panel: 'rc-biz-dash'   },
       { id: 'audit',      icon: '📑', label: 'Audit Trail',          panel: 'adm-audit' },
       { id: 'reports',    icon: '📊', label: 'Reports',              panel: 'adm-reports' },
       { id: 'trends',     icon: '📉', label: 'Cash Trends',          panel: 'rc-trends'   },
+      { id: 'alarm-overview',  icon: '🛡', label: 'Alarm Compliance',   panel: 'alarm-overview' },
+      { id: 'alarm-approvals', icon: '✅', label: 'Alarm Approvals',    panel: 'alarm-approval' },
+      { id: 'alarm-audit',     icon: '📋', label: 'Alarm Audit Trail',  panel: 'alarm-audit-trail' },
     ]
   }
 }
@@ -290,6 +316,30 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       // ── Regional Controller extra panel ──────────────────────────────
       case 'rc-trends': return <RcTrends adminName={auth.name} />
 
+      // ── Alarm Tester panels ────────────────────────────────────────
+      case 'alarm-test-form': return <AlarmTestForm userName={auth.name} locationIds={auth.locationIds} ctx={ctx} onNavigate={navigate} />
+      case 'alarm-upload':    return <AlarmUpload   ctx={ctx} onNavigate={navigate} />
+      case 'alarm-history':   return <AlarmHistory  userName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
+      case 'biannual-check':  return <BiannualCheck userName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
+
+      // ── Alarm Approver panels ──────────────────────────────────────
+      case 'alarm-approval':   return <AlarmApproval   adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-review':     return <AlarmReview     userName={auth.name} userRole={auth.role} ctx={ctx} onNavigate={navigate} />
+      case 'alarm-escalation': return <AlarmEscalation adminName={auth.name} onNavigate={navigate} />
+
+      // ── Alarm Management panels ────────────────────────────────────
+      case 'alarm-overview':   return <AlarmOverview   adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-trends':     return <AlarmTrends     adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-drilldown':  return <AlarmDrillDown  userName={auth.name} ctx={ctx} onNavigate={navigate} />
+      case 'biannual-status':  return <BiannualStatus  adminName={auth.name} onNavigate={navigate} />
+
+      // ── Alarm Admin panels ─────────────────────────────────────────
+      case 'alarm-zone-config':      return <AlarmZoneConfig     adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-building-setup':   return <AlarmBuildingSetup  adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-compliance-rules': return <AlarmComplianceRules adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-user-access':      return <AlarmUserAccess     adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-audit-trail':      return <AlarmAuditTrail    adminName={auth.name} onNavigate={navigate} />
+
       // ── All other panels (coming soon) ───────────────────────────────
       default: return <ComingSoon panel={panel} role={auth.role} />
     }
@@ -306,6 +356,12 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
     if (p === 'rc-biz-dash')    return 'biz-dash'
     if (p === 'adm-audit')      return 'adm-audit'
     if (p === 'adm-reports')    return 'adm-reports'
+    // Alarm sub-panels: map to their parent nav item
+    if (p === 'alarm-test-form' || p === 'alarm-upload' || p === 'alarm-history' || p === 'biannual-check') return 'alarm-test-form'
+    if (p === 'alarm-approval' || p === 'alarm-review' || p === 'alarm-escalation') return 'alarm-approval'
+    if (p === 'alarm-overview' || p === 'alarm-trends' || p === 'alarm-drilldown' || p === 'biannual-status') return 'alarm-overview'
+    if (p === 'alarm-audit-trail') return 'alarm-audit-trail'
+    if (p === 'alarm-zone-config' || p === 'alarm-building-setup' || p === 'alarm-compliance-rules' || p === 'alarm-user-access') return 'alarm-building-setup'
     return p
   })()
 
