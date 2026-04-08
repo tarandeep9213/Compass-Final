@@ -19,6 +19,7 @@ from app.models.access_grant import AccessGrant
 from app.models.audit import AuditEvent
 from app.models.submission import Submission
 from app.models.verification import Verification
+from app.models.reasonableness import ReasonablenessReport
 from app.schemas.config import GlobalConfigOut, LocationOverrideOut
 from app.services.email import send_email_background, send_welcome_background
 from app.services.audit import log_event
@@ -342,6 +343,7 @@ def admin_reset_all(
     grants_count = db.query(AccessGrant).delete()
     db.query(LocationToleranceOverride).delete()
     db.query(AuditEvent).delete()
+    db.query(ReasonablenessReport).delete()
     # Delete users (except current admin) and locations
     users_count = db.query(User).filter(User.id != current_user.id).delete()
     locs_count = db.query(Location).delete()
