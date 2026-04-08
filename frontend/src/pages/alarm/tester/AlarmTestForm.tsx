@@ -323,12 +323,7 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
           <p>Complete zone-by-zone testing for your assigned building</p>
         </div>
         <div className="ph-right">
-          <button className="btn btn-outline" onClick={() => onNavigate('alarm-history')}>
-            View History
-          </button>
-          <button className="btn btn-outline" onClick={() => onNavigate('biannual-check')}>
-            Biannual Checks
-          </button>
+          <button className="btn btn-outline" onClick={() => onNavigate('alarm-history')}>← Back to History</button>
         </div>
       </div>
 

@@ -80,12 +80,12 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'dashboard',    icon: '📊', label: 'Weekly Review Dashboard', panel: 'ctrl-dashboard'    },
       { id: 'dgm-review',   icon: '🔍', label: 'Review DGM Visits',      panel: 'ctrl-dgm-review'   },
       { id: 'reasonableness', icon: '🧮', label: 'Cash Reasonableness Test', panel: 'ctrl-reasonableness' },
-      { id: 'alarm-testing', icon: '🔔', label: 'Alarm Testing',          panel: 'alarm-test-form'   },
+      { id: 'alarm-testing', icon: '🔔', label: 'Alarm Testing',          panel: 'alarm-history'   },
     ]
     case 'dgm': return [
       { id: 'dashboard', icon: '📊', label: 'Coverage Dashboard', panel: 'dgm-dash' },
       { id: 'history',   icon: '🕓', label: 'History',            panel: 'dgm-history' },
-      { id: 'alarm-testing',  icon: '🔔', label: 'Alarm Testing',     panel: 'alarm-test-form' },
+      { id: 'alarm-testing',  icon: '🔔', label: 'Alarm Testing',     panel: 'alarm-history' },
       { id: 'alarm-overview', icon: '🛡', label: 'Alarm Dashboard',   panel: 'alarm-overview'  },
     ]
     case 'admin': return [
@@ -357,7 +357,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
     if (p === 'adm-audit')      return 'adm-audit'
     if (p === 'adm-reports')    return 'adm-reports'
     // Alarm sub-panels: map to their parent nav item
-    if (p === 'alarm-test-form' || p === 'alarm-upload' || p === 'alarm-history' || p === 'biannual-check') return 'alarm-test-form'
+    if (p === 'alarm-test-form' || p === 'alarm-upload' || p === 'alarm-history' || p === 'biannual-check') return 'alarm-history'
     if (p === 'alarm-approval' || p === 'alarm-review' || p === 'alarm-escalation') return 'alarm-approval'
     if (p === 'alarm-overview' || p === 'alarm-trends' || p === 'alarm-drilldown' || p === 'biannual-status') return 'alarm-overview'
     if (p === 'alarm-audit-trail') return 'alarm-audit-trail'

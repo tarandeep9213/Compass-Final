@@ -116,9 +116,11 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
       <div className="ph">
         <div>
           <h2>Alarm Test History</h2>
+          <p style={{ color: 'var(--ts)', fontSize: 13, margin: '4px 0 0' }}>View all alarm tests across your assigned buildings</p>
         </div>
-        <div className="ph-right">
-          <button className="btn btn-outline" onClick={() => onNavigate('alarm-test-form')}>← Back</button>
+        <div className="ph-right" style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-primary" onClick={() => onNavigate('alarm-test-form')}>🔔 Monthly Alarm Test</button>
+          <button className="btn btn-outline" onClick={() => onNavigate('biannual-check')}>📋 Biannual Checks</button>
         </div>
       </div>
 
