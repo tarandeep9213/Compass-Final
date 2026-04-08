@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
 from app.models.alarm import AlarmAccessGrant
+from app.api.v1.alarm_audit_helper import log_alarm_event
 from app.schemas.alarm import (
     AlarmAccessGrantOut,
     CreateAlarmAccessGrantBody,
@@ -54,6 +55,7 @@ def grant_access(
         notes=body.notes,
     )
     db.add(grant)
+    log_alarm_event(db, current_user, "ACCESS_GRANTED", "access", f"Granted {body.access_type} access to {user_name} for {len(body.building_ids)} building(s)")
     db.commit()
     db.refresh(grant)
     return grant
@@ -68,6 +70,7 @@ def revoke_access(
     grant = db.get(AlarmAccessGrant, grant_id)
     if not grant:
         raise HTTPException(404, "Access grant not found")
+    log_alarm_event(db, current_user, "ACCESS_REVOKED", "access", f"Revoked {grant.access_type} access for {grant.user_name}")
     db.delete(grant)
     db.commit()
     return {"revoked": grant_id}

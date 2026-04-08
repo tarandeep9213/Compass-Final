@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
 from app.models.alarm import AlarmComplianceRules
+from app.api.v1.alarm_audit_helper import log_alarm_event
 from app.schemas.alarm import AlarmComplianceRulesOut, UpdateAlarmComplianceRulesBody
 
 router = APIRouter(prefix="/alarm/rules", tags=["alarm-rules"])
@@ -46,6 +47,8 @@ def update_rules(
         else:
             setattr(rules, field, value)
 
+    changed = list(body.model_dump(exclude_unset=True).keys())
+    log_alarm_event(db, current_user, "RULES_UPDATED", "config", f"Compliance rules updated: {', '.join(changed)}")
     db.commit()
     db.refresh(rules)
     return rules

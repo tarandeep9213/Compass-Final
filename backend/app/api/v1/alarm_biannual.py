@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
 from app.models.alarm import AlarmBiannualCheck, AlarmBuilding
+from app.api.v1.alarm_audit_helper import log_alarm_event
 from app.schemas.alarm import (
     AlarmBiannualCheckOut,
     CreateAlarmBiannualCheckBody,
@@ -69,6 +70,7 @@ def create_biannual_check(
         notes=body.notes,
     )
     db.add(check)
+    log_alarm_event(db, current_user, "BIANNUAL_CREATED", "testing", f"{body.check_type} check created for building {body.building_id} on {body.check_date}")
     db.commit()
     db.refresh(check)
     return check
@@ -87,6 +89,7 @@ def submit_biannual_check(
         raise HTTPException(400, f"Check is {c.approval_status}, not DRAFT")
     c.approval_status = "SUBMITTED"
     c.submitted_at = datetime.now(timezone.utc).isoformat()
+    log_alarm_event(db, current_user, "BIANNUAL_SUBMITTED", "testing", f"{c.check_type} check submitted for building {c.building_id}")
     db.commit()
     db.refresh(c)
     return c
@@ -108,6 +111,7 @@ def approve_biannual_check(
     c.approved_by = current_user.id
     c.approved_by_name = current_user.name
     c.approved_at = datetime.now(timezone.utc).isoformat()
+    log_alarm_event(db, current_user, "BIANNUAL_APPROVED", "testing", f"{c.check_type} check approved for building {c.building_id}")
     db.commit()
     db.refresh(c)
     return c
@@ -127,6 +131,7 @@ def reject_biannual_check(
         raise HTTPException(400, f"Check is {c.approval_status}, not SUBMITTED")
     c.approval_status = "REJECTED"
     c.rejection_reason = body.reason
+    log_alarm_event(db, current_user, "BIANNUAL_REJECTED", "testing", f"{c.check_type} check rejected for building {c.building_id}: {body.reason}")
     db.commit()
     db.refresh(c)
     return c
@@ -146,6 +151,7 @@ def reopen_biannual_check(
     c.approval_status = "DRAFT"
     c.rejection_reason = None
     c.submitted_at = None
+    log_alarm_event(db, current_user, "BIANNUAL_REOPENED", "testing", f"{c.check_type} check reopened for building {c.building_id}")
     db.commit()
     db.refresh(c)
     return c

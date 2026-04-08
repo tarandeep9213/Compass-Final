@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
 from app.models.alarm import AlarmBuilding
+from app.api.v1.alarm_audit_helper import log_alarm_event
 from app.schemas.alarm import (
     AlarmBuildingOut,
     CreateAlarmBuildingBody,
@@ -57,6 +58,7 @@ def create_building(
         assigned_approver=body.assigned_approver,
     )
     db.add(b)
+    log_alarm_event(db, current_user, "BUILDING_ADDED", "building", f"Added building {body.name}")
     db.commit()
     db.refresh(b)
     return b
@@ -76,6 +78,7 @@ def update_building(
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(b, field, value)
 
+    log_alarm_event(db, current_user, "BUILDING_UPDATED", "building", f"Updated building {b.name}")
     db.commit()
     db.refresh(b)
     return b

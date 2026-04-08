@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
 from app.models.alarm import AlarmTest, AlarmTestZone, AlarmTestAttachment, AlarmComplianceRules, AlarmZone
+from app.api.v1.alarm_audit_helper import log_alarm_event
 from app.schemas.alarm import (
     AlarmTestOut,
     AlarmTestDetailOut,
@@ -86,6 +87,7 @@ def create_test(
         notes=body.notes,
     )
     db.add(t)
+    log_alarm_event(db, current_user, "TEST_CREATED", "testing", f"Draft test created for building {body.building_id} on {body.test_date}")
     db.commit()
     db.refresh(t)
     return t
@@ -192,6 +194,7 @@ def submit_test(
 
     t.status = "SUBMITTED"
     t.submitted_at = datetime.now(timezone.utc).isoformat()
+    log_alarm_event(db, current_user, "TEST_SUBMITTED", "testing", f"Test submitted for building {t.building_id} ({t.test_month})")
     db.commit()
     db.refresh(t)
     return t
@@ -216,6 +219,7 @@ def approve_test(
     t.approved_at = datetime.now(timezone.utc).isoformat()
     if body.notes:
         t.notes = (t.notes or "") + f"\n[Approver] {body.notes}"
+    log_alarm_event(db, current_user, "TEST_APPROVED", "testing", f"Test approved for building {t.building_id} ({t.test_month})")
     db.commit()
     db.refresh(t)
     return t
@@ -236,6 +240,7 @@ def reject_test(
 
     t.status = "REJECTED"
     t.rejection_reason = body.reason
+    log_alarm_event(db, current_user, "TEST_REJECTED", "testing", f"Test rejected for building {t.building_id} ({t.test_month}): {body.reason}")
     db.commit()
     db.refresh(t)
     return t
@@ -256,6 +261,7 @@ def reopen_test(
     t.status = "DRAFT"
     t.rejection_reason = None
     t.submitted_at = None
+    log_alarm_event(db, current_user, "TEST_REOPENED", "testing", f"Rejected test reopened for building {t.building_id} ({t.test_month})")
     db.commit()
     db.refresh(t)
     return t
