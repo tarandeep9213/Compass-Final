@@ -601,6 +601,11 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
         >
           {saving ? 'Submitting...' : 'Submit for Approval'}
         </button>
+        {!canSubmit && !saving && (
+          <span style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic', marginLeft: 8 }}>
+            {files.length === 0 ? 'Upload alarm company report first' : 'Mark at least one zone to submit'}
+          </span>
+        )}
       </div>
       </>}
     </div>
