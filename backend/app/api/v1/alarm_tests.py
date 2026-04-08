@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
-from app.models.alarm import AlarmTest, AlarmTestZone, AlarmTestAttachment
+from app.models.alarm import AlarmTest, AlarmTestZone, AlarmTestAttachment, AlarmComplianceRules, AlarmZone
 from app.schemas.alarm import (
     AlarmTestOut,
     AlarmTestDetailOut,
@@ -151,6 +151,38 @@ def submit_test(
         raise HTTPException(404, "Test not found")
     if t.status != "DRAFT":
         raise HTTPException(400, f"Test is {t.status}, not DRAFT")
+
+    # Load compliance rules
+    rules = db.get(AlarmComplianceRules, 1)
+    if not rules:
+        rules = AlarmComplianceRules(id=1)
+        db.add(rules)
+        db.commit()
+        db.refresh(rules)
+
+    # Validate: require_all_zones_tested
+    if rules.require_all_zones_tested:
+        building_zones = db.query(AlarmZone).filter(
+            AlarmZone.building_id == t.building_id, AlarmZone.is_active == True
+        ).all()
+        test_zone_results = db.query(AlarmTestZone).filter(
+            AlarmTestZone.alarm_test_id == test_id
+        ).all()
+        result_map = {tz.alarm_zone_id: tz.result for tz in test_zone_results}
+
+        if building_zones:
+            for z in building_zones:
+                result = result_map.get(z.id)
+                if not result or result == "NOT_TESTED":
+                    raise HTTPException(400, f"All zones must be tested. Zone '{z.zone_name}' (#{z.zone_number}) is untested.")
+
+    # Validate: require_report_upload
+    if rules.require_report_upload:
+        attachments = db.query(AlarmTestAttachment).filter(
+            AlarmTestAttachment.alarm_test_id == test_id
+        ).count()
+        if attachments == 0:
+            raise HTTPException(400, "A report attachment must be uploaded before submitting.")
 
     t.status = "SUBMITTED"
     t.submitted_at = datetime.now(timezone.utc).isoformat()
