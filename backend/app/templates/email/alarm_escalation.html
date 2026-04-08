@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="font-size:22px;font-weight:700;color:#991b1b;margin:0 0 14px;">🔔 Alarm Test Overdue — Tier {{ tier }} Escalation</h2>
+<p style="font-size:14px;line-height:1.75;color:#444;margin:0 0 12px;">Hi <strong>{{ name }}</strong>,</p>
+<p style="font-size:14px;line-height:1.75;color:#444;margin:0 0 20px;">The following building is <strong>overdue</strong> for its monthly alarm test and has been escalated to <strong>Tier {{ tier }}</strong>.</p>
+
+<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:18px 22px;margin:0 0 16px;">
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Building</p>
+  <p style="font-size:13px;color:#333;margin:0 0 12px;">{{ building_name }}</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Region</p>
+  <p style="font-size:13px;color:#333;margin:0 0 12px;">{{ region }}</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Days Since Last Test</p>
+  <p style="font-size:13px;color:#333;margin:0 0 12px;">{{ days_overdue }}</p>
+
+  <p style="font-size:12px;color:#888;font-weight:600;margin:0 0 2px;">Escalation Tier</p>
+  <p style="font-size:13px;color:#333;margin:0;">Tier {{ tier }}{% if tier == 1 %} — Reminder{% elif tier == 2 %} — Deadline{% elif tier == 3 %} — Critical{% endif %}</p>
+</div>
+
+<div style="background:{% if tier == 3 %}#fee2e2;border:1px solid #fca5a5{% elif tier == 2 %}#fff7ed;border:1px solid #fed7aa{% else %}#fffbeb;border:1px solid #fcd34d{% endif %};border-radius:8px;padding:14px 18px;font-size:13px;color:{% if tier == 3 %}#991b1b{% elif tier == 2 %}#9a3412{% else %}#92400e{% endif %};line-height:1.6;">
+  {% if tier == 3 %}
+  This building has been overdue for an extended period. Immediate action is required to maintain compliance.
+  {% elif tier == 2 %}
+  The monthly test deadline has passed. Please complete the alarm test as soon as possible.
+  {% else %}
+  This is a friendly reminder that the monthly alarm test is due soon. Please schedule and complete the test.
+  {% endif %}
+</div>
+{% endblock %}

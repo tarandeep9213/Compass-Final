@@ -1,13 +1,15 @@
 from datetime import date as dt_date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
-from app.models.alarm import AlarmBuilding, AlarmTest, AlarmComplianceRules
+from app.models.alarm import AlarmBuilding, AlarmTest, AlarmComplianceRules, AlarmAccessGrant
+from app.services.email import send_alarm_escalation_background
+from app.api.v1.alarm_audit_helper import log_alarm_event
 
 router = APIRouter(prefix="/alarm/escalation", tags=["alarm-escalation"])
 
@@ -113,11 +115,95 @@ def get_overdue_buildings(
 @router.post("/remind", response_model=SendReminderResponse, dependencies=_ADMIN)
 def send_reminder(
     body: SendReminderBody,
+    background: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # In production, this would send email/in-app notifications
-    # For now, just log and return success
+    building = db.get(AlarmBuilding, body.building_id)
+    building_name = building.name if building else body.building_id
+    region = building.region if building else ""
+
+    # Determine recipients based on tier
+    # Tier 1: testers assigned to this building
+    # Tier 2: testers + approvers
+    # Tier 3: testers + approvers + all RCs
+    recipient_emails: list[str] = []
+    recipient_names: list[str] = []
+
+    # Get testers from building assignments
+    if building and building.assigned_testers:
+        for tester_id in building.assigned_testers:
+            user = db.get(User, tester_id)
+            if user and user.email:
+                recipient_emails.append(user.email)
+                recipient_names.append(user.name)
+
+    # Get testers from access grants
+    tester_grants = db.query(AlarmAccessGrant).filter(
+        AlarmAccessGrant.access_type == "tester",
+    ).all()
+    for g in tester_grants:
+        if body.building_id in (g.building_ids or []):
+            user = db.get(User, g.user_id)
+            if user and user.email and user.email not in recipient_emails:
+                recipient_emails.append(user.email)
+                recipient_names.append(user.name)
+
+    # Tier 2+: add approvers
+    if body.tier >= 2:
+        if building and building.assigned_approver:
+            user = db.get(User, building.assigned_approver)
+            if user and user.email and user.email not in recipient_emails:
+                recipient_emails.append(user.email)
+                recipient_names.append(user.name)
+
+        approver_grants = db.query(AlarmAccessGrant).filter(
+            AlarmAccessGrant.access_type == "approver",
+        ).all()
+        for g in approver_grants:
+            if body.building_id in (g.building_ids or []):
+                user = db.get(User, g.user_id)
+                if user and user.email and user.email not in recipient_emails:
+                    recipient_emails.append(user.email)
+                    recipient_names.append(user.name)
+
+    # Tier 3: add all Regional Controllers
+    if body.tier >= 3:
+        rcs = db.query(User).filter(
+            User.active == True,
+            User.role == UserRole.REGIONAL_CONTROLLER,
+        ).all()
+        for rc in rcs:
+            if rc.email not in recipient_emails:
+                recipient_emails.append(rc.email)
+                recipient_names.append(rc.name)
+
+    # Calculate days overdue
+    days_overdue = 999
+    last_approved = db.query(AlarmTest).filter(
+        AlarmTest.building_id == body.building_id,
+        AlarmTest.status == "APPROVED",
+    ).order_by(AlarmTest.test_date.desc()).first()
+    if last_approved:
+        days_overdue = (dt_date.today() - dt_date.fromisoformat(last_approved.test_date)).days
+
+    # Send emails
+    if recipient_emails:
+        send_alarm_escalation_background(
+            background,
+            recipients=recipient_emails,
+            recipient_name=", ".join(recipient_names[:3]) + ("..." if len(recipient_names) > 3 else ""),
+            building_name=building_name,
+            region=region,
+            days_overdue=days_overdue,
+            tier=body.tier,
+        )
+
+    # Audit log
+    log_alarm_event(db, current_user, "ESCALATION_SENT", "testing",
+        f"Tier {body.tier} escalation for {building_name} sent to {len(recipient_emails)} recipient(s)")
+    db.commit()
+
     return SendReminderResponse(
         sent=True,
         building_id=body.building_id,

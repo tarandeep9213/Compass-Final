@@ -289,6 +289,31 @@ def send_password_changed_background(
     )
 
 
+def send_alarm_escalation_background(
+    background: BackgroundTasks,
+    recipients: list[str],
+    recipient_name: str,
+    building_name: str,
+    region: str,
+    days_overdue: int,
+    tier: int,
+) -> None:
+    tier_labels = {1: "Reminder", 2: "Deadline", 3: "Critical"}
+    send_email_background(
+        background,
+        to=recipients,
+        subject=f"Alarm Test Overdue — Tier {tier} ({tier_labels.get(tier, '')}) — {building_name}",
+        template="alarm_escalation.html",
+        ctx={
+            "name": recipient_name,
+            "building_name": building_name,
+            "region": region,
+            "days_overdue": days_overdue,
+            "tier": tier,
+        },
+    )
+
+
 def send_submission_rejected_background(
     background: BackgroundTasks,
     operator_email: str,

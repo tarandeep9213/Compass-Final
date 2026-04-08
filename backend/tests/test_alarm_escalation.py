@@ -9,6 +9,14 @@ API Endpoints:
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_rules(client):
+    token = client.post("/v1/auth/login", json={"email": "admin@compass.com", "password": "demo1234"}).json()["access_token"]
+    client.put("/v1/alarm/rules", headers={"Authorization": f"Bearer {token}"},
+        json={"require_all_zones_tested": False, "require_report_upload": False})
+    yield
+
+
 def _auth(client, email: str) -> str:
     r = client.post("/v1/auth/login", json={"email": email, "password": "demo1234"})
     assert r.status_code == 200
