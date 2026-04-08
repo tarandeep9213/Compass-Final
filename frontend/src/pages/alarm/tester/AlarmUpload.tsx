@@ -75,7 +75,7 @@ export default function AlarmUpload({ ctx, onNavigate }: Props) {
   const handleDeleteAttachment = useCallback(async (id: string) => {
     const ok = window.confirm('Delete this file?')
     if (!ok) return
-    await deleteAttachment(id)
+    await deleteAttachment(testId, id)
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }, [])
 

@@ -223,7 +223,7 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
     setFiles((prev) => prev.filter((f) => f.id !== fileId))
     // Remove from API
     try {
-      await deleteAttachment(fileId)
+      if (draftId) await deleteAttachment(draftId, fileId)
     } catch { /* silent */ }
   }
 
