@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { listTests, listAlarmBuildings } from '../../../api/alarm'
-import type { AlarmTest, AlarmBuilding } from '../../../mock/alarmData'
+import { listTests, listAlarmBuildings, listBiannualChecks } from '../../../api/alarm'
+import type { AlarmTest, AlarmBuilding, BiannualCheck } from '../../../mock/alarmData'
 import KpiCard from '../../../components/KpiCard'
 import ZoneSummaryBar from '../../../components/alarm/ZoneSummaryBar'
 import { toast } from '../../../components/ui/Toast'
@@ -50,7 +50,9 @@ function StatusBadge({ status }: { status: AlarmTest['status'] }) {
 }
 
 export default function AlarmApproval({ adminName: _adminName, onNavigate }: Props) {
+  const [activeTab, setActiveTab] = useState<'monthly' | 'biannual'>('monthly')
   const [allTests, setAllTests]     = useState<AlarmTest[]>([])
+  const [allBiannual, setAllBiannual] = useState<BiannualCheck[]>([])
   const [buildings, setBuildings]   = useState<AlarmBuilding[]>([])
   const [loading, setLoading]       = useState(true)
 
@@ -58,6 +60,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
   const [regionFilter, setRegionFilter] = useState('')
   const [sortNewest, setSortNewest]     = useState(false)
   const [page, setPage]                 = useState(1)
+  const [biPage, setBiPage]             = useState(1)
 
   // ── Load all tests in one shot ────────────────────────────────────────────
   useEffect(() => {
@@ -65,10 +68,12 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
     Promise.all([
       listTests({}),
       listAlarmBuildings(),
+      listBiannualChecks(),
     ])
-      .then(([tests, blds]) => {
+      .then(([tests, blds, biChecks]) => {
         setAllTests(tests.filter(t => t.status !== 'DRAFT'))
         setBuildings(blds)
+        setAllBiannual(biChecks.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status !== 'DRAFT'))
       })
       .catch(() => toast.error('Failed to load approval data'))
       .finally(() => setLoading(false))
@@ -137,6 +142,24 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
         </div>
       </div>
 
+      {/* ── Tab toggle ── */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
+        {(['monthly', 'biannual'] as const).map(tab => (
+          <button key={tab}
+            onClick={() => { setActiveTab(tab); setPage(1); setBiPage(1) }}
+            style={{
+              padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              border: '1.5px solid var(--g4)', borderRight: tab === 'monthly' ? 'none' : undefined,
+              borderRadius: tab === 'monthly' ? '8px 0 0 8px' : '0 8px 8px 0',
+              background: activeTab === tab ? 'var(--g7)' : '#fff',
+              color: activeTab === tab ? '#fff' : 'var(--g7)',
+            }}>
+            {tab === 'monthly' ? '🔔 Monthly Tests' : '📋 Biannual Checks'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'monthly' && <>
       {/* ── KPI row ── */}
       <div className="kpi-row">
         <KpiCard
@@ -368,6 +391,139 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
           )}
         </div>
       </div>
+      </>}
+
+      {activeTab === 'biannual' && (() => {
+        const biStatusFilter = statusFilter
+        const filtered = allBiannual.filter((c: BiannualCheck) => {
+          const approvalStatus = (c as unknown as {approval_status?: string}).approval_status || 'DRAFT'
+          if (biStatusFilter !== 'ALL' && approvalStatus !== biStatusFilter) return false
+          if (regionFilter) {
+            const bld = buildings.find(b => b.id === c.buildingId)
+            if (bld?.region !== regionFilter) return false
+          }
+          return true
+        }).sort((a, b) => b.checkDate.localeCompare(a.checkDate))
+
+        const biTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+        const biRows = filtered.slice((biPage - 1) * PAGE_SIZE, biPage * PAGE_SIZE)
+
+        const biPending = allBiannual.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status === 'SUBMITTED').length
+        const biApproved = allBiannual.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status === 'APPROVED').length
+        const biRejected = allBiannual.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status === 'REJECTED').length
+
+        return <>
+          <div className="kpi-row">
+            <KpiCard label="Pending Review" value={biPending} highlight={biPending > 0 ? 'amber' : false} accent="var(--amb)"
+              tooltip={{ what: 'Biannual checks awaiting review', how: 'Count in SUBMITTED status' }} />
+            <KpiCard label="Approved" value={biApproved} accent="var(--g5)"
+              tooltip={{ what: 'Approved biannual checks', how: 'Count in APPROVED status' }} />
+            <KpiCard label="Rejected" value={biRejected} highlight={biRejected > 0 ? 'red' : false} accent="var(--red)"
+              tooltip={{ what: 'Rejected biannual checks', how: 'Count in REJECTED status' }} />
+          </div>
+
+          {/* Status + Region filters */}
+          <div className="card">
+            <div className="card-header" style={{ gap: 10, flexWrap: 'wrap' }}>
+              {STATUS_TABS.map(tab => (
+                <button key={tab.key}
+                  className={`badge ${statusFilter === tab.key ? 'badge-green' : 'badge-gray'}`}
+                  style={{ cursor: 'pointer', fontSize: 12, padding: '5px 14px' }}
+                  onClick={() => { setStatusFilter(tab.key); setBiPage(1) }}>
+                  {tab.label}
+                  {tab.key === 'SUBMITTED' && biPending > 0 ? ` · ${biPending}` : ''}
+                </button>
+              ))}
+              {regions.length > 1 && (
+                <select className="f-sel" style={{ width: 150, marginLeft: 'auto' }} value={regionFilter}
+                  onChange={e => { setRegionFilter(e.target.value); setBiPage(1) }}>
+                  <option value="">All Regions</option>
+                  {regions.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              )}
+            </div>
+
+            {biRows.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', fontSize: 13, color: 'var(--ts)' }}>No biannual checks match your filters.</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="dt" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Building</th>
+                      <th>Type</th>
+                      <th>Result</th>
+                      <th>Status</th>
+                      <th>Checked By</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {biRows.map((c: BiannualCheck) => {
+                      const bld = buildings.find(b => b.id === c.buildingId)
+                      const approvalStatus = (c as unknown as {approval_status?: string}).approval_status || 'DRAFT'
+                      return (
+                        <tr key={c.id}>
+                          <td>{formatDate(c.checkDate)}</td>
+                          <td style={{ fontWeight: 600 }}>{bld?.name ?? c.buildingId}</td>
+                          <td>
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 12,
+                              background: c.checkType === 'CELLULAR_BACKUP' ? '#dbeafe' : '#f3e8ff',
+                              color: c.checkType === 'CELLULAR_BACKUP' ? '#1e40af' : '#6b21a8',
+                            }}>
+                              {c.checkType === 'CELLULAR_BACKUP' ? 'Cellular' : 'Camera'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 12,
+                              background: c.status === 'COMPLIANT' ? '#dcfce7' : c.status === 'NON_COMPLIANT' ? '#fef2f2' : '#fef9c3',
+                              color: c.status === 'COMPLIANT' ? '#166534' : c.status === 'NON_COMPLIANT' ? '#991b1b' : '#854d0e',
+                            }}>
+                              {c.status}
+                            </span>
+                          </td>
+                          <td>
+                            {approvalStatus === 'SUBMITTED' && <span className="badge badge-amber"><span className="bdot" />Pending</span>}
+                            {approvalStatus === 'APPROVED' && <span className="badge badge-green"><span className="bdot" />Approved</span>}
+                            {approvalStatus === 'REJECTED' && <span className="badge badge-red"><span className="bdot" />Rejected</span>}
+                          </td>
+                          <td>{c.checkedByName || '—'}</td>
+                          <td>
+                            {approvalStatus === 'SUBMITTED' && (
+                              <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}
+                                onClick={() => onNavigate('alarm-review', { biannualCheckId: c.id, fromPanel: 'alarm-approval' })}>
+                                Review
+                              </button>
+                            )}
+                            {approvalStatus === 'APPROVED' && <span style={{ fontSize: 11, color: 'var(--ts)' }}>—</span>}
+                            {approvalStatus === 'REJECTED' && <span style={{ fontSize: 11, color: 'var(--ts)' }}>Rejected</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {biTotalPages > 1 && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--ow2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--ts)' }}>{filtered.length} check{filtered.length !== 1 ? 's' : ''}</span>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }}
+                    disabled={biPage <= 1} onClick={() => setBiPage(p => p - 1)}>← Prev</button>
+                  <span style={{ fontSize: 12, padding: '4px 8px', color: 'var(--ts)' }}>{biPage} / {biTotalPages}</span>
+                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }}
+                    disabled={biPage >= biTotalPages} onClick={() => setBiPage(p => p + 1)}>Next →</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      })()}
     </div>
   )
 }
