@@ -224,6 +224,12 @@ class AlarmBiannualCheckOut(BaseModel):
     status: str
     days_verified: Optional[int] = None
     notes: Optional[str] = None
+    approval_status: str = "DRAFT"
+    submitted_at: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_by_name: Optional[str] = None
+    approved_at: Optional[str] = None
+    rejection_reason: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

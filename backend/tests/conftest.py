@@ -64,6 +64,14 @@ def setup_db():
                 db.add(Location(id=l["id"], name=l["name"], city=l["city"], address=l["address"]))
         if not db.get(SystemConfig, 1):
             db.add(SystemConfig(id=1))
+        # Ensure alarm compliance rules exist with permissive defaults
+        from app.models.alarm import AlarmComplianceRules
+        if not db.get(AlarmComplianceRules, 1):
+            db.add(AlarmComplianceRules(id=1))
+        else:
+            rules = db.get(AlarmComplianceRules, 1)
+            rules.require_all_zones_tested = False
+            rules.require_report_upload = False
         db.commit()
     finally:
         db.close()

@@ -15,6 +15,15 @@ import pytest
 from datetime import date, timedelta
 
 
+@pytest.fixture(autouse=True)
+def _reset_rules(client):
+    """Ensure permissive rules for all integration tests."""
+    token = client.post("/v1/auth/login", json={"email": "admin@compass.com", "password": "demo1234"}).json()["access_token"]
+    client.put("/v1/alarm/rules", headers={"Authorization": f"Bearer {token}"},
+        json={"require_all_zones_tested": False, "require_report_upload": False})
+    yield
+
+
 def _auth(client, email: str) -> str:
     r = client.post("/v1/auth/login", json={"email": email, "password": "demo1234"})
     assert r.status_code == 200
@@ -23,6 +32,17 @@ def _auth(client, email: str) -> str:
 
 def _h(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _biannual_approved(client, ctrl_token, admin_token, bid, check_type, check_date, status="COMPLIANT", **kwargs):
+    """Create a biannual check and submit+approve it."""
+    r = client.post("/v1/alarm/biannual", headers=_h(ctrl_token),
+        json={"building_id": bid, "check_type": check_type, "check_date": check_date, "status": status, **kwargs})
+    assert r.status_code == 201
+    cid = r.json()["id"]
+    client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_h(ctrl_token))
+    client.post(f"/v1/alarm/biannual/{cid}/approve", headers=_h(admin_token), json={"notes": "OK"})
+    return cid
 
 
 def _building(client, token, name, region="Midwest", status="active"):
@@ -240,10 +260,8 @@ class TestBiannualConsistency:
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "NO_CHECK"
 
-        # Add cellular check
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
-                  "check_date": "2026-04-08", "status": "COMPLIANT"})
+        # Add cellular check (submitted + approved)
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
 
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
@@ -254,13 +272,9 @@ class TestBiannualConsistency:
         bid = _building(client, admin_token, "BiConsist Latest")
 
         # First check: compliant
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
-                  "check_date": "2026-01-01", "status": "COMPLIANT"})
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-01-01")
         # Second check: non-compliant (later date)
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
-                  "check_date": "2026-07-01", "status": "NON_COMPLIANT"})
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-07-01", status="NON_COMPLIANT")
 
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
@@ -269,9 +283,7 @@ class TestBiannualConsistency:
     def test_biannual_in_drilldown(self, client, admin_token, controller_token):
         """Building drill-down should include biannual checks."""
         bid = _building(client, admin_token, "BiConsist Drill")
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CAMERA_BACKUP",
-                  "check_date": "2026-04-08", "status": "COMPLIANT"})
+        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-04-08")
 
         r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(admin_token))
         assert len(r.json()["biannual_checks"]) == 1
@@ -515,10 +527,8 @@ class TestFullE2EWorkflow:
         assert len(dd["tests"]) == 1
         assert dd["tests"][0]["status"] == "APPROVED"
 
-        # 17. Controller records biannual check (Screen 4)
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
-                  "check_date": today.isoformat(), "status": "COMPLIANT"})
+        # 17. Controller records biannual check (Screen 4) — submit + approve
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", today.isoformat())
 
         # 18. Verify biannual status (Screen 11)
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
@@ -744,10 +754,7 @@ class TestBiannualIndependence:
     def test_one_compliant_one_missing(self, client, admin_token, controller_token):
         bid = _building(client, admin_token, "BiIndep Building")
 
-        # Only cellular
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
-                  "check_date": "2026-04-08", "status": "COMPLIANT"})
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
 
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
@@ -757,12 +764,8 @@ class TestBiannualIndependence:
     def test_both_compliant(self, client, admin_token, controller_token):
         bid = _building(client, admin_token, "BiIndep Both")
 
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
-                  "check_date": "2026-04-08", "status": "COMPLIANT"})
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CAMERA_BACKUP",
-                  "check_date": "2026-04-08", "status": "COMPLIANT"})
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
+        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-04-08")
 
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
@@ -772,12 +775,8 @@ class TestBiannualIndependence:
     def test_mixed_compliance(self, client, admin_token, controller_token):
         bid = _building(client, admin_token, "BiIndep Mixed")
 
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
-                  "check_date": "2026-04-08", "status": "COMPLIANT"})
-        client.post("/v1/alarm/biannual", headers=_h(controller_token),
-            json={"building_id": bid, "check_type": "CAMERA_BACKUP",
-                  "check_date": "2026-04-08", "status": "NON_COMPLIANT"})
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
+        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-04-08", status="NON_COMPLIANT")
 
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)

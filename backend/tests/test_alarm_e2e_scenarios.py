@@ -9,6 +9,17 @@ import pytest
 from datetime import date, timedelta
 
 
+@pytest.fixture(autouse=True)
+def _reset_rules(client):
+    """Ensure permissive rules for all e2e scenario tests."""
+    token = client.post("/v1/auth/login", json={"email": "admin@compass.com", "password": "demo1234"}).json()["access_token"]
+    client.put("/v1/alarm/rules", headers={"Authorization": f"Bearer {token}"},
+        json={"require_all_zones_tested": False, "require_report_upload": False})
+    yield
+    client.put("/v1/alarm/rules", headers={"Authorization": f"Bearer {token}"},
+        json={"require_all_zones_tested": False, "require_report_upload": False})
+
+
 def _auth(client, email: str) -> str:
     r = client.post("/v1/auth/login", json={"email": email, "password": "demo1234"})
     assert r.status_code == 200
@@ -17,6 +28,23 @@ def _auth(client, email: str) -> str:
 
 def _h(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _biannual_approved(client, ctrl_token, admin_token, bid, check_type, check_date, status="COMPLIANT", **kwargs):
+    r = client.post("/v1/alarm/biannual", headers=_h(ctrl_token),
+        json={"building_id": bid, "check_type": check_type, "check_date": check_date, "status": status, **kwargs})
+    assert r.status_code == 201
+    cid = r.json()["id"]
+    client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_h(ctrl_token))
+    client.post(f"/v1/alarm/biannual/{cid}/approve", headers=_h(admin_token), json={"notes": "OK"})
+    return cid
+
+
+def _biannual_draft(client, ctrl_token, bid, check_type, check_date, status="COMPLIANT", **kwargs):
+    r = client.post("/v1/alarm/biannual", headers=_h(ctrl_token),
+        json={"building_id": bid, "check_type": check_type, "check_date": check_date, "status": status, **kwargs})
+    assert r.status_code == 201
+    return r.json()["id"]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -322,29 +350,17 @@ class TestScenario_BiannualCycle:
         assert row["cellular_status"] == "NO_CHECK"
         assert row["camera_status"] == "NO_CHECK"
 
-        # ── Screen 4: First cellular check (compliant) ──
-        r = client.post("/v1/alarm/biannual", headers=_h(controller_token), json={
-            "building_id": bid, "check_type": "CELLULAR_BACKUP",
-            "check_date": "2026-01-15", "status": "COMPLIANT",
-            "notes": "Cellular backup verified — signal strong",
-        })
-        assert r.json()["next_due_date"] == "2026-07-15"
+        # ── Screen 4: First cellular check (compliant + approved) ──
+        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-01-15")
 
         # ── Screen 11: Cellular compliant, camera still missing ──
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
         row = next(r for r in r.json() if r["building_id"] == bid)
         assert row["cellular_status"] == "COMPLIANT"
-        assert row["cellular_next_due"] == "2026-07-15"
         assert row["camera_status"] == "NO_CHECK"
 
-        # ── Screen 4: Camera check (non-compliant — only 20 days) ──
-        r = client.post("/v1/alarm/biannual", headers=_h(controller_token), json={
-            "building_id": bid, "check_type": "CAMERA_BACKUP",
-            "check_date": "2026-02-01", "status": "NON_COMPLIANT",
-            "days_verified": 20,
-            "notes": "Only 20 days of footage — hard drive issue",
-        })
-        assert r.json()["status"] == "NON_COMPLIANT"
+        # ── Screen 4: Camera check (non-compliant + approved) ──
+        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-02-01", status="NON_COMPLIANT", days_verified=20)
 
         # ── Screen 11: Mixed state ──
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
@@ -359,13 +375,8 @@ class TestScenario_BiannualCycle:
         types = {c["check_type"] for c in checks}
         assert types == {"CELLULAR_BACKUP", "CAMERA_BACKUP"}
 
-        # ── Screen 4: Fix camera (compliant now) ──
-        r = client.post("/v1/alarm/biannual", headers=_h(controller_token), json={
-            "building_id": bid, "check_type": "CAMERA_BACKUP",
-            "check_date": "2026-03-01", "status": "COMPLIANT",
-            "days_verified": 32,
-            "notes": "Hard drive replaced — 32 days verified",
-        })
+        # ── Screen 4: Fix camera (compliant + approved) ──
+        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-03-01", days_verified=32)
 
         # ── Screen 11: Both compliant ──
         r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))

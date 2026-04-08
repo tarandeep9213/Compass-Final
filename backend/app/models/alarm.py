@@ -106,6 +106,13 @@ class AlarmBiannualCheck(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")  # COMPLIANT, NON_COMPLIANT, PENDING
     days_verified: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Approval workflow
+    approval_status: Mapped[str] = mapped_column(String(20), nullable=False, default="DRAFT")  # DRAFT, SUBMITTED, APPROVED, REJECTED
+    submitted_at: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    approved_by_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    approved_at: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 
