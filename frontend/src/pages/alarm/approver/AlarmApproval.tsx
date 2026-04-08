@@ -422,25 +422,45 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
               tooltip={{ what: 'Rejected biannual checks', how: 'Count in REJECTED status' }} />
           </div>
 
-          {/* Status + Region filters */}
+          {/* Filters (same style as Monthly Tests tab) */}
           <div className="card">
-            <div className="card-header" style={{ gap: 10, flexWrap: 'wrap' }}>
-              {STATUS_TABS.map(tab => (
-                <button key={tab.key}
-                  className={`badge ${statusFilter === tab.key ? 'badge-green' : 'badge-gray'}`}
-                  style={{ cursor: 'pointer', fontSize: 12, padding: '5px 14px' }}
-                  onClick={() => { setStatusFilter(tab.key); setBiPage(1) }}>
-                  {tab.label}
-                  {tab.key === 'SUBMITTED' && biPending > 0 ? ` · ${biPending}` : ''}
-                </button>
-              ))}
-              {regions.length > 1 && (
-                <select className="f-sel" style={{ width: 150, marginLeft: 'auto' }} value={regionFilter}
-                  onChange={e => { setRegionFilter(e.target.value); setBiPage(1) }}>
-                  <option value="">All Regions</option>
-                  {regions.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              )}
+            {/* Row 1: Status filter tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--ow2)', padding: '0 16px' }}>
+              {STATUS_TABS.map(tab => {
+                const count = tab.key === 'ALL' ? allBiannual.length
+                  : tab.key === 'SUBMITTED' ? biPending
+                  : tab.key === 'APPROVED' ? biApproved
+                  : biRejected
+                const active = statusFilter === tab.key
+                return (
+                  <button key={tab.key}
+                    onClick={() => { setStatusFilter(tab.key); setBiPage(1) }}
+                    style={{
+                      padding: '10px 16px', fontSize: 12, fontWeight: active ? 600 : 400,
+                      cursor: 'pointer', fontFamily: 'inherit', border: 'none', outline: 'none',
+                      borderBottom: active ? '2px solid var(--g7)' : '2px solid transparent',
+                      marginBottom: -1, background: 'transparent',
+                      color: active ? 'var(--g7)' : 'var(--ts)',
+                    }}>
+                    {tab.label}
+                    <span style={{
+                      marginLeft: 6, fontSize: 11, fontWeight: 500,
+                      background: active ? 'var(--g7)' : 'var(--ow2)',
+                      color: active ? '#fff' : 'var(--ts)',
+                      borderRadius: 10, padding: '1px 7px',
+                    }}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Row 2: Region filter */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--ow2)' }}>
+              <select className="f-sel" style={{ width: 160, fontSize: 12 }} value={regionFilter}
+                onChange={e => { setRegionFilter(e.target.value); setBiPage(1) }}>
+                <option value="">All Regions</option>
+                {regions.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
             </div>
 
             {biRows.length === 0 ? (
