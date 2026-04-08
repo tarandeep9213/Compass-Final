@@ -631,12 +631,14 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                             <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)', fontWeight: 600 }} onClick={() => openExpand(v.id, 'view')}>❌ View Missed</button>
                           ) : v.status === 'scheduled' ? (() => {
                             const isPast = v.date < today
+                            const isToday = v.date === today
+                            const isFuture = v.date > today
                             // SLA window: from start of visit date + slaHours
                             const visitStartMs = new Date(v.date + 'T00:00:00').getTime()
                             const pastSlaWindow = Date.now() > visitStartMs + slaHours * 3600000
-                            const showComplete = !pastSlaWindow
+                            const showComplete = isToday && !pastSlaWindow
                             const showMiss = isPast
-                            const showCancel = !isPast
+                            const showCancel = isFuture || isToday
                             return (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                               {showComplete && <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }} onClick={() => openExpand(v.id, 'complete')}>Mark as Completed</button>}
