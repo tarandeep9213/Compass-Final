@@ -26,3 +26,4 @@ htmlcov/
 *.log
 tests/
 test.db
+uploads/

@@ -1,7 +1,13 @@
 from datetime import datetime, timezone
 
+import os
+import uuid as _uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "uploads", "alarm")
 
 from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
@@ -292,11 +298,20 @@ async def upload_attachment(
     content = await file.read()
     file_size = len(content)
 
+    # Save file to disk
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
+    stored_name = f"{_uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(UPLOAD_DIR, stored_name)
+    with open(file_path, "wb") as f:
+        f.write(content)
+
     att = AlarmTestAttachment(
         alarm_test_id=test_id,
         file_name=file.filename or "unknown",
         file_type=_detect_file_type(file.filename or ""),
         file_size=file_size,
+        file_path=stored_name,
     )
     db.add(att)
     db.commit()
@@ -314,6 +329,33 @@ def delete_attachment(
     att = db.get(AlarmTestAttachment, attachment_id)
     if not att or att.alarm_test_id != test_id:
         raise HTTPException(404, "Attachment not found")
+    # Remove file from disk
+    if att.file_path:
+        disk_path = os.path.join(UPLOAD_DIR, att.file_path)
+        if os.path.exists(disk_path):
+            os.remove(disk_path)
     db.delete(att)
     db.commit()
     return {"deleted": attachment_id}
+
+
+@router.get("/{test_id}/attachments/{attachment_id}/download")
+def download_attachment(
+    test_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    att = db.get(AlarmTestAttachment, attachment_id)
+    if not att or att.alarm_test_id != test_id:
+        raise HTTPException(404, "Attachment not found")
+    if not att.file_path:
+        raise HTTPException(404, "File not stored on disk")
+    disk_path = os.path.join(UPLOAD_DIR, att.file_path)
+    if not os.path.exists(disk_path):
+        raise HTTPException(404, "File not found on disk")
+    return FileResponse(
+        path=disk_path,
+        filename=att.file_name,
+        media_type="application/octet-stream",
+    )

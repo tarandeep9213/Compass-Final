@@ -113,4 +113,4 @@ lerna-debug.log*
 # 📁 OPTIONAL PROJECT EXCLUSIONS
 # =========================================================
 # Ignore if this is a separate project
-cashroom-poc/
+cashroom-poc/uploads/
