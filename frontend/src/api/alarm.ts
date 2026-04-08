@@ -468,6 +468,20 @@ export function createBiannualCheck(data: Partial<BiannualCheck>): Promise<Biann
   return Promise.resolve(structuredClone(check))
 }
 
+export function approveBiannualCheck(id: string): Promise<BiannualCheck> {
+  const idx = BIANNUAL_CHECKS.findIndex((c) => c.id === id)
+  if (idx === -1) return Promise.reject(new Error(`Check ${id} not found`))
+  BIANNUAL_CHECKS[idx] = { ...BIANNUAL_CHECKS[idx], status: 'COMPLIANT' }
+  return Promise.resolve(structuredClone(BIANNUAL_CHECKS[idx]))
+}
+
+export function rejectBiannualCheck(id: string, _reason: string): Promise<BiannualCheck> {
+  const idx = BIANNUAL_CHECKS.findIndex((c) => c.id === id)
+  if (idx === -1) return Promise.reject(new Error(`Check ${id} not found`))
+  BIANNUAL_CHECKS[idx] = { ...BIANNUAL_CHECKS[idx], status: 'NON_COMPLIANT' }
+  return Promise.resolve(structuredClone(BIANNUAL_CHECKS[idx]))
+}
+
 export function getBiannualStatus(): Promise<BiannualStatusRow[]> {
   const rows: BiannualStatusRow[] = ALARM_BUILDINGS.map((b) => {
     const cellular = BIANNUAL_CHECKS.filter(

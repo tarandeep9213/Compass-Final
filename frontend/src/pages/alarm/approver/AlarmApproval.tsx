@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { listTests, listAlarmBuildings, listBiannualChecks } from '../../../api/alarm'
+import { listTests, listAlarmBuildings, listBiannualChecks, approveBiannualCheck, rejectBiannualCheck } from '../../../api/alarm'
 import type { AlarmTest, AlarmBuilding, BiannualCheck } from '../../../mock/alarmData'
 import KpiCard from '../../../components/KpiCard'
 import ZoneSummaryBar from '../../../components/alarm/ZoneSummaryBar'
@@ -493,13 +493,38 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
                           <td>{c.checkedByName || '—'}</td>
                           <td>
                             {approvalStatus === 'SUBMITTED' && (
-                              <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}
-                                onClick={() => onNavigate('alarm-review', { biannualCheckId: c.id, fromPanel: 'alarm-approval' })}>
-                                Review
-                              </button>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
+                                  onClick={async () => {
+                                    try {
+                                      await approveBiannualCheck(c.id)
+                                      setAllBiannual(prev => prev.map(x => x.id === c.id ? { ...x, ...({ approval_status: 'APPROVED' } as Record<string, unknown>) } as BiannualCheck : x))
+                                      toast.success('Biannual check approved')
+                                    } catch { toast.error('Failed to approve') }
+                                  }}>
+                                  ✓ Approve
+                                </button>
+                                <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 12px', color: 'var(--red)' }}
+                                  onClick={() => {
+                                    const reason = window.prompt('Rejection reason:')
+                                    if (!reason) return
+                                    rejectBiannualCheck(c.id, reason)
+                                      .then(() => {
+                                        setAllBiannual(prev => prev.map(x => x.id === c.id ? { ...x, ...({ approval_status: 'REJECTED' } as Record<string, unknown>) } as BiannualCheck : x))
+                                        toast.success('Biannual check rejected')
+                                      })
+                                      .catch(() => toast.error('Failed to reject'))
+                                  }}>
+                                  ✗ Reject
+                                </button>
+                              </div>
                             )}
-                            {approvalStatus === 'APPROVED' && <span style={{ fontSize: 11, color: 'var(--ts)' }}>—</span>}
-                            {approvalStatus === 'REJECTED' && <span style={{ fontSize: 11, color: 'var(--ts)' }}>Rejected</span>}
+                            {approvalStatus === 'APPROVED' && <span style={{ fontSize: 11, color: 'var(--g7)', fontWeight: 600 }}>✅ Approved</span>}
+                            {approvalStatus === 'REJECTED' && (
+                              <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600 }}>
+                                ❌ Rejected{(c as unknown as {rejection_reason?: string}).rejection_reason ? `: ${(c as unknown as {rejection_reason?: string}).rejection_reason}` : ''}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       )
