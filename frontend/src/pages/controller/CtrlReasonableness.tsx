@@ -95,12 +95,11 @@ export default function CtrlReasonableness({ controllerName }: Props) {
   // RT-004: Date picker must block current and future months.
   // Latest selectable date = last day of the most recently completed month.
   const maxSelectableDate = useMemo(() => {
+    // Allow selection up to today
     const now = new Date()
-    // First day of current month, then go back 1 day = last day of previous month
-    const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0)
-    const y = lastDayPrevMonth.getFullYear()
-    const m = String(lastDayPrevMonth.getMonth() + 1).padStart(2, '0')
-    const d = String(lastDayPrevMonth.getDate()).padStart(2, '0')
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
     return `${y}-${m}-${d}`
   }, [])
 
