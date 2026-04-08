@@ -808,9 +808,10 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                               pastScheduledTime = nowMs >= schedMs
                               pastSlaWindow = nowMs > schedMs + slaHours * 3600000
                             }
-                            const showComplete = !isPast && !pastSlaWindow
-                            const showMiss = isPast || (isToday && pastScheduledTime)
-                            const showCancel = !isPast && !pastScheduledTime
+                            const isFuture = vDate > todayStr
+                            const showComplete = isToday && !pastSlaWindow
+                            const showMiss = isPast
+                            const showCancel = isFuture || (isToday && !pastScheduledTime)
 
                             return (
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
