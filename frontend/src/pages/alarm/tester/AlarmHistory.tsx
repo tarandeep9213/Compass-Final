@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { listTests, listAlarmBuildings } from '../../../api/alarm'
-import type { AlarmTest, AlarmBuilding } from '../../../mock/alarmData'
+import { listTests, listAlarmBuildings, listBiannualChecks } from '../../../api/alarm'
+import type { AlarmTest, AlarmBuilding, BiannualCheck } from '../../../mock/alarmData'
 import KpiCard from '../../../components/KpiCard'
 import ZoneSummaryBar from '../../../components/alarm/ZoneSummaryBar'
 import AlarmStatusBadge from '../../../components/alarm/AlarmStatusBadge'
@@ -31,18 +31,22 @@ function pageNums(cur: number, total: number): (number | 'gap')[] {
 }
 
 export default function AlarmHistory({ locationIds, onNavigate }: Props) {
+  const [activeTab, setActiveTab] = useState<'monthly' | 'biannual'>('monthly')
   const [tests, setTests] = useState<AlarmTest[]>([])
   const [buildings, setBuildings] = useState<AlarmBuilding[]>([])
+  const [biannualChecks, setBiannualChecks] = useState<BiannualCheck[]>([])
   const [filterBuilding, setFilterBuilding] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('All')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
   const [filterMonth, setFilterMonth] = useState('')
   const [page, setPage] = useState(0)
+  const [biPage, setBiPage] = useState(0)
 
   // ── Load data on mount ────────────────────────────────────────────────────
   useEffect(() => {
     listTests({}).then((all) => setTests(all))
     listAlarmBuildings().then((all) => setBuildings(all))
+    listBiannualChecks().then((all) => setBiannualChecks(all))
   }, [])
 
   // ── Building lookup map ───────────────────────────────────────────────────
@@ -124,6 +128,24 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
         </div>
       </div>
 
+      {/* ── Tab toggle ── */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
+        {(['monthly', 'biannual'] as const).map(tab => (
+          <button key={tab}
+            onClick={() => { setActiveTab(tab); setPage(0); setBiPage(0) }}
+            style={{
+              padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              border: '1.5px solid var(--g4)', borderRight: tab === 'monthly' ? 'none' : undefined,
+              borderRadius: tab === 'monthly' ? '8px 0 0 8px' : '0 8px 8px 0',
+              background: activeTab === tab ? 'var(--g7)' : '#fff',
+              color: activeTab === tab ? '#fff' : 'var(--g7)',
+            }}>
+            {tab === 'monthly' ? '🔔 Monthly Tests' : '📋 Biannual Checks'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'monthly' && <>
       {/* ── KPI row ── */}
       <div className="kpi-row">
         <KpiCard
@@ -363,6 +385,114 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
           </div>
         </div>
       )}
+      </>}
+
+      {activeTab === 'biannual' && (() => {
+        const filteredBi = biannualChecks
+          .filter(c => !filterBuilding || c.buildingId === filterBuilding)
+          .sort((a, b) => b.checkDate.localeCompare(a.checkDate))
+        const biTotalPages = Math.max(1, Math.ceil(filteredBi.length / PAGE_SIZE))
+        const biRows = filteredBi.slice(biPage * PAGE_SIZE, (biPage + 1) * PAGE_SIZE)
+
+        const cellularCount = biannualChecks.filter(c => c.checkType === 'CELLULAR_BACKUP').length
+        const cameraCount = biannualChecks.filter(c => c.checkType === 'CAMERA_BACKUP').length
+        const compliantCount = biannualChecks.filter(c => c.status === 'COMPLIANT').length
+
+        return <>
+          {/* KPI row */}
+          <div className="kpi-row">
+            <KpiCard label="Total Checks" value={biannualChecks.length} accent="var(--g7)"
+              tooltip={{ what: 'Total biannual checks recorded.', how: 'Count of all cellular and camera checks.' }} />
+            <KpiCard label="Cellular" value={cellularCount} accent="#2563eb"
+              tooltip={{ what: 'Cellular backup checks.', how: 'Count of CELLULAR_BACKUP type checks.' }} />
+            <KpiCard label="Camera" value={cameraCount} accent="#7c3aed"
+              tooltip={{ what: '30-day camera backup checks.', how: 'Count of CAMERA_BACKUP type checks.' }} />
+            <KpiCard label="Compliant" value={compliantCount} accent="#3a9458" highlight="green"
+              tooltip={{ what: 'Checks with COMPLIANT status.', how: 'Count of passing checks.' }} />
+          </div>
+
+          {/* Filter */}
+          <div className="card">
+            <div className="card-header" style={{ gap: 12 }}>
+              <select className="f-sel" style={{ width: 200 }} value={filterBuilding}
+                onChange={e => { setFilterBuilding(e.target.value); setBiPage(0) }}>
+                <option value="">All Buildings</option>
+                {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+
+            {biRows.length === 0 ? (
+              <EmptyState icon="📋" title="No biannual checks found" subtitle="Record a cellular or camera backup check to see it here." />
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="dt" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Building</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Checked By</th>
+                      <th>Next Due</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {biRows.map(c => {
+                      const bld = buildings.find(b => b.id === c.buildingId)
+                      return (
+                        <tr key={c.id}>
+                          <td>{new Date(c.checkDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                          <td style={{ fontWeight: 600 }}>{bld?.name ?? c.buildingId}</td>
+                          <td>
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 12,
+                              background: c.checkType === 'CELLULAR_BACKUP' ? '#dbeafe' : '#f3e8ff',
+                              color: c.checkType === 'CELLULAR_BACKUP' ? '#1e40af' : '#6b21a8',
+                            }}>
+                              {c.checkType === 'CELLULAR_BACKUP' ? 'Cellular' : 'Camera'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 12,
+                              background: c.status === 'COMPLIANT' ? '#dcfce7' : c.status === 'NON_COMPLIANT' ? '#fef2f2' : '#fef9c3',
+                              color: c.status === 'COMPLIANT' ? '#166534' : c.status === 'NON_COMPLIANT' ? '#991b1b' : '#854d0e',
+                            }}>
+                              {c.status === 'COMPLIANT' ? '✅ Compliant' : c.status === 'NON_COMPLIANT' ? '❌ Non-Compliant' : '⏳ Pending'}
+                            </span>
+                          </td>
+                          <td>{c.checkedByName || '—'}</td>
+                          <td>{c.nextDueDate ? new Date(c.nextDueDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                          <td style={{ color: 'var(--ts)', fontSize: 12 }}>{c.notes || '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {biTotalPages > 1 && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--ow2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--ts)' }}>
+                  {filteredBi.length} check{filteredBi.length !== 1 ? 's' : ''}
+                </span>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }}
+                    disabled={biPage === 0} onClick={() => setBiPage(p => p - 1)}>← Prev</button>
+                  <span style={{ fontSize: 12, padding: '4px 8px', color: 'var(--ts)' }}>
+                    {biPage + 1} / {biTotalPages}
+                  </span>
+                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 12px' }}
+                    disabled={biPage >= biTotalPages - 1} onClick={() => setBiPage(p => p + 1)}>Next →</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      })()}
     </div>
   )
 }
