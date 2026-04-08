@@ -20,6 +20,11 @@ from app.models.audit import AuditEvent
 from app.models.submission import Submission
 from app.models.verification import Verification
 from app.models.reasonableness import ReasonablenessReport
+from app.models.submission import MissedSubmission
+from app.models.alarm import (
+    AlarmBuilding, AlarmZone, AlarmTest, AlarmTestZone, AlarmTestAttachment,
+    AlarmBiannualCheck, AlarmAccessGrant, AlarmAuditEvent, AlarmComplianceRules,
+)
 from app.schemas.config import GlobalConfigOut, LocationOverrideOut
 from app.services.email import send_email_background, send_welcome_background
 from app.services.audit import log_event
@@ -337,13 +342,24 @@ def admin_reset_all(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Delete all dependent data first
+    # Delete all dependent data first — order matters for foreign key safety
     subs_count = db.query(Submission).delete()
     verifs_count = db.query(Verification).delete()
     grants_count = db.query(AccessGrant).delete()
     db.query(LocationToleranceOverride).delete()
     db.query(AuditEvent).delete()
     db.query(ReasonablenessReport).delete()
+    db.query(MissedSubmission).delete()
+    # Alarm module tables
+    db.query(AlarmTestZone).delete()
+    db.query(AlarmTestAttachment).delete()
+    db.query(AlarmTest).delete()
+    db.query(AlarmBiannualCheck).delete()
+    db.query(AlarmAccessGrant).delete()
+    db.query(AlarmAuditEvent).delete()
+    db.query(AlarmZone).delete()
+    db.query(AlarmBuilding).delete()
+    db.query(AlarmComplianceRules).delete()
     # Delete users (except current admin) and locations
     users_count = db.query(User).filter(User.id != current_user.id).delete()
     locs_count = db.query(Location).delete()
