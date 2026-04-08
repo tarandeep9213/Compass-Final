@@ -73,7 +73,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
       .then(([tests, blds, biChecks]) => {
         setAllTests(tests.filter(t => t.status !== 'DRAFT'))
         setBuildings(blds)
-        setAllBiannual(biChecks.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status !== 'DRAFT'))
+        setAllBiannual(biChecks)
       })
       .catch(() => toast.error('Failed to load approval data'))
       .finally(() => setLoading(false))
@@ -396,7 +396,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
       {activeTab === 'biannual' && (() => {
         const biStatusFilter = statusFilter
         const filtered = allBiannual.filter((c: BiannualCheck) => {
-          const approvalStatus = (c as unknown as {approval_status?: string}).approval_status || 'DRAFT'
+          const approvalStatus = ((c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED') || 'DRAFT'
           if (biStatusFilter !== 'ALL' && approvalStatus !== biStatusFilter) return false
           if (regionFilter) {
             const bld = buildings.find(b => b.id === c.buildingId)
@@ -408,9 +408,9 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
         const biTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
         const biRows = filtered.slice((biPage - 1) * PAGE_SIZE, biPage * PAGE_SIZE)
 
-        const biPending = allBiannual.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status === 'SUBMITTED').length
-        const biApproved = allBiannual.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status === 'APPROVED').length
-        const biRejected = allBiannual.filter((c: BiannualCheck) => (c as unknown as {approval_status?: string}).approval_status === 'REJECTED').length
+        const biPending = allBiannual.filter((c: BiannualCheck) => ((c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED') === 'SUBMITTED').length
+        const biApproved = allBiannual.filter((c: BiannualCheck) => ((c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED') === 'APPROVED').length
+        const biRejected = allBiannual.filter((c: BiannualCheck) => ((c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED') === 'REJECTED').length
 
         return <>
           <div className="kpi-row">
@@ -462,7 +462,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
                   <tbody>
                     {biRows.map((c: BiannualCheck) => {
                       const bld = buildings.find(b => b.id === c.buildingId)
-                      const approvalStatus = (c as unknown as {approval_status?: string}).approval_status || 'DRAFT'
+                      const approvalStatus = ((c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED') || 'DRAFT'
                       return (
                         <tr key={c.id}>
                           <td>{formatDate(c.checkDate)}</td>
