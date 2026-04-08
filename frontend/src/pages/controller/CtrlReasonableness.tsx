@@ -514,9 +514,9 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
 
       {/* ═══ STEP 1 — Parameter Selection ═══ */}
       {step === 1 && (
-        <div className="card">
-          <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600 }}>Step 1 — Select Parameters</span>
+        <div className="card" style={{ border: '1.5px solid var(--g3)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ padding: '13px 16px', borderBottom: '1.5px solid var(--g2)', background: 'var(--g0)' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--g8)' }}>Step 1 — Select Parameters</span>
           </div>
           <div style={{ padding: 16, maxWidth: 700 }}>
             {error && (
@@ -621,9 +621,9 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
           </div>
 
           {/* ── Calculation Table ── */}
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Step 2 — Reasonableness Calculation</span>
+          <div className="card" style={{ marginBottom: 16, border: '1.5px solid var(--g3)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ padding: '13px 16px', borderBottom: '1.5px solid var(--g2)', background: 'var(--g0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--g8)' }}>Step 2 — Reasonableness Calculation</span>
               <span style={{ fontSize: 12, color: 'var(--ts)' }}>{fmtDate(fromDate)} – {fmtDate(toDate)}</span>
             </div>
             <div style={{ padding: 16, overflowX: 'auto' }}>
