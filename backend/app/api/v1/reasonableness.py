@@ -60,12 +60,24 @@ def compute_max_values(submissions: list[dict]) -> dict:
         sec = sub.get("sections", {}).get(key, {})
         if isinstance(sec, dict):
             return float(sec.get("total", 0))
+        if isinstance(sec, (int, float)):
+            return float(sec)
+        return 0.0
+
+    def _sec_scalar(sub: dict, key: str) -> float:
+        """Get a top-level scalar value from sections (e.g. replenishment, coin_transit)."""
+        val = sub.get("sections", {}).get(key, 0)
+        if isinstance(val, (int, float)):
+            return float(val)
+        if isinstance(val, dict):
+            return float(val.get("total", 0))
         return 0.0
 
     max_f = max(_sec_total(s, "F") for s in submissions)
     max_h = max(_sec_total(s, "H") for s in submissions)
-    max_j = max(_sec_total(s, "J") for s in submissions)
-    max_k = 0.0  # K defaults to 0 per spec
+    # J = replenishment, K = coin_transit (stored as top-level scalars in sections)
+    max_j = max(max(_sec_total(s, "J") for s in submissions), max(_sec_scalar(s, "replenishment") for s in submissions))
+    max_k = max(max(_sec_total(s, "K") for s in submissions), max(_sec_scalar(s, "coin_transit") for s in submissions))
     total = max_f + max_h + max_j + max_k
 
     actual_fund = max(float(s.get("total_cash", 0)) for s in submissions)
