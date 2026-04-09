@@ -35,13 +35,14 @@ export default function CtrlReasonableness({ controllerName }: Props) {
   // ── API vs mock mode ─────────────────────────────────────────────────
   const [apiGroups, setApiGroups] = useState<LocationGroupApi[] | null>(null)
   const [apiReportCount, setApiReportCount] = useState<number | null>(null)
+  const [groupsLoading, setGroupsLoading] = useState(true)
   const useApi = !!getToken() && apiGroups !== null
 
   useEffect(() => {
-    if (!getToken()) return  // demo mode — use mock data
+    if (!getToken()) { setGroupsLoading(false); return }  // demo mode — use mock data
     getLocationGroups()
-      .then(groups => setApiGroups(groups))
-      .catch(() => setApiGroups(null))  // fallback to mock
+      .then(groups => { setApiGroups(groups); setGroupsLoading(false) })
+      .catch(() => { setApiGroups(null); setGroupsLoading(false) })  // fallback to mock
     listReports({})
       .then(r => setApiReportCount(r.total ?? r.items.length))
       .catch(() => {})
@@ -507,7 +508,7 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
         <KpiCard label="Quarterly Test" value={<span style={{ fontSize: 18 }}>{periodLabel || 'Select dates'}</span>} tooltip={{ what: 'Fiscal period for this reasonableness test', how: 'Fiscal year runs Oct 1 – Sep 30. Periods P1 (Oct) through P12 (Sep).' }} />
-        <KpiCard label="Locations" value={String(locationGroups.reduce((s, g) => s + g.subLocs.length, 0))} sub="active cash rooms" tooltip={{ what: 'Number of active cash room locations', how: 'Count of all sub-locations across all cost center groups' }} />
+        <KpiCard label="Locations" value={groupsLoading ? '—' : String(locationGroups.reduce((s, g) => s + g.subLocs.length, 0))} sub="active cash rooms" tooltip={{ what: 'Number of active cash room locations', how: 'Count of all sub-locations across your assigned cost center groups' }} />
         <KpiCard label="Reports Saved" value={String(apiReportCount ?? 0)} highlight={(apiReportCount ?? 0) > 0 ? 'green' : 'gray'} tooltip={{ what: 'Total reasonableness reports saved to Admin dashboard', how: 'Count of all saved reports across all cost center groups' }} />
       </div>
 
