@@ -41,6 +41,7 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
   const [filterMonth, setFilterMonth] = useState('')
   const [page, setPage] = useState(0)
   const [biPage, setBiPage] = useState(0)
+  const [biFilterStatus, setBiFilterStatus] = useState<string>('All')
 
   // ── Load data on mount ────────────────────────────────────────────────────
   useEffect(() => {
@@ -304,6 +305,17 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
                           >
                             Continue
                           </button>
+                        ) : test.status === 'REJECTED' ? (
+                          <button
+                            className="btn btn-outline"
+                            style={{ fontSize: 12, padding: '4px 12px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onNavigate('alarm-test-form', { testId: test.id, buildingId: test.buildingId })
+                            }}
+                          >
+                            Fix &amp; Resubmit
+                          </button>
                         ) : (
                           <button
                             className="btn btn-ghost"
@@ -388,15 +400,18 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
       </>}
 
       {activeTab === 'biannual' && (() => {
+        const getApprovalStatus = (c: BiannualCheck) => c.approval_status || 'SUBMITTED'
         const filteredBi = biannualChecks
           .filter(c => !filterBuilding || c.buildingId === filterBuilding)
+          .filter(c => biFilterStatus === 'All' || getApprovalStatus(c) === biFilterStatus)
           .sort((a, b) => b.checkDate.localeCompare(a.checkDate))
         const biTotalPages = Math.max(1, Math.ceil(filteredBi.length / PAGE_SIZE))
         const biRows = filteredBi.slice(biPage * PAGE_SIZE, (biPage + 1) * PAGE_SIZE)
 
         const cellularCount = biannualChecks.filter(c => c.checkType === 'CELLULAR_BACKUP').length
         const cameraCount = biannualChecks.filter(c => c.checkType === 'CAMERA_BACKUP').length
-        const compliantCount = biannualChecks.filter(c => c.status === 'COMPLIANT').length
+        const biPendingCount = biannualChecks.filter(c => getApprovalStatus(c) === 'SUBMITTED').length
+        const biRejectedCount = biannualChecks.filter(c => getApprovalStatus(c) === 'REJECTED').length
 
         return <>
           {/* KPI row */}
@@ -407,22 +422,38 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
               tooltip={{ what: 'Cellular backup checks.', how: 'Count of CELLULAR_BACKUP type checks.' }} />
             <KpiCard label="Camera" value={cameraCount} accent="#7c3aed"
               tooltip={{ what: '30-day camera backup checks.', how: 'Count of CAMERA_BACKUP type checks.' }} />
-            <KpiCard label="Compliant" value={compliantCount} accent="#3a9458" highlight="green"
-              tooltip={{ what: 'Checks with COMPLIANT status.', how: 'Count of passing checks.' }} />
+            <KpiCard label="Pending Review" value={biPendingCount} accent="#d97706"
+              tooltip={{ what: 'Checks awaiting approval.', how: 'Count of checks with SUBMITTED approval status.' }} />
+            <KpiCard label="Rejected" value={biRejectedCount} accent="#dc2626"
+              tooltip={{ what: 'Checks that were rejected.', how: 'Count of checks with REJECTED approval status.' }} />
           </div>
 
           {/* Filter */}
           <div className="card">
-            <div className="card-header" style={{ gap: 12 }}>
+            <div className="card-header" style={{ flexWrap: 'wrap', gap: 12 }}>
               <select className="f-sel" style={{ width: 200 }} value={filterBuilding}
                 onChange={e => { setFilterBuilding(e.target.value); setBiPage(0) }}>
                 <option value="">All Buildings</option>
                 {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
+
+              {/* Status pills */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                {STATUS_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    style={pillStyle(biFilterStatus === s)}
+                    onClick={() => { setBiFilterStatus(s); setBiPage(0) }}
+                  >
+                    {STATUS_LABELS[s]}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {biRows.length === 0 ? (
-              <EmptyState icon="📋" title="No biannual checks found" subtitle="Record a cellular or camera backup check to see it here." />
+              <EmptyState icon="📋" title="No biannual checks found" subtitle="Adjust your filters or record a new check." />
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="dt" style={{ width: '100%' }}>
@@ -431,15 +462,17 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
                       <th>Date</th>
                       <th>Building</th>
                       <th>Type</th>
+                      <th>Result</th>
                       <th>Status</th>
                       <th>Checked By</th>
                       <th>Next Due</th>
-                      <th>Notes</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {biRows.map(c => {
                       const bld = buildings.find(b => b.id === c.buildingId)
+                      const approvalSt = getApprovalStatus(c)
                       return (
                         <tr key={c.id}>
                           <td>{new Date(c.checkDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
@@ -459,12 +492,41 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
                               background: c.status === 'COMPLIANT' ? '#dcfce7' : c.status === 'NON_COMPLIANT' ? '#fef2f2' : '#fef9c3',
                               color: c.status === 'COMPLIANT' ? '#166534' : c.status === 'NON_COMPLIANT' ? '#991b1b' : '#854d0e',
                             }}>
-                              {c.status === 'COMPLIANT' ? '✅ Compliant' : c.status === 'NON_COMPLIANT' ? '❌ Non-Compliant' : '⏳ Pending'}
+                              {c.status === 'COMPLIANT' ? 'Compliant' : c.status === 'NON_COMPLIANT' ? 'Non-Compliant' : 'Pending'}
                             </span>
+                          </td>
+                          <td>
+                            <AlarmStatusBadge status={approvalSt} />
                           </td>
                           <td>{c.checkedByName || '—'}</td>
                           <td>{c.nextDueDate ? new Date(c.nextDueDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
-                          <td style={{ color: 'var(--ts)', fontSize: 12 }}>{c.notes || '—'}</td>
+                          <td>
+                            {approvalSt === 'DRAFT' ? (
+                              <button
+                                className="btn btn-primary"
+                                style={{ fontSize: 12, padding: '4px 12px' }}
+                                onClick={() => onNavigate('biannual-check', { buildingId: c.buildingId })}
+                              >
+                                Continue
+                              </button>
+                            ) : approvalSt === 'REJECTED' ? (
+                              <button
+                                className="btn btn-outline"
+                                style={{ fontSize: 12, padding: '4px 12px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                                onClick={() => onNavigate('biannual-check', { buildingId: c.buildingId })}
+                              >
+                                Fix &amp; Resubmit
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-ghost"
+                                style={{ fontSize: 12, padding: '4px 12px' }}
+                                onClick={() => onNavigate('biannual-check', { buildingId: c.buildingId })}
+                              >
+                                View
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       )
                     })}

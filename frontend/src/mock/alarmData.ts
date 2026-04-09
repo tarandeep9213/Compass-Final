@@ -88,6 +88,8 @@ export interface BiannualCheck {
   checkedBy: string;
   checkedByName: string;
   status: 'COMPLIANT' | 'NON_COMPLIANT' | 'PENDING';
+  approval_status?: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  rejection_reason?: string;
   evidencePath?: string;
   notes?: string;
 }
@@ -1631,50 +1633,50 @@ export const ALARM_TEST_ZONES: AlarmTestZone[] = [
 
 export const BIANNUAL_CHECKS: BiannualCheck[] = [
   // Wausau
-  { id: 'bi-wausau-cell', buildingId: 'bld-wausau', checkType: 'CELLULAR_BACKUP', checkDate: '2025-12-15', nextDueDate: '2026-06-15', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', evidencePath: '/reports/biannual/wausau_cellular_dec2025.pdf', notes: 'Cellular backup test successful. Signal strength nominal.' },
-  { id: 'bi-wausau-cam', buildingId: 'bld-wausau', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-01', nextDueDate: '2026-03-31', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'COMPLIANT', evidencePath: '/reports/biannual/wausau_camera_mar2026.pdf', notes: 'All 8 cameras recording and backed up to cloud.' },
+  { id: 'bi-wausau-cell', buildingId: 'bld-wausau', checkType: 'CELLULAR_BACKUP', checkDate: '2025-12-15', nextDueDate: '2026-06-15', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/wausau_cellular_dec2025.pdf', notes: 'Cellular backup test successful. Signal strength nominal.' },
+  { id: 'bi-wausau-cam', buildingId: 'bld-wausau', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-01', nextDueDate: '2026-03-31', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'COMPLIANT', approval_status: 'SUBMITTED', evidencePath: '/reports/biannual/wausau_camera_mar2026.pdf', notes: 'All 8 cameras recording and backed up to cloud.' },
 
   // Madison
-  { id: 'bi-madison-cell', buildingId: 'bld-madison', checkType: 'CELLULAR_BACKUP', checkDate: '2025-11-20', nextDueDate: '2026-05-20', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', evidencePath: '/reports/biannual/madison_cellular_nov2025.pdf' },
-  { id: 'bi-madison-cam', buildingId: 'bld-madison', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-28', nextDueDate: '2026-03-30', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', evidencePath: '/reports/biannual/madison_camera_feb2026.pdf' },
+  { id: 'bi-madison-cell', buildingId: 'bld-madison', checkType: 'CELLULAR_BACKUP', checkDate: '2025-11-20', nextDueDate: '2026-05-20', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/madison_cellular_nov2025.pdf' },
+  { id: 'bi-madison-cam', buildingId: 'bld-madison', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-28', nextDueDate: '2026-03-30', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', approval_status: 'DRAFT', evidencePath: '/reports/biannual/madison_camera_feb2026.pdf' },
 
   // Milwaukee
-  { id: 'bi-milwaukee-cell', buildingId: 'bld-milwaukee', checkType: 'CELLULAR_BACKUP', checkDate: '2025-10-10', nextDueDate: '2026-04-10', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'COMPLIANT', evidencePath: '/reports/biannual/milwaukee_cellular_oct2025.pdf' },
-  { id: 'bi-milwaukee-cam', buildingId: 'bld-milwaukee', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-15', nextDueDate: '2026-03-17', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'NON_COMPLIANT', notes: 'Camera 3 (warehouse north) not recording. Work order submitted for repair.' },
+  { id: 'bi-milwaukee-cell', buildingId: 'bld-milwaukee', checkType: 'CELLULAR_BACKUP', checkDate: '2025-10-10', nextDueDate: '2026-04-10', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/milwaukee_cellular_oct2025.pdf' },
+  { id: 'bi-milwaukee-cam', buildingId: 'bld-milwaukee', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-15', nextDueDate: '2026-03-17', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'NON_COMPLIANT', approval_status: 'REJECTED', rejection_reason: 'Camera 3 evidence missing. Please re-upload the screenshot.', notes: 'Camera 3 (warehouse north) not recording. Work order submitted for repair.' },
 
   // Chicago
-  { id: 'bi-chicago-cell', buildingId: 'bld-chicago', checkType: 'CELLULAR_BACKUP', checkDate: '2025-12-01', nextDueDate: '2026-06-01', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', evidencePath: '/reports/biannual/chicago_cellular_dec2025.pdf', notes: 'Checked before renovation started.' },
-  { id: 'bi-chicago-cam', buildingId: 'bld-chicago', checkType: 'CAMERA_BACKUP', checkDate: '2026-01-05', nextDueDate: '2026-02-04', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'PENDING', notes: 'Camera system offline due to HVAC renovation. Check deferred.' },
+  { id: 'bi-chicago-cell', buildingId: 'bld-chicago', checkType: 'CELLULAR_BACKUP', checkDate: '2025-12-01', nextDueDate: '2026-06-01', checkedBy: 'u-terri', checkedByName: 'Terri Serrano', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/chicago_cellular_dec2025.pdf', notes: 'Checked before renovation started.' },
+  { id: 'bi-chicago-cam', buildingId: 'bld-chicago', checkType: 'CAMERA_BACKUP', checkDate: '2026-01-05', nextDueDate: '2026-02-04', checkedBy: 'u-karen', checkedByName: 'Karen Davis', status: 'PENDING', approval_status: 'DRAFT', notes: 'Camera system offline due to HVAC renovation. Check deferred.' },
 
   // Atlanta
-  { id: 'bi-atlanta-cell', buildingId: 'bld-atlanta', checkType: 'CELLULAR_BACKUP', checkDate: '2026-01-15', nextDueDate: '2026-07-15', checkedBy: 'u-sarah', checkedByName: 'Sarah Thompson', status: 'COMPLIANT', evidencePath: '/reports/biannual/atlanta_cellular_jan2026.pdf' },
-  { id: 'bi-atlanta-cam', buildingId: 'bld-atlanta', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-05', nextDueDate: '2026-04-04', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'COMPLIANT', evidencePath: '/reports/biannual/atlanta_camera_mar2026.pdf' },
+  { id: 'bi-atlanta-cell', buildingId: 'bld-atlanta', checkType: 'CELLULAR_BACKUP', checkDate: '2026-01-15', nextDueDate: '2026-07-15', checkedBy: 'u-sarah', checkedByName: 'Sarah Thompson', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/atlanta_cellular_jan2026.pdf' },
+  { id: 'bi-atlanta-cam', buildingId: 'bld-atlanta', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-05', nextDueDate: '2026-04-04', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'COMPLIANT', approval_status: 'SUBMITTED', evidencePath: '/reports/biannual/atlanta_camera_mar2026.pdf' },
 
   // Charlotte
-  { id: 'bi-charlotte-cell', buildingId: 'bld-charlotte', checkType: 'CELLULAR_BACKUP', checkDate: '2025-11-01', nextDueDate: '2026-05-01', checkedBy: 'u-sarah', checkedByName: 'Sarah Thompson', status: 'COMPLIANT', evidencePath: '/reports/biannual/charlotte_cellular_nov2025.pdf' },
-  { id: 'bi-charlotte-cam', buildingId: 'bld-charlotte', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-20', nextDueDate: '2026-03-22', checkedBy: 'u-sarah', checkedByName: 'Sarah Thompson', status: 'PENDING', notes: 'Camera backup verification scheduled for next week.' },
+  { id: 'bi-charlotte-cell', buildingId: 'bld-charlotte', checkType: 'CELLULAR_BACKUP', checkDate: '2025-11-01', nextDueDate: '2026-05-01', checkedBy: 'u-sarah', checkedByName: 'Sarah Thompson', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/charlotte_cellular_nov2025.pdf' },
+  { id: 'bi-charlotte-cam', buildingId: 'bld-charlotte', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-20', nextDueDate: '2026-03-22', checkedBy: 'u-sarah', checkedByName: 'Sarah Thompson', status: 'PENDING', approval_status: 'SUBMITTED', notes: 'Camera backup verification scheduled for next week.' },
 
   // Nashville
-  { id: 'bi-nashville-cell', buildingId: 'bld-nashville', checkType: 'CELLULAR_BACKUP', checkDate: '2025-12-20', nextDueDate: '2026-06-20', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'COMPLIANT', evidencePath: '/reports/biannual/nashville_cellular_dec2025.pdf' },
-  { id: 'bi-nashville-cam', buildingId: 'bld-nashville', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-10', nextDueDate: '2026-04-09', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'COMPLIANT', evidencePath: '/reports/biannual/nashville_camera_mar2026.pdf' },
+  { id: 'bi-nashville-cell', buildingId: 'bld-nashville', checkType: 'CELLULAR_BACKUP', checkDate: '2025-12-20', nextDueDate: '2026-06-20', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/nashville_cellular_dec2025.pdf' },
+  { id: 'bi-nashville-cam', buildingId: 'bld-nashville', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-10', nextDueDate: '2026-04-09', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'COMPLIANT', approval_status: 'SUBMITTED', evidencePath: '/reports/biannual/nashville_camera_mar2026.pdf' },
 
   // Jacksonville (closed)
-  { id: 'bi-jacksonville-cell', buildingId: 'bld-jacksonville', checkType: 'CELLULAR_BACKUP', checkDate: '2025-09-15', nextDueDate: '2026-03-15', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'NON_COMPLIANT', notes: 'Facility closed. Alarm system decommissioned.' },
-  { id: 'bi-jacksonville-cam', buildingId: 'bld-jacksonville', checkType: 'CAMERA_BACKUP', checkDate: '2025-11-10', nextDueDate: '2025-12-10', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'NON_COMPLIANT', notes: 'Facility closed. Camera system powered down.' },
+  { id: 'bi-jacksonville-cell', buildingId: 'bld-jacksonville', checkType: 'CELLULAR_BACKUP', checkDate: '2025-09-15', nextDueDate: '2026-03-15', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'NON_COMPLIANT', approval_status: 'REJECTED', rejection_reason: 'Decommissioned facility — check is not valid.', notes: 'Facility closed. Alarm system decommissioned.' },
+  { id: 'bi-jacksonville-cam', buildingId: 'bld-jacksonville', checkType: 'CAMERA_BACKUP', checkDate: '2025-11-10', nextDueDate: '2025-12-10', checkedBy: 'u-robert', checkedByName: 'Robert Taylor', status: 'NON_COMPLIANT', approval_status: 'REJECTED', rejection_reason: 'Facility closed — recheck not applicable.', notes: 'Facility closed. Camera system powered down.' },
 
   // Boston
-  { id: 'bi-boston-cell', buildingId: 'bld-boston', checkType: 'CELLULAR_BACKUP', checkDate: '2026-02-01', nextDueDate: '2026-08-01', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'COMPLIANT', evidencePath: '/reports/biannual/boston_cellular_feb2026.pdf' },
-  { id: 'bi-boston-cam', buildingId: 'bld-boston', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-12', nextDueDate: '2026-04-11', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'COMPLIANT', evidencePath: '/reports/biannual/boston_camera_mar2026.pdf' },
+  { id: 'bi-boston-cell', buildingId: 'bld-boston', checkType: 'CELLULAR_BACKUP', checkDate: '2026-02-01', nextDueDate: '2026-08-01', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/boston_cellular_feb2026.pdf' },
+  { id: 'bi-boston-cam', buildingId: 'bld-boston', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-12', nextDueDate: '2026-04-11', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'COMPLIANT', approval_status: 'SUBMITTED', evidencePath: '/reports/biannual/boston_camera_mar2026.pdf' },
 
   // New York
-  { id: 'bi-newyork-cell', buildingId: 'bld-newyork', checkType: 'CELLULAR_BACKUP', checkDate: '2026-01-20', nextDueDate: '2026-07-20', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'COMPLIANT', evidencePath: '/reports/biannual/newyork_cellular_jan2026.pdf' },
-  { id: 'bi-newyork-cam', buildingId: 'bld-newyork', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-08', nextDueDate: '2026-04-07', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'NON_COMPLIANT', notes: 'Camera 12 (Floor 2 hallway) has intermittent recording failures. Replacement ordered.' },
+  { id: 'bi-newyork-cell', buildingId: 'bld-newyork', checkType: 'CELLULAR_BACKUP', checkDate: '2026-01-20', nextDueDate: '2026-07-20', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/newyork_cellular_jan2026.pdf' },
+  { id: 'bi-newyork-cam', buildingId: 'bld-newyork', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-08', nextDueDate: '2026-04-07', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'NON_COMPLIANT', approval_status: 'REJECTED', rejection_reason: 'Camera failure evidence incomplete. Attach work order receipt.', notes: 'Camera 12 (Floor 2 hallway) has intermittent recording failures. Replacement ordered.' },
 
   // Philadelphia
-  { id: 'bi-philadelphia-cell', buildingId: 'bld-philadelphia', checkType: 'CELLULAR_BACKUP', checkDate: '2025-10-25', nextDueDate: '2026-04-25', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'COMPLIANT', evidencePath: '/reports/biannual/philadelphia_cellular_oct2025.pdf' },
-  { id: 'bi-philadelphia-cam', buildingId: 'bld-philadelphia', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-10', nextDueDate: '2026-03-12', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'PENDING', notes: 'Awaiting IT confirmation that backup storage is operational after server migration.' },
+  { id: 'bi-philadelphia-cell', buildingId: 'bld-philadelphia', checkType: 'CELLULAR_BACKUP', checkDate: '2025-10-25', nextDueDate: '2026-04-25', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/philadelphia_cellular_oct2025.pdf' },
+  { id: 'bi-philadelphia-cam', buildingId: 'bld-philadelphia', checkType: 'CAMERA_BACKUP', checkDate: '2026-02-10', nextDueDate: '2026-03-12', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'PENDING', approval_status: 'SUBMITTED', notes: 'Awaiting IT confirmation that backup storage is operational after server migration.' },
 
   // Hartford
-  { id: 'bi-hartford-cell', buildingId: 'bld-hartford', checkType: 'CELLULAR_BACKUP', checkDate: '2026-01-05', nextDueDate: '2026-07-05', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'COMPLIANT', evidencePath: '/reports/biannual/hartford_cellular_jan2026.pdf' },
-  { id: 'bi-hartford-cam', buildingId: 'bld-hartford', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-15', nextDueDate: '2026-04-14', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'COMPLIANT', evidencePath: '/reports/biannual/hartford_camera_mar2026.pdf', notes: 'All 6 cameras verified. Cloud backup retention set to 90 days.' },
+  { id: 'bi-hartford-cell', buildingId: 'bld-hartford', checkType: 'CELLULAR_BACKUP', checkDate: '2026-01-05', nextDueDate: '2026-07-05', checkedBy: 'u-lisa', checkedByName: 'Lisa Martinez', status: 'COMPLIANT', approval_status: 'APPROVED', evidencePath: '/reports/biannual/hartford_cellular_jan2026.pdf' },
+  { id: 'bi-hartford-cam', buildingId: 'bld-hartford', checkType: 'CAMERA_BACKUP', checkDate: '2026-03-15', nextDueDate: '2026-04-14', checkedBy: 'u-jennifer', checkedByName: 'Jennifer Anderson', status: 'COMPLIANT', approval_status: 'SUBMITTED', evidencePath: '/reports/biannual/hartford_camera_mar2026.pdf', notes: 'All 6 cameras verified. Cloud backup retention set to 90 days.' },
 ];
