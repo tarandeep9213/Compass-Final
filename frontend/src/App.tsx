@@ -69,6 +69,8 @@ import './index.css'
 interface AuthState { userId: string; role: Role; name: string; locationIds: string[] }
 interface NavCtx   { panel: string; ctx: Record<string, string> }
 
+const ALARM_ENABLED = (import.meta.env.VITE_FEATURE_ALARM as string | undefined) !== 'false'
+
 // ── Role-based nav items ───────────────────────────────────────────────────
 function navItems(role: Role): { id: string; icon: string; label: string; panel: string }[] {
   switch (role) {
@@ -255,8 +257,9 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
   const opAccess  = eligible && hasAccess(auth.userId, 'operator')
   const ctrlAccess= eligible && hasAccess(auth.userId, 'controller')
   const baseItems = navItems(auth.role)
+  const alarmIds = new Set(['alarm-testing', 'alarm-overview', 'alarm-config', 'alarm-approvals', 'alarm-audit'])
   const items = [
-    ...baseItems,
+    ...(ALARM_ENABLED ? baseItems : baseItems.filter(i => !alarmIds.has(i.id))),
     ...(opAccess   ? [{ id: 'op-access',   icon: '🏧', label: 'Operator View',   panel: 'op-start'      }] : []),
     ...(ctrlAccess ? [{ id: 'ctrl-access', icon: '🔍', label: 'Controller View', panel: 'ctrl-dashboard' }] : []),
   ]
