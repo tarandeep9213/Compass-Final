@@ -10,7 +10,9 @@ RUN npm ci
 # VITE_API_URL is injected at build time so the bundle knows where the API lives.
 # Override via docker-compose build args or --build-arg.
 ARG VITE_API_URL=http://localhost:8000/v1
+ARG VITE_FEATURE_ALARM=true
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_FEATURE_ALARM=$VITE_FEATURE_ALARM
 
 COPY . .
 RUN npm run build

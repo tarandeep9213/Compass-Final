@@ -79,6 +79,8 @@ services:
         # For a server deployment, change to your actual domain, e.g.:
         #   VITE_API_URL: "https://api.yourcompany.com/v1"
         VITE_API_URL: "http://localhost:8000/v1"
+        # Set to "false" to hide alarm testing nav items
+        VITE_FEATURE_ALARM: "true"
     container_name: cashroom-frontend
     restart: unless-stopped
     ports:
