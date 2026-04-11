@@ -1,0 +1,65 @@
+{
+  "/Compass-ALB": [
+    {
+      "type": "aws:cdk:stack-tags",
+      "data": [
+        {
+          "key": "ManagedBy",
+          "value": "CDK"
+        },
+        {
+          "key": "Project",
+          "value": "Compass-CCS"
+        }
+      ]
+    }
+  ],
+  "/Compass-ALB/AlbDnsName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AlbDnsName"
+    }
+  ],
+  "/Compass-ALB/AlbUrl": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AlbUrl"
+    }
+  ],
+  "/Compass-ALB/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/Compass-ALB/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/Compass-ALB/Alb/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Alb16C2F182"
+    }
+  ],
+  "/Compass-ALB/TargetGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "TargetGroup3D7CD9B8"
+    }
+  ],
+  "/Compass-ALB/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    }
+  ],
+  "/Compass-ALB/Alb/HttpListener/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "AlbHttpListener00C8B33E"
+    }
+  ]
+}

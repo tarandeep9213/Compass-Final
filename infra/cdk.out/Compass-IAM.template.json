@@ -1,0 +1,125 @@
+{
+ "Resources": {
+  "Ec2Role2FD9A272": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Compass EC2 — pull ECR images, SSM access",
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonSSMManagedInstanceCore"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-IAM/Ec2Role/Resource"
+   }
+  },
+  "Ec2RoleDefaultPolicy99BC91F7": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetAuthorizationToken"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "Ec2RoleDefaultPolicy99BC91F7",
+    "Roles": [
+     {
+      "Ref": "Ec2Role2FD9A272"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-IAM/Ec2Role/DefaultPolicy/Resource"
+   }
+  },
+  "Ec2InstanceProfile": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "InstanceProfileName": "CompassEc2Profile",
+    "Roles": [
+     {
+      "Ref": "Ec2Role2FD9A272"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-IAM/Ec2InstanceProfile"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzKx0DNQTCwv1k1OydbNyUzSqw4uSUzO1kksL47PTMzVqw7Kz0nVcU7LA9MB+TmZyZUgLoLlmVdckpiXnBpQlJ+WmZNaW6uTl5+SqpdVrF9mZKRnCDI/qzgzU7eoNK8kMzdVLwhCAwB35D1JfAAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-IAM/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

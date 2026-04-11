@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "a3a3caa363e3436c43a58e10e69c1709991b5adba8c77c0204fd26b8b64186ee": {
+      "displayName": "Compass-ECR Template",
+      "source": {
+        "path": "Compass-ECR.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "123456789012-us-east-1-88993a03": {
+          "bucketName": "cdk-hnb659fds-assets-123456789012-us-east-1",
+          "objectKey": "a3a3caa363e3436c43a58e10e69c1709991b5adba8c77c0204fd26b8b64186ee.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::123456789012:role/cdk-hnb659fds-file-publishing-role-123456789012-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

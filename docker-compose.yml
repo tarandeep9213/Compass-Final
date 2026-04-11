@@ -31,13 +31,16 @@ services:
     volumes:
       # Persist SQLite DB between container restarts
       - db_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       # ── Database ──────────────────────────────────────────────────────────
-      # SQLite (default — no extra service needed):
-      DATABASE_URL: "sqlite:////app/data/cashroom.db"
+      # PostgreSQL (default):
+      DATABASE_URL: "postgresql://cashroom:${POSTGRES_PASSWORD:-cashroom}@db:5432/cashroom"
 
-      # PostgreSQL (production — uncomment and fill in):
-      # DATABASE_URL: "postgresql://cashroom:${POSTGRES_PASSWORD}@db:5432/cashroom"
+      # SQLite (uncomment to use without PostgreSQL):
+      # DATABASE_URL: "sqlite:////app/data/cashroom.db"
 
       # ── Security ──────────────────────────────────────────────────────────
       # IMPORTANT: change this to a random 256-bit key in production
@@ -89,23 +92,22 @@ services:
       backend:
         condition: service_healthy
 
-  # ── PostgreSQL (production — uncomment to enable) ───────────────────────────
-  # db:
-  #   image: postgres:16-alpine
-  #   container_name: cashroom-db
-  #   restart: unless-stopped
-  #   profiles: ["prod"]
-  #   environment:
-  #     POSTGRES_DB: cashroom
-  #     POSTGRES_USER: cashroom
-  #     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-  #   volumes:
-  #     - pg_data:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U cashroom"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: cashroom-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cashroom
+      POSTGRES_USER: cashroom
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-cashroom}"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cashroom"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 
 # ── MailCatcher (Debug SMTP Server) ─────────────────────────────────────────
@@ -124,5 +126,5 @@ services:
 volumes:
   db_data:
     driver: local
-  # pg_data:
-  #   driver: local
+  pg_data:
+    driver: local

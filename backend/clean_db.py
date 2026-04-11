@@ -1,16 +1,25 @@
-import sqlite3
+"""Truncate all application tables (works with any SQLAlchemy-supported DB)."""
+import sys
+import os
 
-conn = sqlite3.connect("cashroom.db")
-cursor = conn.cursor()
+sys.path.insert(0, os.path.dirname(__file__))
 
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-tables = cursor.fetchall()
+from app.db.session import engine
+from app.db.base import Base
 
-for table in tables:
-    if table[0] != "sqlite_sequence":
-        cursor.execute(f"DELETE FROM {table[0]};")
+# Import all models so Base.metadata knows every table
+import app.models.user            # noqa: F401
+import app.models.location        # noqa: F401
+import app.models.config          # noqa: F401
+import app.models.submission      # noqa: F401
+import app.models.verification    # noqa: F401
+import app.models.audit           # noqa: F401
+import app.models.access_grant    # noqa: F401
+import app.models.reasonableness  # noqa: F401
+import app.models.alarm           # noqa: F401
 
-conn.commit()
-conn.close()
+with engine.begin() as conn:
+    for table in reversed(Base.metadata.sorted_tables):
+        conn.execute(table.delete())
 
 print("All tables cleaned")

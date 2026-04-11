@@ -1,0 +1,264 @@
+{
+ "Resources": {
+  "InstanceInstanceRoleE9785DE5": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "Compass-Compute/Instance"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-Compute/Instance/InstanceRole/Resource"
+   }
+  },
+  "InstanceInstanceProfileAB5AEF02": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "InstanceInstanceRoleE9785DE5"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-Compute/Instance/InstanceProfile"
+   }
+  },
+  "InstanceC1063A87": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "dummy1a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+       "Encrypted": true,
+       "VolumeSize": 30,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "IamInstanceProfile": "CompassEc2Profile",
+    "ImageId": "ami-1234",
+    "InstanceType": "t3.medium",
+    "KeyName": "compass-keypair",
+    "SecurityGroupIds": [
+     {
+      "Fn::ImportValue": "Compass-Network:ExportsOutputFnGetAttEc2SgF43886FEGroupIdBF85ED3A"
+     }
+    ],
+    "SubnetId": {
+     "Fn::ImportValue": "Compass-Network:ExportsOutputRefVpcPublicSubnet1Subnet5C2D37C4FFA2B456"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "Compass-Compute/Instance"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": {
+      "Fn::Join": [
+       "",
+       [
+        "#!/bin/bash\n#!/bin/bash\nset -euxo pipefail\napt-get update -y\napt-get upgrade -y\napt-get install -y ca-certificates curl gnupg\ninstall -m 0755 -d /etc/apt/keyrings\ncurl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg\nchmod a+r /etc/apt/keyrings/docker.gpg\necho \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null\napt-get update -y\napt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin\nsystemctl enable docker\nsystemctl start docker\nusermod -aG docker ubuntu\napt-get install -y awscli\nmkdir -p /opt/compass\nchown ubuntu:ubuntu /opt/compass\ncat > /opt/compass/.env.prod << 'ENVEOF'\nDATABASE_URL=sqlite:////app/data/cashroom.db\nSECRET_KEY=CHANGE_ME_TO_A_SECURE_RANDOM_STRING\nCORS_ORIGINS=[\"*\"]\nEMAIL_ENABLED=false\nDEBUG=false\nENVEOF\ncat > /opt/compass/docker-compose.prod.yml << 'COMPEOF'\nservices:\n  backend:\n    image: ",
+        {
+         "Fn::Select": [
+          4,
+          {
+           "Fn::Split": [
+            ":",
+            {
+             "Fn::ImportValue": "Compass-ECR:ExportsOutputFnGetAttBackendRepo7FFBAD06Arn33FD1219"
+            }
+           ]
+          }
+         ]
+        },
+        ".dkr.ecr.",
+        {
+         "Fn::Select": [
+          3,
+          {
+           "Fn::Split": [
+            ":",
+            {
+             "Fn::ImportValue": "Compass-ECR:ExportsOutputFnGetAttBackendRepo7FFBAD06Arn33FD1219"
+            }
+           ]
+          }
+         ]
+        },
+        ".",
+        {
+         "Ref": "AWS::URLSuffix"
+        },
+        "/",
+        {
+         "Fn::ImportValue": "Compass-ECR:ExportsOutputRefBackendRepo7FFBAD06405267DF"
+        },
+        ":latest\n    container_name: compass-backend\n    restart: unless-stopped\n    ports:\n      - \"8000:8000\"\n    volumes:\n      - db_data:/app/data\n    env_file: .env.prod\n    healthcheck:\n      test: [\"CMD\", \"curl\", \"-f\", \"http://localhost:8000/health\"]\n      interval: 30s\n      timeout: 5s\n      retries: 3\n\n  frontend:\n    image: ",
+        {
+         "Fn::Select": [
+          4,
+          {
+           "Fn::Split": [
+            ":",
+            {
+             "Fn::ImportValue": "Compass-ECR:ExportsOutputFnGetAttFrontendRepoF80FCC01ArnD7253E0D"
+            }
+           ]
+          }
+         ]
+        },
+        ".dkr.ecr.",
+        {
+         "Fn::Select": [
+          3,
+          {
+           "Fn::Split": [
+            ":",
+            {
+             "Fn::ImportValue": "Compass-ECR:ExportsOutputFnGetAttFrontendRepoF80FCC01ArnD7253E0D"
+            }
+           ]
+          }
+         ]
+        },
+        ".",
+        {
+         "Ref": "AWS::URLSuffix"
+        },
+        "/",
+        {
+         "Fn::ImportValue": "Compass-ECR:ExportsOutputRefFrontendRepoF80FCC01D2E9C93A"
+        },
+        ":latest\n    container_name: compass-frontend\n    restart: unless-stopped\n    ports:\n      - \"80:80\"\n    depends_on:\n      backend:\n        condition: service_healthy\n\nvolumes:\n  db_data:\nCOMPEOF\ncat > /opt/compass/deploy.sh << 'DEPLOYEOF'\n#!/bin/bash\nset -euo pipefail\nREGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)\naws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com\ncd /opt/compass\ndocker compose -f docker-compose.prod.yml pull\ndocker compose -f docker-compose.prod.yml up -d\ndocker image prune -f\necho \"Deploy complete at $(date)\"\nDEPLOYEOF\nchmod +x /opt/compass/deploy.sh\nsu - ubuntu -c \"/opt/compass/deploy.sh\" || echo \"Initial deploy skipped — push images first\""
+       ]
+      ]
+     }
+    }
+   },
+   "DependsOn": [
+    "InstanceInstanceRoleE9785DE5"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "Compass-Compute/Instance/Resource"
+   }
+  },
+  "Eip": {
+   "Type": "AWS::EC2::EIP",
+   "Properties": {
+    "InstanceId": {
+     "Ref": "InstanceC1063A87"
+    },
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "Compass-EC2"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-Compute/Eip"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02OsQ7CIBRFv8Udnko6uBuHTjb4AQbpa/JaCoYHdiD8e1NNE6dzc3KGq0A1FzgdzMLS9pN09ILySMZOQiOHHC0Ks/CzoFVQWs/JeIviOvj/fWu7KsjMUHRwX7Nzr7oYBnJY6ybvOb1zqsKHHmHk40cpOG8vRiaSMftEM4L+cQVOgtlYogAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-Compute/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "InstanceId": {
+   "Value": {
+    "Ref": "InstanceC1063A87"
+   }
+  },
+  "PublicIp": {
+   "Value": {
+    "Fn::GetAtt": [
+     "Eip",
+     "PublicIp"
+    ]
+   }
+  },
+  "SshCommand": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "ssh -i compass-keypair.pem ubuntu@",
+      {
+       "Fn::GetAtt": [
+        "Eip",
+        "PublicIp"
+       ]
+      }
+     ]
+    ]
+   }
+  },
+  "ExportsOutputRefInstanceC1063A87B325EA17": {
+   "Value": {
+    "Ref": "InstanceC1063A87"
+   },
+   "Export": {
+    "Name": "Compass-Compute:ExportsOutputRefInstanceC1063A87B325EA17"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

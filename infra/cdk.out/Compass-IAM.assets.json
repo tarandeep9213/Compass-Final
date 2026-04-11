@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "7e3fac0fcbcfbbb6a04b3c7758d72c42a2c9736109a7d3e2af8c315c784903e3": {
+      "displayName": "Compass-IAM Template",
+      "source": {
+        "path": "Compass-IAM.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "123456789012-us-east-1-880d143a": {
+          "bucketName": "cdk-hnb659fds-assets-123456789012-us-east-1",
+          "objectKey": "7e3fac0fcbcfbbb6a04b3c7758d72c42a2c9736109a7d3e2af8c315c784903e3.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::123456789012:role/cdk-hnb659fds-file-publishing-role-123456789012-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

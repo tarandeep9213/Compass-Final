@@ -1,0 +1,221 @@
+{
+ "Resources": {
+  "FrontendRepoF80FCC01": {
+   "Type": "AWS::ECR::Repository",
+   "Properties": {
+    "ImageScanningConfiguration": {
+     "ScanOnPush": true
+    },
+    "LifecyclePolicy": {
+     "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep last 10 images\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+    },
+    "RepositoryName": "compass/frontend"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "Compass-ECR/FrontendRepo/Resource"
+   }
+  },
+  "BackendRepo7FFBAD06": {
+   "Type": "AWS::ECR::Repository",
+   "Properties": {
+    "ImageScanningConfiguration": {
+     "ScanOnPush": true
+    },
+    "LifecyclePolicy": {
+     "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep last 10 images\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}}]}"
+    },
+    "RepositoryName": "compass/backend"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "Compass-ECR/BackendRepo/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzKx0DNQTCwv1k1OydbNyUzSqw4uSUzO1kksL45PTS7Sqw5KLcgvzizJL6rUcU7LQ/BqQVz/0pKC0pJanbz8lFS9rGL9MiMjPUOQiVnFmZm6RaV5JZm5qXpBEBoA28svz24AAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "Compass-ECR/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "FrontendRepoUri": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      {
+       "Fn::Select": [
+        4,
+        {
+         "Fn::Split": [
+          ":",
+          {
+           "Fn::GetAtt": [
+            "FrontendRepoF80FCC01",
+            "Arn"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      ".dkr.ecr.",
+      {
+       "Fn::Select": [
+        3,
+        {
+         "Fn::Split": [
+          ":",
+          {
+           "Fn::GetAtt": [
+            "FrontendRepoF80FCC01",
+            "Arn"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      ".",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "FrontendRepoF80FCC01"
+      }
+     ]
+    ]
+   }
+  },
+  "BackendRepoUri": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      {
+       "Fn::Select": [
+        4,
+        {
+         "Fn::Split": [
+          ":",
+          {
+           "Fn::GetAtt": [
+            "BackendRepo7FFBAD06",
+            "Arn"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      ".dkr.ecr.",
+      {
+       "Fn::Select": [
+        3,
+        {
+         "Fn::Split": [
+          ":",
+          {
+           "Fn::GetAtt": [
+            "BackendRepo7FFBAD06",
+            "Arn"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      ".",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "BackendRepo7FFBAD06"
+      }
+     ]
+    ]
+   }
+  },
+  "ExportsOutputFnGetAttBackendRepo7FFBAD06Arn33FD1219": {
+   "Value": {
+    "Fn::GetAtt": [
+     "BackendRepo7FFBAD06",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "Compass-ECR:ExportsOutputFnGetAttBackendRepo7FFBAD06Arn33FD1219"
+   }
+  },
+  "ExportsOutputRefBackendRepo7FFBAD06405267DF": {
+   "Value": {
+    "Ref": "BackendRepo7FFBAD06"
+   },
+   "Export": {
+    "Name": "Compass-ECR:ExportsOutputRefBackendRepo7FFBAD06405267DF"
+   }
+  },
+  "ExportsOutputFnGetAttFrontendRepoF80FCC01ArnD7253E0D": {
+   "Value": {
+    "Fn::GetAtt": [
+     "FrontendRepoF80FCC01",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "Compass-ECR:ExportsOutputFnGetAttFrontendRepoF80FCC01ArnD7253E0D"
+   }
+  },
+  "ExportsOutputRefFrontendRepoF80FCC01D2E9C93A": {
+   "Value": {
+    "Ref": "FrontendRepoF80FCC01"
+   },
+   "Export": {
+    "Name": "Compass-ECR:ExportsOutputRefFrontendRepoF80FCC01D2E9C93A"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

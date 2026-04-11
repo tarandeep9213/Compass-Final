@@ -1,0 +1,83 @@
+{
+  "/Compass-ECR": [
+    {
+      "type": "aws:cdk:stack-tags",
+      "data": [
+        {
+          "key": "ManagedBy",
+          "value": "CDK"
+        },
+        {
+          "key": "Project",
+          "value": "Compass-CCS"
+        }
+      ]
+    }
+  ],
+  "/Compass-ECR/FrontendRepoUri": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "FrontendRepoUri"
+    }
+  ],
+  "/Compass-ECR/BackendRepoUri": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BackendRepoUri"
+    }
+  ],
+  "/Compass-ECR/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/Compass-ECR/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/Compass-ECR/FrontendRepo/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "FrontendRepoF80FCC01"
+    }
+  ],
+  "/Compass-ECR/BackendRepo/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BackendRepo7FFBAD06"
+    }
+  ],
+  "/Compass-ECR/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    }
+  ],
+  "/Compass-ECR/Exports/Output{\"Fn::GetAtt\":[\"BackendRepo7FFBAD06\",\"Arn\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttBackendRepo7FFBAD06Arn33FD1219"
+    }
+  ],
+  "/Compass-ECR/Exports/Output{\"Ref\":\"BackendRepo7FFBAD06\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefBackendRepo7FFBAD06405267DF"
+    }
+  ],
+  "/Compass-ECR/Exports/Output{\"Fn::GetAtt\":[\"FrontendRepoF80FCC01\",\"Arn\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttFrontendRepoF80FCC01ArnD7253E0D"
+    }
+  ],
+  "/Compass-ECR/Exports/Output{\"Ref\":\"FrontendRepoF80FCC01\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefFrontendRepoF80FCC01D2E9C93A"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "/Compass-IAM": [
+    {
+      "type": "aws:cdk:stack-tags",
+      "data": [
+        {
+          "key": "ManagedBy",
+          "value": "CDK"
+        },
+        {
+          "key": "Project",
+          "value": "Compass-CCS"
+        }
+      ]
+    }
+  ],
+  "/Compass-IAM/Ec2InstanceProfile": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Ec2InstanceProfile"
+    }
+  ],
+  "/Compass-IAM/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/Compass-IAM/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/Compass-IAM/Ec2Role/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Ec2Role2FD9A272"
+    }
+  ],
+  "/Compass-IAM/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    }
+  ],
+  "/Compass-IAM/Ec2Role/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Ec2RoleDefaultPolicy99BC91F7"
+    }
+  ]
+}

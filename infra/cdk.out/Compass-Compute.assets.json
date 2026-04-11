@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "50015e3fc8a2e14efbcee2cee44348733ab889170f5d736402b54fb5deeff189": {
+      "displayName": "Compass-Compute Template",
+      "source": {
+        "path": "Compass-Compute.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "123456789012-us-east-1-cd386e5d": {
+          "bucketName": "cdk-hnb659fds-assets-123456789012-us-east-1",
+          "objectKey": "50015e3fc8a2e14efbcee2cee44348733ab889170f5d736402b54fb5deeff189.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::123456789012:role/cdk-hnb659fds-file-publishing-role-123456789012-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

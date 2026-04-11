@@ -1,0 +1,83 @@
+{
+  "/Compass-Compute": [
+    {
+      "type": "aws:cdk:stack-tags",
+      "data": [
+        {
+          "key": "ManagedBy",
+          "value": "CDK"
+        },
+        {
+          "key": "Project",
+          "value": "Compass-CCS"
+        }
+      ]
+    }
+  ],
+  "/Compass-Compute/Eip": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Eip"
+    }
+  ],
+  "/Compass-Compute/InstanceId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "InstanceId"
+    }
+  ],
+  "/Compass-Compute/PublicIp": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "PublicIp"
+    }
+  ],
+  "/Compass-Compute/SshCommand": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "SshCommand"
+    }
+  ],
+  "/Compass-Compute/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    }
+  ],
+  "/Compass-Compute/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    }
+  ],
+  "/Compass-Compute/Instance/InstanceProfile": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "InstanceInstanceProfileAB5AEF02"
+    }
+  ],
+  "/Compass-Compute/Instance/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "InstanceC1063A87"
+    }
+  ],
+  "/Compass-Compute/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    }
+  ],
+  "/Compass-Compute/Exports/Output{\"Ref\":\"InstanceC1063A87\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefInstanceC1063A87B325EA17"
+    }
+  ],
+  "/Compass-Compute/Instance/InstanceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "InstanceInstanceRoleE9785DE5"
+    }
+  ]
+}

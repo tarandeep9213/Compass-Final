@@ -1,7 +1,9 @@
 """
 Shared test fixtures for all milestones.
-Uses a separate test.db SQLite file, seeded with demo users and locations.
+Uses a separate test.db SQLite file by default, seeded with demo users and locations.
+Set TEST_DATABASE_URL env var to use PostgreSQL (or any other backend).
 """
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -15,11 +17,13 @@ from app.models.location import Location
 from app.models.config import SystemConfig
 from app.core.security import hash_password
 
-TEST_DATABASE_URL = "sqlite:///./test.db"
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite:///./test.db")
+
+connect_args = {"check_same_thread": False} if "sqlite" in TEST_DATABASE_URL else {}
 
 engine = create_engine(
     TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args=connect_args,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -13,6 +13,7 @@ import app.models.verification  # noqa: F401
 import app.models.audit          # noqa: F401
 import app.models.access_grant   # noqa: F401
 import app.models.reasonableness # noqa: F401
+import app.models.alarm           # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

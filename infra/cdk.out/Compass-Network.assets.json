@@ -1,0 +1,21 @@
+{
+  "version": "53.0.0",
+  "files": {
+    "6599a5126820f2e9115987a33a9de633805933f9b8073b6af5e8f182eee08dfa": {
+      "displayName": "Compass-Network Template",
+      "source": {
+        "path": "Compass-Network.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "123456789012-us-east-1-75712765": {
+          "bucketName": "cdk-hnb659fds-assets-123456789012-us-east-1",
+          "objectKey": "6599a5126820f2e9115987a33a9de633805933f9b8073b6af5e8f182eee08dfa.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::123456789012:role/cdk-hnb659fds-file-publishing-role-123456789012-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
