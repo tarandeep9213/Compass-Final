@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { getLocation, formatCurrency, todayStr } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { getSubmission, approveSubmission, rejectSubmission } from '../../api/submissions'
@@ -55,7 +55,107 @@ const SEC_B_DENOM = [
   { label: 'Pennies',  key: 'pennies',  face: 0.01 },
 ]
 
-function SecHead({ id, title, total, red = false }: { id: string; title: string; total: number; red?: boolean }) {
+interface SectionDiffEntry {
+  oldTotal: number
+  newTotal: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  changedFields: Array<{ key: string; old: any; new: any }>
+  reviewNote: string | null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function computeSectionDiff(snapshot: Record<string, any>, currentSections: Record<string, any>): Record<string, SectionDiffEntry> | null {
+  const oldSecs = snapshot.sections || {}
+  const reviews = snapshot.section_reviews || {}
+  const changes: Record<string, SectionDiffEntry> = {}
+
+  for (const secKey of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']) {
+    const oldSec = typeof oldSecs[secKey] === 'object' && oldSecs[secKey] ? oldSecs[secKey] : { total: 0 }
+    const newSec = typeof currentSections[secKey] === 'object' && currentSections[secKey] ? currentSections[secKey] : { total: 0 }
+    const oldTotal = oldSec?.total ?? 0
+    const newTotal = newSec?.total ?? 0
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const changedFields: Array<{ key: string; old: any; new: any }> = []
+    const allKeys = new Set([...Object.keys(oldSec || {}), ...Object.keys(newSec || {})])
+    for (const k of allKeys) {
+      if (k === 'total') continue
+      const ov = oldSec?.[k]; const nv = newSec?.[k]
+      if (JSON.stringify(ov) !== JSON.stringify(nv)) {
+        changedFields.push({ key: k, old: ov, new: nv })
+      }
+    }
+
+    const review = reviews[secKey]
+    if (oldTotal !== newTotal || changedFields.length > 0) {
+      changes[secKey] = { oldTotal, newTotal, changedFields, reviewNote: review?.decision === 'reject' ? review.note : null }
+    }
+  }
+
+  for (const k of ['holdover', 'replenishment', 'coin_transit']) {
+    const ov = Number(oldSecs[k] || 0)
+    const nv = Number(currentSections[k] || 0)
+    if (ov !== nv) {
+      changes[k] = { oldTotal: ov, newTotal: nv, changedFields: [], reviewNote: null }
+    }
+  }
+
+  return Object.keys(changes).length > 0 ? changes : null
+}
+
+function DiffBanner({ snapshot, diff }: { snapshot: Record<string, unknown>; diff: Record<string, SectionDiffEntry> }) {
+  const sectionKeys = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+  const changedSections = Object.keys(diff).filter(k => sectionKeys.includes(k))
+  const changedOther = Object.keys(diff).filter(k => !sectionKeys.includes(k))
+  const reviews = (snapshot.section_reviews || {}) as Record<string, { decision: string; note: string }>
+  const unchangedRejected = sectionKeys.filter(k => reviews[k]?.decision === 'reject' && !diff[k])
+
+  const sectionNames: Record<string, string> = { A: 'Currency', B: 'Rolled Coin', C: 'Counting Machines', D: 'Bagged Coin', E: 'Changer Funds', F: 'Manual Change', G: 'Mutilated/Foreign', H: 'Changer Outstanding', I: 'Shortage/Overage', holdover: 'Holdover', replenishment: 'Replenishment', coin_transit: 'Coin in Transit' }
+
+  return (
+    <div className="card" style={{ marginBottom: 18, border: '2px solid #818cf8' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#eef2ff', borderBottom: '1px solid #c7d2fe' }}>
+        <span style={{ fontWeight: 700, fontSize: 13, color: '#4338ca' }}>Resubmission Changes</span>
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: '#e0e7ff', color: '#4338ca', fontWeight: 600 }}>
+          {changedSections.length + changedOther.length} section(s) modified
+        </span>
+      </div>
+      <div style={{ padding: '12px 14px' }}>
+        <div style={{ fontSize: 12, color: 'var(--ts)', marginBottom: 10 }}>
+          Previously rejected by <strong>{String(snapshot.rejected_by || 'controller')}</strong>.
+          The operator has resubmitted with the following changes:
+        </div>
+        {[...changedSections, ...changedOther].map(sec => (
+          <div key={sec} style={{ padding: '6px 10px', marginBottom: 4, borderRadius: 6, background: '#f0fdf4', border: '1px solid #86efac' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ fontSize: 12 }}>Section {sectionNames[sec] ? `${sec} — ${sectionNames[sec]}` : sec}</strong>
+              <span style={{ fontSize: 11, color: 'var(--g7)' }}>
+                {formatCurrency(diff[sec].oldTotal)} → {formatCurrency(diff[sec].newTotal)}
+                {diff[sec].oldTotal !== diff[sec].newTotal && (
+                  <span style={{ marginLeft: 6, fontWeight: 700, color: diff[sec].newTotal > diff[sec].oldTotal ? '#16a34a' : '#dc2626' }}>
+                    ({diff[sec].newTotal > diff[sec].oldTotal ? '+' : ''}{formatCurrency(diff[sec].newTotal - diff[sec].oldTotal)})
+                  </span>
+                )}
+              </span>
+            </div>
+            {diff[sec].reviewNote && (
+              <div style={{ fontSize: 11, color: '#991b1b', marginTop: 2 }}>Original rejection note: "{diff[sec].reviewNote}"</div>
+            )}
+          </div>
+        ))}
+        {unchangedRejected.length > 0 && (
+          <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fca5a5' }}>
+            <div style={{ fontSize: 11, color: '#991b1b', fontWeight: 600 }}>
+              Warning: Section(s) {unchangedRejected.join(', ')} were rejected but appear unchanged.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SecHead({ id, title, total, red = false, diff }: { id: string; title: string; total: number; red?: boolean; diff?: SectionDiffEntry | null }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -63,7 +163,14 @@ function SecHead({ id, title, total, red = false }: { id: string; title: string;
       background: red ? '#fee2e2' : 'var(--g1)',
       borderBottom: `1px solid ${red ? '#fca5a5' : 'var(--ow2)'}`,
     }}>
-      <span style={{ fontWeight: 700, fontSize: 12, color: red ? 'var(--red)' : 'var(--g8)' }}>{id}. {title}</span>
+      <span style={{ fontWeight: 700, fontSize: 12, color: red ? 'var(--red)' : 'var(--g8)' }}>
+        {id}. {title}
+        {diff && (
+          <span style={{ marginLeft: 8, fontSize: 10, padding: '2px 6px', borderRadius: 4, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>
+            CHANGED (was {formatCurrency(diff.oldTotal)})
+          </span>
+        )}
+      </span>
       <span style={{ ...YC, background: 'transparent', fontSize: 13, color: red ? 'var(--red)' : '#78590a' }}>
         {total > 0 ? formatCurrency(total) : <span style={{ color: 'var(--ts)' }}>—</span>}
       </span>
@@ -104,6 +211,10 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
   const [apiSub, setApiSub] = useState<Submission | null>(null)
   const [apiLoading, setApiLoading] = useState(true)
   const [realTolerance, setRealTolerance] = useState<number | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [rejectionSnapshot, setRejectionSnapshot] = useState<Record<string, any> | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [rawApiSections, setRawApiSections] = useState<Record<string, any> | null>(null)
 
   useEffect(() => {
     interface ConfigResponse {
@@ -177,6 +288,10 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
           }
         }
         if (Object.keys(detail).length > 0) setDenomDetail(prev => ({ ...prev, ...detail }))
+
+        // Store raw API sections and rejection snapshot for diff display
+        setRawApiSections(s.sections)
+        if (s.rejection_snapshot) setRejectionSnapshot(s.rejection_snapshot)
       })
       .catch(() => { /* keep sessionStorage data */ })
       .finally(() => setApiLoading(false))
@@ -184,6 +299,12 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
   const sub = apiSub
   const location = getLocation(ctx.locationId)
+
+  // Compute diff between rejection snapshot and current sections
+  const sectionDiff = useMemo(() => {
+    if (!rejectionSnapshot || !rawApiSections) return null
+    return computeSectionDiff(rejectionSnapshot, rawApiSections)
+  }, [rejectionSnapshot, rawApiSections])
 
   const [localAction, setLocalAction] = useState<'approved' | 'rejected' | null>(null)
   
@@ -628,12 +749,17 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         </div>
       </div>
 
+      {/* ══ Resubmission Diff Banner ══ */}
+      {rejectionSnapshot && sectionDiff && sub.status === 'pending_approval' && (
+        <DiffBanner snapshot={rejectionSnapshot} diff={sectionDiff} />
+      )}
+
       {/* ══ ROW 1 — A · B · C ══ */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12, alignItems: 'start' }}>
 
         {/* Section A */}
         <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.A?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="A" title="Currency" total={s.A} red={pastRejected || sub.sectionReviews?.A?.decision === 'reject'} />
+          <SecHead id="A" title="Currency" total={s.A} red={pastRejected || sub.sectionReviews?.A?.decision === 'reject'} diff={sectionDiff?.A} />
           <SecRejectNote sectionId="A" reviews={sub.sectionReviews} />
           <table className="dt" style={{ fontSize: 12 }}>
             <thead>
@@ -645,11 +771,15 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
             <tbody>
               {SEC_A_DENOM.map(r => {
                 const qty = denomDetail['A']?.[r.key] ?? null
+                const oldField = sectionDiff?.A?.changedFields?.find(f => f.key === r.key)
                 return (
                   <tr key={r.label}>
                     <td>{r.label}</td>
                     {qty != null
-                      ? <td style={{ textAlign: 'right', fontSize: 12 }}>{qty > 0 ? qty : '—'}</td>
+                      ? <td style={{ textAlign: 'right', fontSize: 12, background: oldField ? '#eef2ff' : undefined, borderLeft: oldField ? '3px solid #818cf8' : undefined }}>
+                          {qty > 0 ? qty : '—'}
+                          {oldField && <div style={{ fontSize: 10, color: '#6366f1' }}>was: {oldField.old ?? 0}</div>}
+                        </td>
                       : <DashCell />}
                   </tr>
                 )
@@ -665,7 +795,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
         {/* Section B */}
         <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.B?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="B" title="Rolled Coin" total={s.B} red={pastRejected || sub.sectionReviews?.B?.decision === 'reject'} />
+          <SecHead id="B" title="Rolled Coin" total={s.B} red={pastRejected || sub.sectionReviews?.B?.decision === 'reject'} diff={sectionDiff?.B} />
           <SecRejectNote sectionId="B" reviews={sub.sectionReviews} />
           <table className="dt" style={{ fontSize: 12 }}>
             <thead>
@@ -677,11 +807,15 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
             <tbody>
               {SEC_B_DENOM.map(r => {
                 const qty = denomDetail['B']?.[r.key] ?? null
+                const oldField = sectionDiff?.B?.changedFields?.find(f => f.key === r.key)
                 return (
                   <tr key={r.label}>
                     <td>{r.label}</td>
                     {qty != null
-                      ? <td style={{ textAlign: 'right', fontSize: 12 }}>{qty > 0 ? qty : '—'}</td>
+                      ? <td style={{ textAlign: 'right', fontSize: 12, background: oldField ? '#eef2ff' : undefined, borderLeft: oldField ? '3px solid #818cf8' : undefined }}>
+                          {qty > 0 ? qty : '—'}
+                          {oldField && <div style={{ fontSize: 10, color: '#6366f1' }}>was: {oldField.old ?? 0}</div>}
+                        </td>
                       : <DashCell />}
                   </tr>
                 )
@@ -697,7 +831,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
         {/* Section C */}
         <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.C?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="C" title="Coins in Counting Machines (Sorter/Counter)" total={s.C} red={pastRejected || sub.sectionReviews?.C?.decision === 'reject'} />
+          <SecHead id="C" title="Coins in Counting Machines (Sorter/Counter)" total={s.C} red={pastRejected || sub.sectionReviews?.C?.decision === 'reject'} diff={sectionDiff?.C} />
           <SecRejectNote sectionId="C" reviews={sub.sectionReviews} />
           <div style={{ overflowX: 'auto' }}>
             <table className="dt" style={{ fontSize: 12, minWidth: 380 }}>
@@ -745,7 +879,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
         {/* Section D */}
         <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.D?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="D" title="Bagged Coin (Full for Bank)" total={s.D} red={pastRejected || sub.sectionReviews?.D?.decision === 'reject'} />
+          <SecHead id="D" title="Bagged Coin (Full for Bank)" total={s.D} red={pastRejected || sub.sectionReviews?.D?.decision === 'reject'} diff={sectionDiff?.D} />
           <SecRejectNote sectionId="D" reviews={sub.sectionReviews} />
           <table className="dt" style={{ fontSize: 12 }}>
             <thead>
@@ -778,7 +912,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
         {/* Section E */}
         <div className="card" style={{ border: (pastRejected || sub.sectionReviews?.E?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-          <SecHead id="E" title="Unissued Changer Funds in Cashroom or Vault" total={s.E} red={pastRejected || sub.sectionReviews?.E?.decision === 'reject'} />
+          <SecHead id="E" title="Unissued Changer Funds in Cashroom or Vault" total={s.E} red={pastRejected || sub.sectionReviews?.E?.decision === 'reject'} diff={sectionDiff?.E} />
           <SecRejectNote sectionId="E" reviews={sub.sectionReviews} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--ow2)' }}>
             {['Set 1', 'Set 2'].map((setLabel, si) => (
@@ -831,7 +965,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
       {/* Section F */}
       <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.F?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="F" title="Returned but Uncounted Manual Change" total={s.F} red={pastRejected || sub.sectionReviews?.F?.decision === 'reject'} />
+        <SecHead id="F" title="Returned but Uncounted Manual Change" total={s.F} red={pastRejected || sub.sectionReviews?.F?.decision === 'reject'} diff={sectionDiff?.F} />
         <SecRejectNote sectionId="F" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>
@@ -868,7 +1002,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
       {/* Section G */}
       <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.G?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="G" title="Mutilated Currency, Foreign, and/or Bent Coin" total={s.G} red={pastRejected || sub.sectionReviews?.G?.decision === 'reject'} />
+        <SecHead id="G" title="Mutilated Currency, Foreign, and/or Bent Coin" total={s.G} red={pastRejected || sub.sectionReviews?.G?.decision === 'reject'} diff={sectionDiff?.G} />
         <SecRejectNote sectionId="G" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>
@@ -898,7 +1032,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
       {/* Section H */}
       <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.H?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="H" title="Changer Funds Outstanding (Per Form #1841 / #403-1)" total={s.H} red={pastRejected || sub.sectionReviews?.H?.decision === 'reject'} />
+        <SecHead id="H" title="Changer Funds Outstanding (Per Form #1841 / #403-1)" total={s.H} red={pastRejected || sub.sectionReviews?.H?.decision === 'reject'} diff={sectionDiff?.H} />
         <SecRejectNote sectionId="H" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>
@@ -923,7 +1057,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
 
       {/* Section I */}
       <div className="card" style={{ marginBottom: 12, border: (pastRejected || sub.sectionReviews?.I?.decision === 'reject') ? '1.5px solid #fca5a5' : undefined }}>
-        <SecHead id="I" title="Net Unreimbursed Bill Changer Fund Shortage / (Overage)" total={Math.abs(s.I)} red={pastRejected || sub.sectionReviews?.I?.decision === 'reject'} />
+        <SecHead id="I" title="Net Unreimbursed Bill Changer Fund Shortage / (Overage)" total={Math.abs(s.I)} red={pastRejected || sub.sectionReviews?.I?.decision === 'reject'} diff={sectionDiff?.I} />
         <SecRejectNote sectionId="I" reviews={sub.sectionReviews} />
         <table className="dt" style={{ fontSize: 12 }}>
           <thead>

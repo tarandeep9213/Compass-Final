@@ -83,6 +83,7 @@ def _to_out(s: Submission) -> SubmissionOut:
         approved_at=s.approved_at.isoformat() if s.approved_at else None,
         rejection_reason=s.rejection_reason,
         section_reviews=s.section_reviews,
+        rejection_snapshot=s.rejection_snapshot,
         submitted_by_role=getattr(s, 'submitted_by_role', 'OPERATOR'),
         submitted_at=s.submitted_at.isoformat() if s.submitted_at else None,
         created_at=s.created_at.isoformat(),
@@ -329,6 +330,7 @@ def update_draft(
         s.status = SubmissionStatus.DRAFT
         s.rejection_reason = None
         s.section_reviews = None
+        # rejection_snapshot intentionally preserved for diff display
 
     log_event(db, current_user, "SUBMISSION_UPDATED",
               f"Submission for {s.location_name} on {s.submission_date} updated",
@@ -449,6 +451,7 @@ def approve_submission(
     s.approved_by = current_user.id
     s.approved_by_name = current_user.name
     s.approved_at = now
+    s.rejection_snapshot = None  # Clear snapshot after approval
     log_event(db, current_user, "SUBMISSION_APPROVED",
               f"Submission approved for {s.location_name} on {s.submission_date}",
               location_id=s.location_id, location_name=s.location_name,
@@ -501,6 +504,19 @@ def reject_submission(
         raise HTTPException(400, "Submission is not pending approval")
 
     now = datetime.now(timezone.utc)
+
+    # Snapshot current state before marking as rejected
+    from sqlalchemy.orm.attributes import flag_modified as _flag_mod
+    s.rejection_snapshot = {
+        "sections": s.sections,
+        "section_reviews": body.section_reviews,
+        "rejection_reason": body.reason,
+        "total_cash": s.total_cash,
+        "rejected_at": now.isoformat(),
+        "rejected_by": current_user.name,
+    }
+    _flag_mod(s, "rejection_snapshot")
+
     s.status = SubmissionStatus.REJECTED
     s.approved_by = current_user.id
     s.approved_by_name = current_user.name

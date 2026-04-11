@@ -23,6 +23,7 @@ class SubmissionOut(BaseModel):
     approved_at: Optional[datetime]
     rejection_reason: Optional[str]
     section_reviews: Optional[dict] = None
+    rejection_snapshot: Optional[dict] = None
     submitted_by_role: str = "OPERATOR"
     submitted_at: Optional[datetime]
     created_at: datetime

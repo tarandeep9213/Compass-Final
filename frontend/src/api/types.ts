@@ -99,6 +99,14 @@ export interface ApiSubmission {
   approved_at: string | null
   rejection_reason: string | null
   section_reviews: Record<string, { decision: string; note: string }> | null
+  rejection_snapshot: {
+    sections: Record<string, unknown>
+    section_reviews: Record<string, { decision: string; note: string }>
+    rejection_reason: string
+    total_cash: number
+    rejected_at: string
+    rejected_by: string
+  } | null
   submitted_by_role: 'OPERATOR' | 'CONTROLLER' | 'DGM'
   submitted_at: string | null
   created_at: string

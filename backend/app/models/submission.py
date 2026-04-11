@@ -60,6 +60,7 @@ class Submission(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     section_reviews: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # {A: {decision, note}, ...}
+    rejection_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # snapshot at rejection time
 
     submitted_by_role: Mapped[str] = mapped_column(String(20), nullable=False, default="OPERATOR")
 
