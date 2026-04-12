@@ -64,6 +64,7 @@ import AlarmBuildingSetup  from './pages/alarm/admin/AlarmBuildingSetup'
 import AlarmComplianceRules from './pages/alarm/admin/AlarmComplianceRules'
 import AlarmUserAccess     from './pages/alarm/admin/AlarmUserAccess'
 import AlarmAuditTrail     from './pages/alarm/admin/AlarmAuditTrail'
+import EsDashboard from './pages/EsDashboard'
 import './index.css'
 
 interface AuthState { userId: string; role: Role; name: string; locationIds: string[] }
@@ -486,6 +487,8 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
 
 // ── Root ───────────────────────────────────────────────────────────────────
 export default function App() {
+  // Standalone ES dashboard — no role required, own login
+  if (window.location.pathname === '/es-dashboard') return <EsDashboard />
   const [auth, setAuth]       = useState<AuthState | null>(null)
   const [loading, setLoading] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

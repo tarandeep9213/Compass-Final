@@ -176,6 +176,12 @@ def make_audit(event_type, actor_id, actor_name, actor_role,
 def seed():
     db = SessionLocal()
     try:
+        # ── Guard: skip if real data already exists ───────────────────────────
+        existing = db.query(Submission).count()
+        if existing > 0:
+            print(f"Submissions table already has {existing} rows — skipping demo seed.")
+            return
+
         # ── 1. Clear existing submissions & audit events ──────────────────────
         print("Clearing existing submissions and audit events…")
         db.query(MissedSubmission).delete()
