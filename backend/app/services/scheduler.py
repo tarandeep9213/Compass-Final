@@ -23,7 +23,7 @@ from app.services.email import send_submission_reminder, send_sla_breach
 
 logger = logging.getLogger(__name__)
 
-_scheduler = BackgroundScheduler(timezone="UTC")
+_scheduler = BackgroundScheduler()
 
 
 def _get_config(db) -> SystemConfig:
@@ -148,7 +148,7 @@ def start_scheduler() -> None:
 
     _scheduler.add_job(
         job_daily_reminder,
-        CronTrigger(hour=int(hour), minute=int(minute), timezone="UTC"),
+        CronTrigger(hour=int(hour), minute=int(minute)),
         id="daily_reminder",
         replace_existing=True,
         misfire_grace_time=3600,

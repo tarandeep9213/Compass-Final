@@ -25,6 +25,7 @@ class SubmissionOut(BaseModel):
     submitted_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    sections: Optional[dict[str, Any]] = None
 
     model_config = {"from_attributes": True}
 

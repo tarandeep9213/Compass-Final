@@ -515,7 +515,7 @@ export default function AdmUsers({ adminName }: Props) {
                 ))}
               </div>
             </div>
-            {/*<div>
+            <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)', display: 'block', marginBottom: 4 }}>Daily Reminder Time</label>
               <input
                 className="f-inp"
@@ -524,7 +524,7 @@ export default function AdmUsers({ adminName }: Props) {
                 onChange={e => setSys(p => ({ ...p, reminderTime: e.target.value }))}
                 style={{ fontSize: 13, width: 120 }}
               />
-            </div>*/}
+            </div>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--td)', display: 'block', marginBottom: 4 }}>Data Retention</label>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -765,7 +765,7 @@ function AddEditForm({ form, setForm, errors, setErrors, locNeeded, toggleLoc, l
               Location{form.role !== 'operator' ? 's' : ''} {['operator','controller','dgm'].includes(form.role) ? '*' : ''}
               {form.role === 'operator' && <span style={{fontSize:10,fontWeight:400,color:'var(--ts)',marginLeft:6}}>(single only)</span>}
             </span>
-            {form.role !== 'operator' && locations.length > 0 && (
+            {form.role === 'regional-controller' && locations.length > 0 && (
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--ts)', cursor: 'pointer', fontWeight: 400 }}>
                 <input
                   type="checkbox"
@@ -777,7 +777,7 @@ function AddEditForm({ form, setForm, errors, setErrors, locNeeded, toggleLoc, l
                     setErrors(p => ({ ...p, locationIds: '' }));
                   }}
                 />
-                Select All
+                All Locations
               </label>
             )}
           </label>

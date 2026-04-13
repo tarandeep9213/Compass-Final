@@ -96,7 +96,7 @@ export default function KpiCard({ label, value, sub, accent, highlight, tooltip,
           ?
         </span>
       </div>
-      <div className="kpi-val" style={{ color: accent, fontFamily: 'DM Serif Display,serif', fontSize: 26, lineHeight: 1 }}>
+      <div className="kpi-val" style={{ color: accent, fontFamily: 'DM Serif Display,serif', fontSize: 26, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {value}
       </div>
       {sub !== undefined && <div className="kpi-sub" style={{ fontSize: 10, color: 'var(--ts)', marginTop: 3 }}>{sub}</div>}

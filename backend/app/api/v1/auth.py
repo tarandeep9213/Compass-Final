@@ -60,6 +60,10 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Account is inactive. Contact your administrator.",
         )
+    # Populate access_grants from AccessGrant table
+    from app.models.access_grant import AccessGrant
+    grants = db.query(AccessGrant).filter(AccessGrant.user_id == user.id).all()
+    user.access_grants = list({g.access_type for g in grants})
     log_event(db, user, "USER_LOGIN", f"{user.name} logged in",
               entity_id=user.id, entity_type="User")
     db.commit()
@@ -67,7 +71,12 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=AuthUser, summary="Get current user profile")
-def me(current_user: User = Depends(get_current_user)):
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.models.access_grant import AccessGrant
+    grants = db.query(AccessGrant).filter(AccessGrant.user_id == current_user.id).all()
+    grant_types = list({g.access_type for g in grants})
+    # Temporarily set access_grants so the response includes them
+    current_user.access_grants = grant_types
     return current_user
 
 

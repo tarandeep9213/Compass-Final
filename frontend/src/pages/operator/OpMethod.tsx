@@ -1,4 +1,6 @@
-import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
+import { useState, useEffect } from 'react'
+import { getLocation, formatCurrency } from '../../mock/data'
+import { listLocations } from '../../api/locations'
 
 interface Props {
   ctx: Record<string, string>
@@ -6,7 +8,15 @@ interface Props {
 }
 
 export default function OpMethod({ ctx, onNavigate }: Props) {
-  const location = getLocation(ctx.locationId)
+  const mockLocation = getLocation(ctx.locationId)
+  const [location, setLocation] = useState(mockLocation)
+
+  useEffect(() => {
+    listLocations().then(locs => {
+      const found = locs.find(l => l.id === ctx.locationId)
+      if (found) setLocation(found)
+    }).catch(() => { /* keep mock */ })
+  }, [ctx.locationId])
   const dateLabel = new Date(ctx.date + 'T12:00:00').toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
@@ -54,7 +64,7 @@ export default function OpMethod({ ctx, onNavigate }: Props) {
       <div className="alert-info" style={{ marginBottom: 20 }}>
         <span style={{ fontSize: 16 }}>ℹ️</span>
         <div style={{ fontSize: 13 }}>
-          Imprest balance for this location: <strong>{formatCurrency(IMPREST)}</strong>.
+          Imprest balance for this location: <strong>{formatCurrency(location?.expected_cash ?? 9575)}</strong>.
           Your total fund count will be compared against this to calculate the variance.
         </div>
       </div>

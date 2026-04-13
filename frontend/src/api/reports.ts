@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ReportSummary, Paginated, SectionTrends } from './types'
+import type { ReportSummary, Paginated, SectionTrends, SlaSummary } from './types'
 
 export interface ReportDateRange {
   date_from: string
@@ -44,6 +44,11 @@ export function getSectionTrends(params: {
   const q = new URLSearchParams()
   Object.entries(params).forEach(([k, v]) => { if (v !== undefined) q.set(k, String(v)) })
   return api.get<SectionTrends>(`/reports/section-trends?${q}`)
+}
+
+export function getSlaSummary(params: ReportDateRange): Promise<SlaSummary> {
+  const q = new URLSearchParams({ date_from: params.date_from, date_to: params.date_to })
+  return api.get<SlaSummary>(`/reports/sla?${q}`)
 }
 
 export function exportReport(params: ReportDateRange): string {

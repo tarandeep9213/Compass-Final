@@ -408,3 +408,38 @@ export interface AuditFilterOptions {
   actors: { id: string; name: string }[]
   locations: { id: string; name: string }[]
 }
+
+// ── Compliance Trend ──────────────────────────────────────────────────────────
+
+export interface ComplianceTrendPoint {
+  period: string
+  start: string
+  end: string
+  submission_rate_pct: number
+  approval_rate_pct: number
+  exception_count: number
+  dgm_coverage_pct: number
+  total_submissions: number
+  locations_submitted: number
+  total_locations: number
+}
+
+export interface ComplianceTrend {
+  granularity: string
+  periods: number
+  data: ComplianceTrendPoint[]
+}
+
+// ── SLA Summary ───────────────────────────────────────────────────────────────
+
+export interface SlaApprover {
+  name: string
+  count: number
+  within_sla: number
+  avg_hours: number
+}
+
+export interface SlaSummary {
+  sla_compliance_pct: number | null
+  approvers: SlaApprover[]
+}

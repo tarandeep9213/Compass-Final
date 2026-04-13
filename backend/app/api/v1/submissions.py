@@ -28,6 +28,14 @@ router = APIRouter(tags=["Submissions"])
 _REVIEWER_ROLES = (UserRole.CONTROLLER, UserRole.DGM)
 
 
+def _has_operator_grant(user: User) -> bool:
+    return 'operator' in (user.access_grants or [])
+
+
+def _has_controller_grant(user: User) -> bool:
+    return 'controller' in (user.access_grants or [])
+
+
 def _fmt_currency(v: float) -> str:
     return f"£{v:,.2f}"
 
@@ -73,6 +81,7 @@ def _to_out(s: Submission) -> SubmissionOut:
         submitted_at=s.submitted_at.isoformat() if s.submitted_at else None,
         created_at=s.created_at.isoformat(),
         updated_at=s.updated_at.isoformat(),
+        sections=s.sections,
     )
 
 
@@ -91,18 +100,22 @@ def list_submissions(
     date_to: str | None = Query(None),
     operator_id: str | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=5000),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     q = db.query(Submission)
 
-    # Operators see only their own submissions
-    if current_user.role == UserRole.OPERATOR:
+    # Operators (and users with operator grant) see only their own submissions
+    if current_user.role == UserRole.OPERATOR or _has_operator_grant(current_user):
         q = q.filter(Submission.operator_id == current_user.id)
-    elif current_user.role == UserRole.CONTROLLER:
-        if current_user.location_ids:
-            q = q.filter(Submission.location_id.in_(current_user.location_ids))
+    else:
+        # Non-operators should never see drafts (they are operator-private)
+        q = q.filter(Submission.status != SubmissionStatus.DRAFT)
+        # Controllers see only their assigned locations
+        if current_user.role == UserRole.CONTROLLER or _has_controller_grant(current_user):
+            if current_user.location_ids:
+                q = q.filter(Submission.location_id.in_(current_user.location_ids))
 
     if location_id:
         q = q.filter(Submission.location_id == location_id)
@@ -144,7 +157,7 @@ def get_submission(
     if current_user.role == UserRole.CONTROLLER and s.location_id not in (current_user.location_ids or []):
         raise HTTPException(404, "Submission not found")
     out = _to_out(s)
-    return SubmissionDetailOut(**out.model_dump(), sections=s.sections)
+    return SubmissionDetailOut(**out.model_dump())
 
 
 # ── Create (or save as draft) ─────────────────────────────────────────────────
@@ -156,7 +169,7 @@ def create_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN):
+    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN) and not _has_operator_grant(current_user):
         raise HTTPException(403, "Only operators can create submissions")
 
     loc = db.get(Location, body.location_id)
@@ -350,7 +363,7 @@ def approve_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in _REVIEWER_ROLES:
+    if current_user.role not in _REVIEWER_ROLES and not _has_controller_grant(current_user):
         raise HTTPException(403, "Not authorised to approve submissions")
 
     s = db.get(Submission, submission_id)
@@ -406,7 +419,7 @@ def reject_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in _REVIEWER_ROLES:
+    if current_user.role not in _REVIEWER_ROLES and not _has_controller_grant(current_user):
         raise HTTPException(403, "Not authorised to reject submissions")
 
     s = db.get(Submission, submission_id)

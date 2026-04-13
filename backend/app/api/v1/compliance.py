@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -189,4 +189,92 @@ def get_compliance_dashboard(
             "dgm_coverage_this_month": dgm_coverage,
         },
         "locations": location_rows,
+    }
+
+
+@router.get("/trend")
+def get_compliance_trend(
+    granularity: str = Query("weekly"),
+    periods: int = Query(12, ge=1, le=52),
+    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Compliance trend data bucketed by week or month."""
+    today = date.today()
+    locations = db.query(Location).filter(Location.active == True).all()  # noqa: E712
+    total_locations = len(locations)
+
+    # Build period boundaries
+    buckets = []
+    if granularity == "daily":
+        for i in range(periods - 1, -1, -1):
+            d = today - timedelta(days=i)
+            buckets.append((d.isoformat(), d.isoformat(), d.isoformat()))
+    elif granularity == "monthly":
+        for i in range(periods - 1, -1, -1):
+            m = today.month - i
+            y = today.year
+            while m <= 0:
+                m += 12
+                y -= 1
+            start = date(y, m, 1)
+            if m == 12:
+                end = date(y + 1, 1, 1) - timedelta(days=1)
+            else:
+                end = date(y, m + 1, 1) - timedelta(days=1)
+            if end > today:
+                end = today
+            label = start.strftime("%Y-%m")
+            buckets.append((label, start.isoformat(), end.isoformat()))
+    else:  # weekly
+        for i in range(periods - 1, -1, -1):
+            end = today - timedelta(weeks=i)
+            start = end - timedelta(days=6)
+            iso = end.isocalendar()
+            label = f"{iso[0]}-W{iso[1]:02d}"
+            buckets.append((label, start.isoformat(), end.isoformat()))
+
+    data = []
+    for label, start, end in buckets:
+        subs = db.query(Submission).filter(
+            Submission.submission_date >= start,
+            Submission.submission_date <= end,
+            Submission.status != SubmissionStatus.DRAFT,
+        ).all()
+
+        total_subs = len(subs)
+        approved = sum(1 for s in subs if s.status == SubmissionStatus.APPROVED)
+        exceptions = sum(1 for s in subs if s.variance_exception)
+        locs_submitted = len({s.location_id for s in subs})
+
+        dgm_completed = db.query(Verification).filter(
+            Verification.verification_type == VerificationType.DGM,
+            Verification.verification_date >= start,
+            Verification.verification_date <= end,
+            Verification.status == VerificationStatus.COMPLETED,
+        ).count()
+        dgm_locs = len({v.location_id for v in db.query(Verification).filter(
+            Verification.verification_type == VerificationType.DGM,
+            Verification.verification_date >= start,
+            Verification.verification_date <= end,
+            Verification.status == VerificationStatus.COMPLETED,
+        ).all()})
+
+        data.append({
+            "period": label,
+            "start": start,
+            "end": end,
+            "submission_rate_pct": round(locs_submitted / max(total_locations, 1) * 100, 1),
+            "approval_rate_pct": round(approved / max(total_subs, 1) * 100, 1),
+            "exception_count": exceptions,
+            "dgm_coverage_pct": round(dgm_locs / max(total_locations, 1) * 100, 1),
+            "total_submissions": total_subs,
+            "locations_submitted": locs_submitted,
+            "total_locations": total_locations,
+        })
+
+    return {
+        "granularity": granularity,
+        "periods": periods,
+        "data": data,
     }

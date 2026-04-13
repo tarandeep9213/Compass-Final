@@ -553,6 +553,12 @@ export default function OpForm({ ctx, onNavigate }: Props) {
       sessionStorage.setItem(`op_status_${submissionId}`, 'pending_approval')
       sessionStorage.setItem(`op_status_${ctx.locationId}_${ctx.date}`, 'pending_approval')
       sessionStorage.setItem(`denom_${submissionId}`, JSON.stringify(denomDetail))
+      // Remove draft from mock array so it doesn't linger in My Drafts
+      if (draftId) {
+        const dIdx = DRAFTS.findIndex(d => d.id === draftId)
+        if (dIdx >= 0) DRAFTS.splice(dIdx, 1)
+        sessionStorage.removeItem(`denom_${draftId}`)
+      }
       onNavigate(ctx.from || 'op-start') // Route to previous context or Dashboard
     } catch (err) {
       // Strict Fallback Rule: Only fallback to session storage if backend is unreachable (Network Error)
@@ -823,16 +829,11 @@ export default function OpForm({ ctx, onNavigate }: Props) {
         </div>
         <div style={{ width: 1, height: 32, background: 'var(--ow2)' }} />
         <div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Expected</div>
-          <div style={{ fontFamily: 'DM Serif Display,serif', fontSize: 16, color: 'var(--ts)' }}>{formatCurrency(expectedCash)}</div>
-        </div>
-        <div style={{ width: 1, height: 32, background: 'var(--ow2)' }} />
-        <div>
           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ts)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Variance</div>
           <div style={{ fontFamily: 'DM Serif Display,serif', fontSize: 20, color: varColor }}>
-            {variance >= 0 ? '+' : ''}{formatCurrency(variance)}
+            {variance >= 0 ? '+' : '\u2212'}{formatCurrency(Math.abs(variance))}
             <span style={{ fontSize: 12, marginLeft: 5, fontFamily: 'DM Sans,sans-serif', fontWeight: 500 }}>
-              ({variancePct >= 0 ? '+' : ''}{variancePct.toFixed(2)}%)
+              ({variancePct >= 0 ? '+' : '\u2212'}{Math.abs(variancePct).toFixed(2)}%)
             </span>
           </div>
         </div>
@@ -1345,8 +1346,8 @@ export default function OpForm({ ctx, onNavigate }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '2px solid var(--ow2)', marginTop: 6 }}>
             <strong style={{ color: varColor }}>Variance – Short or (Over)</strong>
             <strong style={{ fontFamily: 'DM Serif Display,serif', fontSize: 18, color: varColor }}>
-              {variance >= 0 ? '+' : ''}{formatCurrency(variance)}&nbsp;
-              ({variancePct >= 0 ? '+' : ''}{variancePct.toFixed(2)}%)
+              {variance >= 0 ? '+' : '\u2212'}{formatCurrency(Math.abs(variance))}&nbsp;
+              ({variancePct >= 0 ? '+' : '\u2212'}{Math.abs(variancePct).toFixed(2)}%)
             </strong>
           </div>
 
