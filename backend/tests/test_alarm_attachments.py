@@ -49,11 +49,11 @@ def _upload_file(client, token: str, test_id: str, filename: str = "report.pdf",
 class TestUploadAttachment:
     """POST /v1/alarm/tests/{test_id}/attachments"""
 
-    def test_upload_pdf(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid)
+    def test_upload_pdf(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid)
 
-        body = _upload_file(client, controller_token, tid, "alarm_report.pdf")
+        body = _upload_file(client, alarm_tester_token, tid, "alarm_report.pdf")
         assert body["file_name"] == "alarm_report.pdf"
         assert body["file_type"] == "PDF"
         assert body["alarm_test_id"] == tid
@@ -61,38 +61,38 @@ class TestUploadAttachment:
         assert "id" in body
         assert "uploaded_at" in body
 
-    def test_upload_excel(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid)
+    def test_upload_excel(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid)
 
         r = client.post(f"/v1/alarm/tests/{tid}/attachments",
-            headers=_headers(controller_token),
+            headers=_headers(alarm_tester_token),
             files={"file": ("zones.xlsx", io.BytesIO(b"excel content"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
         )
         assert r.status_code == 201
         assert r.json()["file_type"] == "EXCEL"
 
-    def test_upload_image(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid)
+    def test_upload_image(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid)
 
         r = client.post(f"/v1/alarm/tests/{tid}/attachments",
-            headers=_headers(controller_token),
+            headers=_headers(alarm_tester_token),
             files={"file": ("photo.jpg", io.BytesIO(b"\xff\xd8\xff image"), "image/jpeg")},
         )
         assert r.status_code == 201
         assert r.json()["file_type"] == "IMAGE"
 
-    def test_upload_to_nonexistent_test_fails(self, client, controller_token):
+    def test_upload_to_nonexistent_test_fails(self, client, alarm_tester_token):
         r = client.post("/v1/alarm/tests/nonexistent/attachments",
-            headers=_headers(controller_token),
+            headers=_headers(alarm_tester_token),
             files={"file": ("report.pdf", io.BytesIO(b"data"), "application/pdf")},
         )
         assert r.status_code == 404
 
-    def test_unauthenticated_cannot_upload(self, client, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, admin_token, bid)
+    def test_unauthenticated_cannot_upload(self, client, alarm_admin_token, alarm_tester_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid)
 
         r = client.post(f"/v1/alarm/tests/{tid}/attachments",
             files={"file": ("report.pdf", io.BytesIO(b"data"), "application/pdf")},
@@ -105,21 +105,21 @@ class TestUploadAttachment:
 class TestListAttachments:
     """GET /v1/alarm/tests/{test_id}/attachments"""
 
-    def test_list_empty(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid, "2026-05-02")
+    def test_list_empty(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid, "2026-05-02")
 
-        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_headers(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_headers(alarm_tester_token))
         assert r.status_code == 200
         assert r.json() == []
 
-    def test_list_after_upload(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid, "2026-05-03")
-        _upload_file(client, controller_token, tid, "report1.pdf")
-        _upload_file(client, controller_token, tid, "report2.xlsx", b"excel")
+    def test_list_after_upload(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid, "2026-05-03")
+        _upload_file(client, alarm_tester_token, tid, "report1.pdf")
+        _upload_file(client, alarm_tester_token, tid, "report2.xlsx", b"excel")
 
-        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_headers(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_headers(alarm_tester_token))
         assert r.status_code == 200
         assert len(r.json()) == 2
         names = [a["file_name"] for a in r.json()]
@@ -132,34 +132,34 @@ class TestListAttachments:
 class TestDeleteAttachment:
     """DELETE /v1/alarm/tests/{test_id}/attachments/{att_id}"""
 
-    def test_delete_attachment(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid, "2026-05-04")
-        att = _upload_file(client, controller_token, tid, "to_delete.pdf")
+    def test_delete_attachment(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid, "2026-05-04")
+        att = _upload_file(client, alarm_tester_token, tid, "to_delete.pdf")
 
         r = client.delete(f"/v1/alarm/tests/{tid}/attachments/{att['id']}",
-            headers=_headers(controller_token))
+            headers=_headers(alarm_tester_token))
         assert r.status_code == 200
 
         # Verify gone
-        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_headers(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_headers(alarm_tester_token))
         assert len(r.json()) == 0
 
-    def test_delete_nonexistent_returns_404(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid, "2026-05-05")
+    def test_delete_nonexistent_returns_404(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid, "2026-05-05")
 
         r = client.delete(f"/v1/alarm/tests/{tid}/attachments/nonexistent",
-            headers=_headers(controller_token))
+            headers=_headers(alarm_tester_token))
         assert r.status_code == 404
 
-    def test_attachments_in_test_detail(self, client, controller_token, admin_token):
+    def test_attachments_in_test_detail(self, client, alarm_tester_token, alarm_admin_token):
         """Verify attachments appear in GET /v1/alarm/tests/{id} detail response."""
-        bid = _create_building(client, admin_token)
-        tid = _create_test(client, controller_token, bid, "2026-05-06")
-        _upload_file(client, controller_token, tid, "detail_test.pdf")
+        bid = _create_building(client, alarm_admin_token)
+        tid = _create_test(client, alarm_tester_token, bid, "2026-05-06")
+        _upload_file(client, alarm_tester_token, tid, "detail_test.pdf")
 
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_headers(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_headers(alarm_tester_token))
         assert r.status_code == 200
         assert len(r.json()["attachments"]) == 1
         assert r.json()["attachments"][0]["file_name"] == "detail_test.pdf"

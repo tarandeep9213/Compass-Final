@@ -27,10 +27,16 @@ from app.schemas.alarm import (
 
 router = APIRouter(prefix="/alarm/tests", tags=["alarm-tests"])
 
-_APPROVER = [Depends(require_roles(UserRole.ADMIN, UserRole.REGIONAL_CONTROLLER))]
+_TESTER   = [Depends(require_roles(UserRole.ALARM_TESTER))]
+_APPROVER = [Depends(require_roles(UserRole.ALARM_APPROVER))]
+# Read-only access for tests list / details — testers, approvers, alarm admin, and cross-functional roles
+_TEST_READER = [Depends(require_roles(
+    UserRole.ALARM_TESTER, UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+))]
 
 
-@router.get("", response_model=list[AlarmTestOut])
+@router.get("", response_model=list[AlarmTestOut], dependencies=_TEST_READER)
 def list_tests(
     building_id: str | None = Query(None),
     month: str | None = Query(None),
@@ -51,7 +57,7 @@ def list_tests(
     return q.order_by(AlarmTest.test_date.desc()).all()
 
 
-@router.get("/{test_id}", response_model=AlarmTestDetailOut)
+@router.get("/{test_id}", response_model=AlarmTestDetailOut, dependencies=_TEST_READER)
 def get_test(
     test_id: str,
     current_user: User = Depends(get_current_user),
@@ -69,7 +75,7 @@ def get_test(
     )
 
 
-@router.post("", response_model=AlarmTestOut, status_code=201)
+@router.post("", response_model=AlarmTestOut, status_code=201, dependencies=_TESTER)
 def create_test(
     body: CreateAlarmTestBody,
     current_user: User = Depends(get_current_user),
@@ -93,7 +99,7 @@ def create_test(
     return t
 
 
-@router.put("/{test_id}", response_model=AlarmTestOut)
+@router.put("/{test_id}", response_model=AlarmTestOut, dependencies=_TESTER)
 def update_test(
     test_id: str,
     body: CreateAlarmTestBody,
@@ -112,7 +118,7 @@ def update_test(
     return t
 
 
-@router.post("/{test_id}/zones")
+@router.post("/{test_id}/zones", dependencies=_TESTER)
 def save_zone_results(
     test_id: str,
     body: SaveZoneResultsBody,
@@ -148,7 +154,7 @@ def save_zone_results(
     return {"saved": len(body.results)}
 
 
-@router.post("/{test_id}/submit", response_model=AlarmTestOut)
+@router.post("/{test_id}/submit", response_model=AlarmTestOut, dependencies=_TESTER)
 def submit_test(
     test_id: str,
     current_user: User = Depends(get_current_user),
@@ -246,7 +252,7 @@ def reject_test(
     return t
 
 
-@router.post("/{test_id}/reopen", response_model=AlarmTestOut)
+@router.post("/{test_id}/reopen", response_model=AlarmTestOut, dependencies=_TESTER)
 def reopen_test(
     test_id: str,
     current_user: User = Depends(get_current_user),
@@ -278,7 +284,7 @@ def _detect_file_type(filename: str) -> str:
     return "PDF"
 
 
-@router.get("/{test_id}/attachments", response_model=list[AlarmTestAttachmentOut])
+@router.get("/{test_id}/attachments", response_model=list[AlarmTestAttachmentOut], dependencies=_TEST_READER)
 def list_attachments(
     test_id: str,
     current_user: User = Depends(get_current_user),
@@ -290,7 +296,7 @@ def list_attachments(
     return db.query(AlarmTestAttachment).filter(AlarmTestAttachment.alarm_test_id == test_id).all()
 
 
-@router.post("/{test_id}/attachments", response_model=AlarmTestAttachmentOut, status_code=201)
+@router.post("/{test_id}/attachments", response_model=AlarmTestAttachmentOut, status_code=201, dependencies=_TESTER)
 async def upload_attachment(
     test_id: str,
     file: UploadFile = File(...),
@@ -325,7 +331,7 @@ async def upload_attachment(
     return att
 
 
-@router.delete("/{test_id}/attachments/{attachment_id}")
+@router.delete("/{test_id}/attachments/{attachment_id}", dependencies=_TESTER)
 def delete_attachment(
     test_id: str,
     attachment_id: str,
@@ -345,7 +351,7 @@ def delete_attachment(
     return {"deleted": attachment_id}
 
 
-@router.get("/{test_id}/attachments/{attachment_id}/download")
+@router.get("/{test_id}/attachments/{attachment_id}/download", dependencies=_TEST_READER)
 def download_attachment(
     test_id: str,
     attachment_id: str,

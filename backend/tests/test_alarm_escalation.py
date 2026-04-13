@@ -11,7 +11,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_rules(client):
-    token = client.post("/v1/auth/login", json={"email": "admin@compass.com", "password": "demo1234"}).json()["access_token"]
+    token = client.post("/v1/auth/login", json={"email": "alarmadmin@alarm.compass.com", "password": "demo1234"}).json()["access_token"]
     client.put("/v1/alarm/rules", headers={"Authorization": f"Bearer {token}"},
         json={"require_all_zones_tested": False, "require_report_upload": False})
     yield
@@ -39,55 +39,55 @@ def _create_building(client, token: str, name: str) -> str:
 class TestOverdueBuildings:
     """GET /v1/alarm/escalation/overdue"""
 
-    def test_returns_list(self, client, admin_token):
-        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(admin_token))
+    def test_returns_list(self, client, alarm_admin_token, alarm_approver_token):
+        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(alarm_admin_token))
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
-    def test_active_building_no_test_is_overdue(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Overdue Building")
+    def test_active_building_no_test_is_overdue(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Overdue Building")
 
-        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(alarm_admin_token))
         assert r.status_code == 200
         bids = [b["building_id"] for b in r.json()]
         assert bid in bids
 
-    def test_overdue_has_tier(self, client, admin_token):
-        _create_building(client, admin_token, "Tier Check Building")
+    def test_overdue_has_tier(self, client, alarm_admin_token, alarm_approver_token):
+        _create_building(client, alarm_admin_token, "Tier Check Building")
 
-        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(alarm_admin_token))
         for row in r.json():
             assert "days_since_last_test" in row
             assert "assigned_testers" in row
             assert "building_name" in row
             assert "region" in row
 
-    def test_approved_building_not_overdue(self, client, admin_token, controller_token):
-        bid = _create_building(client, admin_token, "Approved Not Overdue")
+    def test_approved_building_not_overdue(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _create_building(client, alarm_admin_token, "Approved Not Overdue")
 
         # Create + submit + approve a test for current month
         from datetime import date
         today = date.today()
         month = f"{today.year}-{today.month:02d}"
         r = client.post("/v1/alarm/tests",
-            headers=_headers(controller_token),
+            headers=_headers(alarm_tester_token),
             json={"building_id": bid, "test_date": today.isoformat(), "test_month": month})
         tid = r.json()["id"]
-        client.post(f"/v1/alarm/tests/{tid}/submit", headers=_headers(controller_token))
+        client.post(f"/v1/alarm/tests/{tid}/submit", headers=_headers(alarm_tester_token))
         client.post(f"/v1/alarm/tests/{tid}/approve",
-            headers=_headers(admin_token), json={"notes": "OK"})
+            headers=_headers(alarm_approver_token), json={"notes": "OK"})
 
-        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(alarm_admin_token))
         bids = [b["building_id"] for b in r.json()]
         assert bid not in bids
 
-    def test_exempt_building_not_overdue(self, client, admin_token):
+    def test_exempt_building_not_overdue(self, client, alarm_admin_token, alarm_approver_token):
         r = client.post("/v1/alarm/buildings",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"name": "Exempt Building", "region": "Midwest", "status": "temporarily_exempt"})
         bid = r.json()["id"]
 
-        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_headers(alarm_admin_token))
         bids = [b["building_id"] for b in r.json()]
         assert bid not in bids
 
@@ -101,29 +101,29 @@ class TestOverdueBuildings:
 class TestSendReminder:
     """POST /v1/alarm/escalation/remind"""
 
-    def test_send_reminder(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Reminder Building")
+    def test_send_reminder(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Reminder Building")
 
         r = client.post("/v1/alarm/escalation/remind",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"building_id": bid, "tier": 1},
         )
         assert r.status_code == 200
         assert r.json()["sent"] is True
         assert r.json()["building_id"] == bid
 
-    def test_send_reminder_tier_2(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Tier 2 Reminder")
+    def test_send_reminder_tier_2(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Tier 2 Reminder")
 
         r = client.post("/v1/alarm/escalation/remind",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"building_id": bid, "tier": 2},
         )
         assert r.status_code == 200
         assert r.json()["tier"] == 2
 
-    def test_operator_cannot_send_reminder(self, client, operator_token, admin_token):
-        bid = _create_building(client, admin_token, "Op Remind Fail")
+    def test_operator_cannot_send_reminder(self, client, operator_token, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Op Remind Fail")
 
         r = client.post("/v1/alarm/escalation/remind",
             headers=_headers(operator_token),

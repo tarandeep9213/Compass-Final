@@ -5,18 +5,43 @@ import { ApiError } from '../api/client'
 import type { ApiRole } from '../api/types'
 
 // Frontend role type — lowercase kebab-case to match existing nav/routing
-export type Role = 'operator' | 'controller' | 'dgm' | 'admin' | 'regional-controller'
+export type Role =
+  | 'operator' | 'controller' | 'dgm' | 'admin' | 'regional-controller'
+  | 'alarm-tester' | 'alarm-approver' | 'alarm-admin'
 
 // Map API uppercase role to frontend lowercase role
-function apiRoleToRole(apiRole: ApiRole): Role {
+export function apiRoleToRole(apiRole: ApiRole): Role {
   const map: Partial<Record<ApiRole, Role>> = {
     OPERATOR:            'operator',
     CONTROLLER:          'controller',
     DGM:                 'dgm',
     ADMIN:               'admin',
     REGIONAL_CONTROLLER: 'regional-controller',
+    ALARM_TESTER:        'alarm-tester',
+    ALARM_APPROVER:      'alarm-approver',
+    ALARM_ADMIN:         'alarm-admin',
   }
   return map[apiRole] ?? 'operator'
+}
+
+// ── App Mode (URL-based) ─────────────────────────────────────────────────────
+export type AppMode = 'cashroom' | 'alarm'
+
+export function getAppMode(): AppMode {
+  if (typeof window === 'undefined') return 'cashroom'
+  // Hostname starts with "alarm." (e.g., alarm.compass.com) → alarm mode
+  if (window.location.hostname.startsWith('alarm.')) return 'alarm'
+  // Local dev: ?mode=alarm query param
+  if (window.location.search.includes('mode=alarm')) return 'alarm'
+  return 'cashroom'
+}
+
+const ALARM_ROLES_FE: Role[] = ['alarm-tester', 'alarm-approver', 'alarm-admin']
+const CASHROOM_ROLES_FE: Role[] = ['operator', 'controller', 'dgm', 'admin', 'regional-controller']
+
+export function isRoleAllowedOnMode(role: Role, mode: AppMode): boolean {
+  if (mode === 'alarm') return ALARM_ROLES_FE.includes(role)
+  return CASHROOM_ROLES_FE.includes(role)
 }
 
 interface LoginProps {
@@ -28,6 +53,7 @@ const DEMO_PASSWORD = 'demo1234'
 type View = 'login' | 'forgot' | 'otp' | 'newpw'
 
 export default function Login({ onLogin }: LoginProps) {
+  const APP_MODE = getAppMode()
   // ── Login state ──────────────────────────────────────────────────────────
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
@@ -57,6 +83,17 @@ export default function Login({ onLogin }: LoginProps) {
       // Try real API first
       const res = await apiLogin(email.trim(), password)
       const role = apiRoleToRole(res.user.role)
+      // Block role/URL mismatch
+      if (!isRoleAllowedOnMode(role, APP_MODE)) {
+        const otherUrl = APP_MODE === 'alarm' ? 'cashroom.compass.com' : 'alarm.compass.com'
+        setError(
+          APP_MODE === 'alarm'
+            ? `This URL is for alarm system users only. Please use ${otherUrl}`
+            : `This URL is for cashroom users only. Please use ${otherUrl}`
+        )
+        setLoading(false)
+        return
+      }
       onLogin(res.user.id, role, res.user.name, res.user.location_ids)
     } catch (err) {
       // If the API responded (4xx/5xx), show the real error — do NOT fall back to mock
@@ -69,7 +106,18 @@ export default function Login({ onLogin }: LoginProps) {
       const user = USERS.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
       if (!user) { setError('No account found for this email address.'); setLoading(false); return }
       if (password !== DEMO_PASSWORD) { setError('Incorrect password.'); setLoading(false); return }
-      onLogin(user.id, user.role as Role, user.name, user.locationIds)
+      const role = user.role as Role
+      if (!isRoleAllowedOnMode(role, APP_MODE)) {
+        const otherUrl = APP_MODE === 'alarm' ? 'cashroom.compass.com' : 'alarm.compass.com'
+        setError(
+          APP_MODE === 'alarm'
+            ? `This URL is for alarm system users only. Please use ${otherUrl}`
+            : `This URL is for cashroom users only. Please use ${otherUrl}`
+        )
+        setLoading(false)
+        return
+      }
+      onLogin(user.id, role, user.name, user.locationIds)
     } finally {
       setLoading(false)
     }
@@ -135,8 +183,10 @@ export default function Login({ onLogin }: LoginProps) {
   return (
     <div className="login-screen">
       <div className="login-box">
-        <div className="login-logo">CashRoom</div>
-        <div className="login-sub">Compliance System · Compass Group</div>
+        <div className="login-logo">{APP_MODE === 'alarm' ? 'Alarm Testing' : 'CashRoom'}</div>
+        <div className="login-sub">
+          {APP_MODE === 'alarm' ? 'Compliance & Testing System · Compass Group' : 'Compliance System · Compass Group'}
+        </div>
 
         {/* ── Success banner (after reset) ── */}
         {successMsg && (
@@ -221,13 +271,20 @@ export default function Login({ onLogin }: LoginProps) {
 
               {showHints && (
                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {[
-                    { email: 'admin@compass.com', role: 'Admin' },
-                    { email: 'operator@compass.com', role: 'Operator' },
-                    { email: 'controller@compass.com', role: 'Controller' },
-                    { email: 'dgm@compass.com', role: 'DGM' },
-                    { email: 'rc@compass.com', role: 'Regional Controller' },
-                  ].map(h => (
+                  {(APP_MODE === 'alarm'
+                    ? [
+                        { email: 'tester@alarm.compass.com',     role: 'Alarm Tester' },
+                        { email: 'approver@alarm.compass.com',   role: 'Alarm Approver' },
+                        { email: 'alarmadmin@alarm.compass.com', role: 'Alarm Admin' },
+                      ]
+                    : [
+                        { email: 'admin@compass.com', role: 'Admin' },
+                        { email: 'operator@compass.com', role: 'Operator' },
+                        { email: 'controller@compass.com', role: 'Controller' },
+                        { email: 'dgm@compass.com', role: 'DGM' },
+                        { email: 'rc@compass.com', role: 'Regional Controller' },
+                      ]
+                  ).map(h => (
                     <button
                       key={h.email}
                       type="button"

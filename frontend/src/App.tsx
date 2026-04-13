@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import Login, { type Role } from './pages/Login'
+import Login, { type Role, getAppMode, type AppMode } from './pages/Login'
 import { getLocation } from './mock/data'
 import { hasAccess } from './utils/operatorAccess'
 import { me, logout, refresh, changePassword } from './api/auth'
@@ -17,6 +17,9 @@ function apiRoleToRole(apiRole: ApiRole): Role {
     DGM:                 'dgm',
     ADMIN:               'admin',
     REGIONAL_CONTROLLER: 'regional-controller',
+    ALARM_TESTER:        'alarm-tester',
+    ALARM_APPROVER:      'alarm-approver',
+    ALARM_ADMIN:         'alarm-admin',
   }
   return map[apiRole] ?? 'operator'
 }
@@ -64,6 +67,7 @@ import AlarmBuildingSetup  from './pages/alarm/admin/AlarmBuildingSetup'
 import AlarmComplianceRules from './pages/alarm/admin/AlarmComplianceRules'
 import AlarmUserAccess     from './pages/alarm/admin/AlarmUserAccess'
 import AlarmAuditTrail     from './pages/alarm/admin/AlarmAuditTrail'
+import AlarmUserManagement from './pages/alarm/admin/AlarmUserManagement'
 import EsDashboard from './pages/EsDashboard'
 import './index.css'
 
@@ -72,8 +76,38 @@ interface NavCtx   { panel: string; ctx: Record<string, string> }
 
 const ALARM_ENABLED = (import.meta.env.VITE_FEATURE_ALARM as string | undefined) !== 'false'
 
-// ── Role-based nav items ───────────────────────────────────────────────────
-function navItems(role: Role): { id: string; icon: string; label: string; panel: string }[] {
+// ── Role + Mode based nav items ────────────────────────────────────────────
+// Cross-functional roles (Controller/DGM/RC) on cashroom URL get alarm
+// COMPLIANCE dashboards (read-only) — not testing or admin features.
+function navItems(role: Role, mode: AppMode): { id: string; icon: string; label: string; panel: string }[] {
+  // ── Alarm URL: only alarm roles ────────────────────────────────────────
+  if (mode === 'alarm') {
+    switch (role) {
+      case 'alarm-tester': return [
+        { id: 'alarm-history',   icon: '🔔', label: 'My Tests',          panel: 'alarm-history'   },
+        { id: 'biannual-check',  icon: '📅', label: 'Biannual Checks',   panel: 'biannual-check'  },
+      ]
+      case 'alarm-approver': return [
+        { id: 'alarm-approval',  icon: '✅', label: 'Pending Approvals', panel: 'alarm-approval'   },
+        { id: 'alarm-overview',  icon: '🛡', label: 'Compliance',        panel: 'alarm-overview'   },
+        { id: 'alarm-trends',    icon: '📉', label: 'Trends',            panel: 'alarm-trends'     },
+        { id: 'alarm-escalation',icon: '⏰', label: 'Escalations',       panel: 'alarm-escalation' },
+        { id: 'alarm-audit-trail',icon: '📋', label: 'Audit Trail',      panel: 'alarm-audit-trail'},
+      ]
+      case 'alarm-admin': return [
+        { id: 'alarm-building-setup',  icon: '🏢', label: 'Buildings',     panel: 'alarm-building-setup' },
+        { id: 'alarm-zone-config',     icon: '📍', label: 'Zones',          panel: 'alarm-zone-config'    },
+        { id: 'alarm-compliance-rules',icon: '⚙', label: 'Compliance Rules',panel: 'alarm-compliance-rules' },
+        { id: 'alarm-user-mgmt',       icon: '👥', label: 'Alarm Users',    panel: 'alarm-user-mgmt'      },
+        { id: 'alarm-overview',        icon: '🛡', label: 'Compliance',     panel: 'alarm-overview'       },
+        { id: 'alarm-audit-trail',     icon: '📋', label: 'Audit Trail',    panel: 'alarm-audit-trail'    },
+      ]
+      default: return []
+    }
+  }
+
+  // ── Cashroom URL: only cashroom roles. Cross-functional roles get
+  //    alarm compliance dashboards as read-only nav items. ────────────────
   switch (role) {
     case 'operator': return [
       { id: 'submit', icon: '🏠', label: 'Dashboard', panel: 'op-start' },
@@ -83,13 +117,16 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'dashboard',    icon: '📊', label: 'Weekly Review Dashboard', panel: 'ctrl-dashboard'    },
       { id: 'dgm-review',   icon: '🔍', label: 'Review DGM Visits',      panel: 'ctrl-dgm-review'   },
       { id: 'reasonableness', icon: '🧮', label: 'Cash Reasonableness Test', panel: 'ctrl-reasonableness' },
-      { id: 'alarm-testing', icon: '🔔', label: 'Alarm Testing',          panel: 'alarm-history'   },
+      { id: 'alarm-overview', icon: '🛡', label: 'Alarm Compliance',     panel: 'alarm-overview' },
+      { id: 'alarm-trends',   icon: '📉', label: 'Alarm Trends',         panel: 'alarm-trends' },
+      { id: 'alarm-audit-trail', icon: '📋', label: 'Alarm Audit',       panel: 'alarm-audit-trail' },
     ]
     case 'dgm': return [
       { id: 'dashboard', icon: '📊', label: 'Coverage Dashboard', panel: 'dgm-dash' },
       { id: 'history',   icon: '🕓', label: 'History',            panel: 'dgm-history' },
-      { id: 'alarm-testing',  icon: '🔔', label: 'Alarm Testing',     panel: 'alarm-history' },
-      { id: 'alarm-overview', icon: '🛡', label: 'Alarm Dashboard',   panel: 'alarm-overview'  },
+      { id: 'alarm-overview', icon: '🛡', label: 'Alarm Compliance', panel: 'alarm-overview' },
+      { id: 'alarm-trends',   icon: '📉', label: 'Alarm Trends',     panel: 'alarm-trends' },
+      { id: 'alarm-audit-trail', icon: '📋', label: 'Alarm Audit',   panel: 'alarm-audit-trail' },
     ]
     case 'admin': return [
       { id: 'audit',     icon: '📑', label: 'Audit Trail',   panel: 'adm-audit'    },
@@ -97,25 +134,29 @@ function navItems(role: Role): { id: string; icon: string; label: string; panel:
       { id: 'users',     icon: '👥', label: 'Users',         panel: 'adm-users' },
       { id: 'import',    icon: '📥', label: 'Import Roster', panel: 'adm-import' },
       { id: 'reasonableness', icon: '🧮', label: 'Reasonableness Reports', panel: 'adm-reasonableness' },
-      { id: 'alarm-config',    icon: '🔔', label: 'Alarm Config',       panel: 'alarm-building-setup' },
-      { id: 'alarm-approvals', icon: '🛡', label: 'Alarm Approvals',    panel: 'alarm-approval'    },
-      { id: 'alarm-audit',     icon: '📋', label: 'Alarm Audit Trail',  panel: 'alarm-audit-trail' },
     ]
     case 'regional-controller': return [
       { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard',   panel: 'rc-biz-dash'   },
       { id: 'audit',      icon: '📑', label: 'Audit Trail',          panel: 'adm-audit' },
       { id: 'reports',    icon: '📊', label: 'Reports',              panel: 'adm-reports' },
       { id: 'trends',     icon: '📉', label: 'Cash Trends',          panel: 'rc-trends'   },
-      { id: 'alarm-overview',  icon: '🛡', label: 'Alarm Compliance',   panel: 'alarm-overview' },
-      { id: 'alarm-approvals', icon: '✅', label: 'Alarm Approvals',    panel: 'alarm-approval' },
-      { id: 'alarm-audit',     icon: '📋', label: 'Alarm Audit Trail',  panel: 'alarm-audit-trail' },
+      { id: 'alarm-overview',    icon: '🛡', label: 'Alarm Compliance', panel: 'alarm-overview' },
+      { id: 'alarm-trends',      icon: '📉', label: 'Alarm Trends',     panel: 'alarm-trends' },
+      { id: 'alarm-audit-trail', icon: '📋', label: 'Alarm Audit',      panel: 'alarm-audit-trail' },
     ]
+    default: return []
   }
 }
 
 const ROLE_LABELS: Record<Role, string> = {
-  operator: 'Operator', controller: 'Controller',
-  dgm: 'DGM', admin: 'Admin', 'regional-controller': 'Regional Controller',
+  operator: 'Operator',
+  controller: 'Controller',
+  dgm: 'DGM',
+  admin: 'Admin',
+  'regional-controller': 'Regional Controller',
+  'alarm-tester': 'Alarm Tester',
+  'alarm-approver': 'Alarm Approver',
+  'alarm-admin': 'Alarm Admin',
 }
 
 function scheduleRefresh(
@@ -254,15 +295,22 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
 
 // ── AppShell ───────────────────────────────────────────────────────────────
 function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void }) {
+  const APP_MODE = getAppMode()
   const eligible  = auth.role === 'dgm' || auth.role === 'regional-controller'
   const opAccess  = eligible && hasAccess(auth.userId, 'operator')
   const ctrlAccess= eligible && hasAccess(auth.userId, 'controller')
-  const baseItems = navItems(auth.role)
-  const alarmIds = new Set(['alarm-testing', 'alarm-overview', 'alarm-config', 'alarm-approvals', 'alarm-audit'])
+  const baseItems = navItems(auth.role, APP_MODE)
+  const alarmIds = new Set([
+    'alarm-testing', 'alarm-overview', 'alarm-trends', 'alarm-config',
+    'alarm-approvals', 'alarm-approval', 'alarm-audit', 'alarm-audit-trail',
+    'alarm-escalation', 'alarm-history', 'biannual-check',
+    'alarm-building-setup', 'alarm-zone-config', 'alarm-compliance-rules', 'alarm-user-mgmt',
+  ])
+  // ALARM_ENABLED only suppresses alarm features on cashroom URL — alarm URL ignores it
   const items = [
-    ...(ALARM_ENABLED ? baseItems : baseItems.filter(i => !alarmIds.has(i.id))),
-    ...(opAccess   ? [{ id: 'op-access',   icon: '🏧', label: 'Operator View',   panel: 'op-start'      }] : []),
-    ...(ctrlAccess ? [{ id: 'ctrl-access', icon: '🔍', label: 'Controller View', panel: 'ctrl-dashboard' }] : []),
+    ...(APP_MODE === 'alarm' || ALARM_ENABLED ? baseItems : baseItems.filter(i => !alarmIds.has(i.id))),
+    ...(APP_MODE === 'cashroom' && opAccess   ? [{ id: 'op-access',   icon: '🏧', label: 'Operator View',   panel: 'op-start'      }] : []),
+    ...(APP_MODE === 'cashroom' && ctrlAccess ? [{ id: 'ctrl-access', icon: '🔍', label: 'Controller View', panel: 'ctrl-dashboard' }] : []),
   ]
   const defaultPanel = items[0]?.panel ?? 'op-start'
   const [nav, setNav] = useState<NavCtx>({ panel: defaultPanel, ctx: {} })
@@ -342,6 +390,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       case 'alarm-building-setup':   return <AlarmBuildingSetup  adminName={auth.name} onNavigate={navigate} />
       case 'alarm-compliance-rules': return <AlarmComplianceRules adminName={auth.name} onNavigate={navigate} />
       case 'alarm-user-access':      return <AlarmUserAccess     adminName={auth.name} onNavigate={navigate} />
+      case 'alarm-user-mgmt':        return <AlarmUserManagement adminName={auth.name} onNavigate={navigate} />
       case 'alarm-audit-trail':      return <AlarmAuditTrail    adminName={auth.name} onNavigate={navigate} />
 
       // ── All other panels (coming soon) ───────────────────────────────

@@ -17,10 +17,14 @@ from app.schemas.alarm import (
 
 router = APIRouter(prefix="/alarm/buildings", tags=["alarm-buildings"])
 
-_ADMIN = [Depends(require_roles(UserRole.ADMIN))]
+_ADMIN = [Depends(require_roles(UserRole.ALARM_ADMIN))]
+_READER = [Depends(require_roles(
+    UserRole.ALARM_TESTER, UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+))]
 
 
-@router.get("", response_model=list[AlarmBuildingOut])
+@router.get("", response_model=list[AlarmBuildingOut], dependencies=_READER)
 def list_buildings(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -28,7 +32,7 @@ def list_buildings(
     return db.query(AlarmBuilding).order_by(AlarmBuilding.name).all()
 
 
-@router.get("/{building_id}", response_model=AlarmBuildingOut)
+@router.get("/{building_id}", response_model=AlarmBuildingOut, dependencies=_READER)
 def get_building(
     building_id: str,
     current_user: User = Depends(get_current_user),

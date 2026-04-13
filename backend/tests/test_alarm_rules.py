@@ -24,8 +24,8 @@ def _headers(token: str) -> dict:
 class TestGetRules:
     """GET /v1/alarm/rules"""
 
-    def test_get_returns_structure(self, client, admin_token):
-        r = client.get("/v1/alarm/rules", headers=_headers(admin_token))
+    def test_get_returns_structure(self, client, alarm_admin_token):
+        r = client.get("/v1/alarm/rules", headers=_headers(alarm_admin_token))
         assert r.status_code == 200
         body = r.json()
         # Check fields exist with correct types
@@ -47,9 +47,14 @@ class TestGetRules:
         assert body["notifications"]["enable_email"] is True
         assert body["notifications"]["enable_in_app"] is True
 
-    def test_any_authenticated_user_can_read(self, client, operator_token):
-        r = client.get("/v1/alarm/rules", headers=_headers(operator_token))
+    def test_alarm_users_can_read(self, client, alarm_admin_token):
+        r = client.get("/v1/alarm/rules", headers=_headers(alarm_admin_token))
         assert r.status_code == 200
+
+    def test_operator_cannot_read_alarm_rules(self, client, operator_token):
+        # Operators are cashroom-only; alarm endpoints reject them.
+        r = client.get("/v1/alarm/rules", headers=_headers(operator_token))
+        assert r.status_code == 403
 
     def test_unauthenticated_cannot_read(self, client):
         r = client.get("/v1/alarm/rules")
@@ -61,29 +66,29 @@ class TestGetRules:
 class TestUpdateRules:
     """PUT /v1/alarm/rules"""
 
-    def test_admin_can_update_deadline(self, client, admin_token):
+    def test_admin_can_update_deadline(self, client, alarm_admin_token):
         r = client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"monthly_deadline_day": 25},
         )
         assert r.status_code == 200
         assert r.json()["monthly_deadline_day"] == 25
 
         # Verify persisted
-        r = client.get("/v1/alarm/rules", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/rules", headers=_headers(alarm_admin_token))
         assert r.json()["monthly_deadline_day"] == 25
 
-    def test_admin_can_update_sla(self, client, admin_token):
+    def test_admin_can_update_sla(self, client, alarm_admin_token):
         r = client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"approval_sla_days": 3},
         )
         assert r.status_code == 200
         assert r.json()["approval_sla_days"] == 3
 
-    def test_admin_can_toggle_requirements(self, client, admin_token):
+    def test_admin_can_toggle_requirements(self, client, alarm_admin_token):
         r = client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={
                 "require_all_zones_tested": False,
                 "require_report_upload": False,
@@ -93,9 +98,9 @@ class TestUpdateRules:
         assert r.json()["require_all_zones_tested"] is False
         assert r.json()["require_report_upload"] is False
 
-    def test_admin_can_update_escalation_tiers(self, client, admin_token):
+    def test_admin_can_update_escalation_tiers(self, client, alarm_admin_token):
         r = client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={
                 "escalation": {
                     "tier1": {"days_before": 10, "recipients": ["tester"]},
@@ -110,9 +115,9 @@ class TestUpdateRules:
         assert esc["tier2"]["days_after"] == 2
         assert esc["tier3"]["days_after"] == 5
 
-    def test_admin_can_update_biannual(self, client, admin_token):
+    def test_admin_can_update_biannual(self, client, alarm_admin_token):
         r = client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={
                 "biannual": {
                     "cellular_frequency_months": 12,
@@ -131,9 +136,9 @@ class TestUpdateRules:
         assert bi["cellular_frequency_months"] == 12
         assert bi["camera_check_frequency_days"] == 60
 
-    def test_admin_can_update_notifications(self, client, admin_token):
+    def test_admin_can_update_notifications(self, client, alarm_admin_token):
         r = client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={
                 "notifications": {"enable_email": False, "enable_in_app": True},
             },
@@ -142,15 +147,15 @@ class TestUpdateRules:
         assert r.json()["notifications"]["enable_email"] is False
         assert r.json()["notifications"]["enable_in_app"] is True
 
-    def test_partial_update_preserves_other_fields(self, client, admin_token):
+    def test_partial_update_preserves_other_fields(self, client, alarm_admin_token):
         # Reset to known state
         client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"monthly_deadline_day": 28, "approval_sla_days": 5},
         )
         # Update only one field
         r = client.put("/v1/alarm/rules",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"monthly_deadline_day": 15},
         )
         assert r.status_code == 200

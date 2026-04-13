@@ -13,7 +13,11 @@ from app.api.v1.alarm_audit_helper import log_alarm_event
 
 router = APIRouter(prefix="/alarm/escalation", tags=["alarm-escalation"])
 
-_ADMIN = [Depends(require_roles(UserRole.ADMIN, UserRole.REGIONAL_CONTROLLER))]
+_SENDER = [Depends(require_roles(UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN))]
+_READER = [Depends(require_roles(
+    UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+))]
 
 
 class OverdueBuildingOut(BaseModel):
@@ -36,7 +40,7 @@ class SendReminderResponse(BaseModel):
     tier: int
 
 
-@router.get("/overdue", response_model=list[OverdueBuildingOut])
+@router.get("/overdue", response_model=list[OverdueBuildingOut], dependencies=_READER)
 def get_overdue_buildings(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -112,7 +116,7 @@ def get_overdue_buildings(
     return overdue
 
 
-@router.post("/remind", response_model=SendReminderResponse, dependencies=_ADMIN)
+@router.post("/remind", response_model=SendReminderResponse, dependencies=_SENDER)
 def send_reminder(
     body: SendReminderBody,
     background: BackgroundTasks,

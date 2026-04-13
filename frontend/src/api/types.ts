@@ -9,6 +9,9 @@ export type ApiRole =
   | 'ADMIN'
   | 'AUDITOR'
   | 'REGIONAL_CONTROLLER'
+  | 'ALARM_TESTER'
+  | 'ALARM_APPROVER'
+  | 'ALARM_ADMIN'
 
 export type SubmissionStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected'
 export type SubmissionSource = 'FORM' | 'CHAT' | 'EXCEL'

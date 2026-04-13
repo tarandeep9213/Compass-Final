@@ -15,7 +15,12 @@ from app.schemas.alarm import (
     BiannualStatusRow,
 )
 
-_APPROVER = [Depends(require_roles(UserRole.ADMIN, UserRole.REGIONAL_CONTROLLER))]
+_TESTER   = [Depends(require_roles(UserRole.ALARM_TESTER))]
+_APPROVER = [Depends(require_roles(UserRole.ALARM_APPROVER))]
+_READER   = [Depends(require_roles(
+    UserRole.ALARM_TESTER, UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+))]
 
 
 class ApproveBody(BaseModel):
@@ -38,7 +43,7 @@ def _calc_next_due(check_date: str, check_type: str) -> str:
     return dt_date(year, month, day).isoformat()
 
 
-@router.get("", response_model=list[AlarmBiannualCheckOut])
+@router.get("", response_model=list[AlarmBiannualCheckOut], dependencies=_READER)
 def list_biannual_checks(
     building_id: str | None = Query(None),
     current_user: User = Depends(get_current_user),
@@ -50,7 +55,7 @@ def list_biannual_checks(
     return q.order_by(AlarmBiannualCheck.check_date.desc()).all()
 
 
-@router.post("", response_model=AlarmBiannualCheckOut, status_code=201)
+@router.post("", response_model=AlarmBiannualCheckOut, status_code=201, dependencies=_TESTER)
 def create_biannual_check(
     body: CreateAlarmBiannualCheckBody,
     current_user: User = Depends(get_current_user),
@@ -76,7 +81,7 @@ def create_biannual_check(
     return check
 
 
-@router.post("/{check_id}/submit", response_model=AlarmBiannualCheckOut)
+@router.post("/{check_id}/submit", response_model=AlarmBiannualCheckOut, dependencies=_TESTER)
 def submit_biannual_check(
     check_id: str,
     current_user: User = Depends(get_current_user),
@@ -137,7 +142,7 @@ def reject_biannual_check(
     return c
 
 
-@router.post("/{check_id}/reopen", response_model=AlarmBiannualCheckOut)
+@router.post("/{check_id}/reopen", response_model=AlarmBiannualCheckOut, dependencies=_TESTER)
 def reopen_biannual_check(
     check_id: str,
     current_user: User = Depends(get_current_user),
@@ -157,7 +162,7 @@ def reopen_biannual_check(
     return c
 
 
-@router.get("/status", response_model=list[BiannualStatusRow])
+@router.get("/status", response_model=list[BiannualStatusRow], dependencies=_READER)
 def biannual_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

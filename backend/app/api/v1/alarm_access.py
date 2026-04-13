@@ -16,7 +16,7 @@ from app.schemas.alarm import (
 
 router = APIRouter(prefix="/alarm", tags=["alarm-access"])
 
-_ADMIN = [Depends(require_roles(UserRole.ADMIN))]
+_ADMIN = [Depends(require_roles(UserRole.ALARM_ADMIN))]
 
 
 @router.get("/users", response_model=list[AlarmUserOut])

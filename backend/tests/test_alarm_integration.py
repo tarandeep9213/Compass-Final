@@ -18,7 +18,7 @@ from datetime import date, timedelta
 @pytest.fixture(autouse=True)
 def _reset_rules(client):
     """Ensure permissive rules for all integration tests."""
-    token = client.post("/v1/auth/login", json={"email": "admin@compass.com", "password": "demo1234"}).json()["access_token"]
+    token = client.post("/v1/auth/login", json={"email": "alarmadmin@alarm.compass.com", "password": "demo1234"}).json()["access_token"]
     client.put("/v1/alarm/rules", headers={"Authorization": f"Bearer {token}"},
         json={"require_all_zones_tested": False, "require_report_upload": False})
     yield
@@ -34,14 +34,14 @@ def _h(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _biannual_approved(client, ctrl_token, admin_token, bid, check_type, check_date, status="COMPLIANT", **kwargs):
+def _biannual_approved(client, ctrl_token, approver_token, bid, check_type, check_date, status="COMPLIANT", **kwargs):
     """Create a biannual check and submit+approve it."""
     r = client.post("/v1/alarm/biannual", headers=_h(ctrl_token),
         json={"building_id": bid, "check_type": check_type, "check_date": check_date, "status": status, **kwargs})
     assert r.status_code == 201
     cid = r.json()["id"]
     client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_h(ctrl_token))
-    client.post(f"/v1/alarm/biannual/{cid}/approve", headers=_h(admin_token), json={"notes": "OK"})
+    client.post(f"/v1/alarm/biannual/{cid}/approve", headers=_h(approver_token), json={"notes": "OK"})
     return cid
 
 
@@ -94,31 +94,31 @@ def _reject(client, token, tid, reason="Failed"):
 class TestCascadeDelete:
     """When a building is reset/deleted, all related data should be gone."""
 
-    def test_reset_cleans_zones(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "Cascade Zone")
-        _zone(client, admin_token, bid, 1, "Door")
-        _zone(client, admin_token, bid, 2, "Motion")
+    def test_reset_cleans_zones(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "Cascade Zone")
+        _zone(client, alarm_admin_token, bid, 1, "Door")
+        _zone(client, alarm_admin_token, bid, 2, "Motion")
 
         # Reset all buildings
-        client.post("/v1/alarm/buildings/reset", headers=_h(admin_token))
+        client.post("/v1/alarm/buildings/reset", headers=_h(alarm_admin_token))
 
         # Zones for that building should return empty (building gone)
-        r = client.get(f"/v1/alarm/zones?building_id={bid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/zones?building_id={bid}", headers=_h(alarm_admin_token))
         # Building doesn't exist anymore, but zone query still works — zones may orphan
         # The important check: zones belong to a building that no longer exists
         assert r.status_code == 200
 
-    def test_building_tests_independent_after_building_update(self, client, admin_token, controller_token):
+    def test_building_tests_independent_after_building_update(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         """Updating a building name doesn't break existing tests."""
-        bid = _building(client, admin_token, "Original Name")
-        tid = _test(client, controller_token, bid)
+        bid = _building(client, alarm_admin_token, "Original Name")
+        tid = _test(client, alarm_tester_token, bid)
 
         # Update building name
-        client.put(f"/v1/alarm/buildings/{bid}", headers=_h(admin_token),
+        client.put(f"/v1/alarm/buildings/{bid}", headers=_h(alarm_admin_token),
             json={"name": "Renamed Building"})
 
         # Test still accessible
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         assert r.status_code == 200
         assert r.json()["test"]["building_id"] == bid
 
@@ -130,53 +130,53 @@ class TestCascadeDelete:
 class TestDashboardAccuracy:
     """Dashboard overview should accurately reflect the current state of tests."""
 
-    def test_new_building_is_overdue(self, client, admin_token):
-        bid = _building(client, admin_token, "DashAcc Overdue")
+    def test_new_building_is_overdue(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "DashAcc Overdue")
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row is not None
         assert row["status"] == "overdue"
 
-    def test_submitted_test_shows_pending(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "DashAcc Pending")
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
+    def test_submitted_test_shows_pending(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "DashAcc Pending")
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "pending"
 
-    def test_approved_test_shows_compliant(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "DashAcc Compliant")
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
-        _approve(client, admin_token, tid)
+    def test_approved_test_shows_compliant(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "DashAcc Compliant")
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "compliant"
 
-    def test_rejected_test_shows_overdue(self, client, admin_token, controller_token):
+    def test_rejected_test_shows_overdue(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         """A rejected test means no approved test → building is overdue."""
-        bid = _building(client, admin_token, "DashAcc Rejected")
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
-        _reject(client, admin_token, tid, "Bad test")
+        bid = _building(client, alarm_admin_token, "DashAcc Rejected")
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
+        _reject(client, alarm_approver_token, tid, "Bad test")
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "overdue"
 
-    def test_exempt_building_not_counted_in_compliance_rate(self, client, admin_token):
-        _building(client, admin_token, "DashAcc Exempt", status="temporarily_exempt")
+    def test_exempt_building_not_counted_in_compliance_rate(self, client, alarm_admin_token, alarm_approver_token):
+        _building(client, alarm_admin_token, "DashAcc Exempt", status="temporarily_exempt")
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_name"] == "DashAcc Exempt"), None)
         assert row["status"] == "exempt"
 
-    def test_kpi_counts_match_building_list(self, client, admin_token):
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+    def test_kpi_counts_match_building_list(self, client, alarm_admin_token, alarm_approver_token):
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         body = r.json()
         buildings = body["buildings"]
         summary = body["summary"]
@@ -187,16 +187,16 @@ class TestDashboardAccuracy:
         assert summary["exempt"] == sum(1 for b in buildings if b["status"] == "exempt")
         assert summary["total_buildings"] == len(buildings)
 
-    def test_resubmit_after_reject_shows_pending(self, client, admin_token, controller_token):
+    def test_resubmit_after_reject_shows_pending(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         """reject → reopen → resubmit → should show pending."""
-        bid = _building(client, admin_token, "DashAcc Resubmit")
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
-        _reject(client, admin_token, tid, "Redo")
-        client.post(f"/v1/alarm/tests/{tid}/reopen", headers=_h(controller_token))
-        _submit(client, controller_token, tid)
+        bid = _building(client, alarm_admin_token, "DashAcc Resubmit")
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
+        _reject(client, alarm_approver_token, tid, "Redo")
+        client.post(f"/v1/alarm/tests/{tid}/reopen", headers=_h(alarm_tester_token))
+        _submit(client, alarm_tester_token, tid)
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "pending"
 
@@ -208,11 +208,11 @@ class TestDashboardAccuracy:
 class TestEscalationConsistency:
     """Overdue buildings in escalation should match overdue in dashboard."""
 
-    def test_overdue_in_both_dashboard_and_escalation(self, client, admin_token):
-        bid = _building(client, admin_token, "EscConsist Overdue")
+    def test_overdue_in_both_dashboard_and_escalation(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "EscConsist Overdue")
 
-        dash = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token)).json()
-        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token)).json()
+        dash = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token)).json()
+        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token)).json()
 
         dash_overdue = {b["building_id"] for b in dash["buildings"] if b["status"] == "overdue"}
         esc_overdue = {b["building_id"] for b in esc}
@@ -220,28 +220,28 @@ class TestEscalationConsistency:
         assert bid in dash_overdue
         assert bid in esc_overdue
 
-    def test_compliant_not_in_escalation(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "EscConsist Compliant")
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
-        _approve(client, admin_token, tid)
+    def test_compliant_not_in_escalation(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "EscConsist Compliant")
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
-        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token)).json()
+        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token)).json()
         assert bid not in [b["building_id"] for b in esc]
 
-    def test_exempt_not_in_escalation(self, client, admin_token):
-        bid = _building(client, admin_token, "EscConsist Exempt", status="temporarily_exempt")
+    def test_exempt_not_in_escalation(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "EscConsist Exempt", status="temporarily_exempt")
 
-        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token)).json()
+        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token)).json()
         assert bid not in [b["building_id"] for b in esc]
 
-    def test_pending_still_in_escalation(self, client, admin_token, controller_token):
+    def test_pending_still_in_escalation(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         """Submitted but not approved → still overdue for escalation purposes."""
-        bid = _building(client, admin_token, "EscConsist Pending")
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
+        bid = _building(client, alarm_admin_token, "EscConsist Pending")
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
 
-        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token)).json()
+        esc = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token)).json()
         assert bid in [b["building_id"] for b in esc]
 
 
@@ -252,40 +252,40 @@ class TestEscalationConsistency:
 class TestBiannualConsistency:
     """Biannual status should reflect the latest check per type."""
 
-    def test_new_check_updates_status(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "BiConsist Check")
+    def test_new_check_updates_status(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "BiConsist Check")
 
         # Initially NO_CHECK
-        r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_h(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "NO_CHECK"
 
         # Add cellular check (submitted + approved)
-        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CELLULAR_BACKUP", "2026-04-08")
 
-        r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_h(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "COMPLIANT"
         assert row["camera_status"] == "NO_CHECK"  # camera unchanged
 
-    def test_latest_check_wins(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "BiConsist Latest")
+    def test_latest_check_wins(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "BiConsist Latest")
 
         # First check: compliant
-        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-01-01")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CELLULAR_BACKUP", "2026-01-01")
         # Second check: non-compliant (later date)
-        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-07-01", status="NON_COMPLIANT")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CELLULAR_BACKUP", "2026-07-01", status="NON_COMPLIANT")
 
-        r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_h(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "NON_COMPLIANT"
 
-    def test_biannual_in_drilldown(self, client, admin_token, controller_token):
+    def test_biannual_in_drilldown(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         """Building drill-down should include biannual checks."""
-        bid = _building(client, admin_token, "BiConsist Drill")
-        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-04-08")
+        bid = _building(client, alarm_admin_token, "BiConsist Drill")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CAMERA_BACKUP", "2026-04-08")
 
-        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(alarm_admin_token))
         assert len(r.json()["biannual_checks"]) == 1
         assert r.json()["biannual_checks"][0]["check_type"] == "CAMERA_BACKUP"
 
@@ -297,12 +297,12 @@ class TestBiannualConsistency:
 class TestZoneTestIntegration:
     """Zone results in a test should reference actual zones."""
 
-    def test_zone_results_match_building_zones(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "ZoneTest Match")
-        z1 = _zone(client, admin_token, bid, 1, "Door")
-        z2 = _zone(client, admin_token, bid, 2, "Motion")
-        z3 = _zone(client, admin_token, bid, 3, "Panic")
-        tid = _test(client, controller_token, bid)
+    def test_zone_results_match_building_zones(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "ZoneTest Match")
+        z1 = _zone(client, alarm_admin_token, bid, 1, "Door")
+        z2 = _zone(client, alarm_admin_token, bid, 2, "Motion")
+        z3 = _zone(client, alarm_admin_token, bid, 3, "Panic")
+        tid = _test(client, alarm_tester_token, bid)
 
         # Save zone results
         results = {
@@ -310,11 +310,11 @@ class TestZoneTestIntegration:
             z2: {"result": "TESTED", "notes": "OK"},
             z3: {"result": "ISSUE_FOUND", "notes": "Button stuck"},
         }
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": results})
 
         # Verify in test detail
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         zones = r.json()["zones"]
         assert len(zones) == 3
         zone_map = {z["alarm_zone_id"]: z for z in zones}
@@ -322,49 +322,49 @@ class TestZoneTestIntegration:
         assert zone_map[z3]["result"] == "ISSUE_FOUND"
         assert zone_map[z3]["notes"] == "Button stuck"
 
-    def test_zone_count_updates_on_save(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "ZoneTest Count")
-        z1 = _zone(client, admin_token, bid, 1, "Door")
-        z2 = _zone(client, admin_token, bid, 2, "Motion")
-        tid = _test(client, controller_token, bid)
+    def test_zone_count_updates_on_save(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "ZoneTest Count")
+        z1 = _zone(client, alarm_admin_token, bid, 1, "Door")
+        z2 = _zone(client, alarm_admin_token, bid, 2, "Motion")
+        tid = _test(client, alarm_tester_token, bid)
 
         results = {
             z1: {"result": "TESTED", "notes": ""},
             z2: {"result": "ISSUE_FOUND", "notes": "broken"},
         }
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": results})
 
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         test = r.json()["test"]
         assert test["zones_total"] == 2
         assert test["zones_tested"] == 1
         assert test["zones_issue"] == 1
 
-    def test_overwrite_zone_results(self, client, admin_token, controller_token):
+    def test_overwrite_zone_results(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         """Saving zone results twice overwrites the first save."""
-        bid = _building(client, admin_token, "ZoneTest Overwrite")
-        z1 = _zone(client, admin_token, bid, 1, "Door")
-        tid = _test(client, controller_token, bid)
+        bid = _building(client, alarm_admin_token, "ZoneTest Overwrite")
+        z1 = _zone(client, alarm_admin_token, bid, 1, "Door")
+        tid = _test(client, alarm_tester_token, bid)
 
         # First save: NOT_TESTED
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": {z1: {"result": "NOT_TESTED", "notes": ""}}})
 
         # Second save: TESTED
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": {z1: {"result": "TESTED", "notes": "retested"}}})
 
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         assert len(r.json()["zones"]) == 1
         assert r.json()["zones"][0]["result"] == "TESTED"
 
-    def test_zones_in_drilldown(self, client, admin_token):
-        bid = _building(client, admin_token, "ZoneTest Drill")
-        _zone(client, admin_token, bid, 1, "Door A")
-        _zone(client, admin_token, bid, 2, "Door B")
+    def test_zones_in_drilldown(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "ZoneTest Drill")
+        _zone(client, alarm_admin_token, bid, 1, "Door A")
+        _zone(client, alarm_admin_token, bid, 2, "Door B")
 
-        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(alarm_admin_token))
         assert len(r.json()["zones"]) == 2
 
 
@@ -375,34 +375,34 @@ class TestZoneTestIntegration:
 class TestAttachmentIntegration:
     """Attachments should appear in test detail and survive test lifecycle."""
 
-    def test_attachment_persists_through_submit_approve(self, client, admin_token, controller_token):
+    def test_attachment_persists_through_submit_approve(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         import io
-        bid = _building(client, admin_token, "Att Lifecycle")
-        tid = _test(client, controller_token, bid)
+        bid = _building(client, alarm_admin_token, "Att Lifecycle")
+        tid = _test(client, alarm_tester_token, bid)
 
         # Upload attachment
-        client.post(f"/v1/alarm/tests/{tid}/attachments", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/attachments", headers=_h(alarm_tester_token),
             files={"file": ("report.pdf", io.BytesIO(b"pdf data"), "application/pdf")})
 
         # Submit + approve
-        _submit(client, controller_token, tid)
-        _approve(client, admin_token, tid)
+        _submit(client, alarm_tester_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
         # Attachment still there
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         assert len(r.json()["attachments"]) == 1
         assert r.json()["test"]["status"] == "APPROVED"
 
-    def test_multiple_attachments(self, client, admin_token, controller_token):
+    def test_multiple_attachments(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         import io
-        bid = _building(client, admin_token, "Att Multiple")
-        tid = _test(client, controller_token, bid)
+        bid = _building(client, alarm_admin_token, "Att Multiple")
+        tid = _test(client, alarm_tester_token, bid)
 
         for name in ["report1.pdf", "report2.xlsx", "photo.jpg"]:
-            client.post(f"/v1/alarm/tests/{tid}/attachments", headers=_h(controller_token),
+            client.post(f"/v1/alarm/tests/{tid}/attachments", headers=_h(alarm_tester_token),
                 files={"file": (name, io.BytesIO(b"data"), "application/octet-stream")})
 
-        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}/attachments", headers=_h(alarm_tester_token))
         assert len(r.json()) == 3
 
 
@@ -413,23 +413,23 @@ class TestAttachmentIntegration:
 class TestTrendsAccuracy:
     """Trends endpoint should match actual approved test counts."""
 
-    def test_approved_test_increments_trend(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "Trend Incr")
+    def test_approved_test_increments_trend(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "Trend Incr")
         today = date.today()
         month = f"{today.year}-{today.month:02d}"
 
         # Get baseline
-        r1 = client.get("/v1/alarm/dashboard/trends", headers=_h(admin_token))
+        r1 = client.get("/v1/alarm/dashboard/trends", headers=_h(alarm_admin_token))
         current = next((m for m in r1.json()["months"] if m["month"] == month), None)
         baseline = current["compliant"] if current else 0
 
         # Approve a test
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
-        _approve(client, admin_token, tid)
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
         # Check trend updated
-        r2 = client.get("/v1/alarm/dashboard/trends", headers=_h(admin_token))
+        r2 = client.get("/v1/alarm/dashboard/trends", headers=_h(alarm_admin_token))
         updated = next((m for m in r2.json()["months"] if m["month"] == month), None)
         assert updated["compliant"] == baseline + 1
 
@@ -441,36 +441,36 @@ class TestTrendsAccuracy:
 class TestFullE2EWorkflow:
     """Building setup → zones → test → zones results → submit → approve → dashboard."""
 
-    def test_complete_alarm_workflow(self, client, admin_token, controller_token):
+    def test_complete_alarm_workflow(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         today = date.today()
         month = f"{today.year}-{today.month:02d}"
         import io
 
         # 1. Admin creates building (Screen 13)
-        bid = _building(client, admin_token, "E2E Full Workflow")
+        bid = _building(client, alarm_admin_token, "E2E Full Workflow")
 
         # 2. Admin adds zones (Screen 12)
-        z1 = _zone(client, admin_token, bid, 3, "Main Entry Door", "ENTRY_EXIT")
-        z2 = _zone(client, admin_token, bid, 14, "Hallway Motion", "INTERIOR_MOTION")
-        z3 = _zone(client, admin_token, bid, 21, "Cooler Panic", "PANIC_SILENT")
+        z1 = _zone(client, alarm_admin_token, bid, 3, "Main Entry Door", "ENTRY_EXIT")
+        z2 = _zone(client, alarm_admin_token, bid, 14, "Hallway Motion", "INTERIOR_MOTION")
+        z3 = _zone(client, alarm_admin_token, bid, 21, "Cooler Panic", "PANIC_SILENT")
 
         # 3. Admin grants tester access (Screen 15)
-        users = client.get("/v1/alarm/users", headers=_h(admin_token)).json()
+        users = client.get("/v1/alarm/users", headers=_h(alarm_admin_token)).json()
         ctrl_user = next(u for u in users if u["role"] == "CONTROLLER")
-        client.post("/v1/alarm/access", headers=_h(admin_token),
+        client.post("/v1/alarm/access", headers=_h(alarm_admin_token),
             json={"user_id": ctrl_user["id"], "access_type": "tester", "building_ids": [bid]})
 
         # 4. Verify building appears as overdue in dashboard (Screen 8)
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "overdue"
 
         # 5. Verify building appears in escalation (Screen 7)
-        r = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token))
         assert bid in [b["building_id"] for b in r.json()]
 
         # 6. Controller creates test (Screen 1)
-        tid = _test(client, controller_token, bid)
+        tid = _test(client, alarm_tester_token, bid)
 
         # 7. Controller saves zone results (Screen 1)
         results = {
@@ -478,23 +478,23 @@ class TestFullE2EWorkflow:
             z2: {"result": "TESTED", "notes": "Sensor triggered"},
             z3: {"result": "TESTED", "notes": ""},
         }
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": results})
 
         # 8. Controller uploads report (Screen 2)
-        client.post(f"/v1/alarm/tests/{tid}/attachments", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/attachments", headers=_h(alarm_tester_token),
             files={"file": ("activity_report.pdf", io.BytesIO(b"%PDF test"), "application/pdf")})
 
         # 9. Controller submits (Screen 1)
-        _submit(client, controller_token, tid)
+        _submit(client, alarm_tester_token, tid)
 
         # 10. Verify pending in dashboard (Screen 8)
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "pending"
 
         # 11. Admin reviews test (Screen 6) — verify detail
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_admin_token))
         detail = r.json()
         assert detail["test"]["status"] == "SUBMITTED"
         assert len(detail["zones"]) == 3
@@ -503,24 +503,24 @@ class TestFullE2EWorkflow:
         assert detail["test"]["zones_issue"] == 0
 
         # 12. Admin approves (Screen 5)
-        _approve(client, admin_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
         # 13. Verify compliant in dashboard (Screen 8)
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "compliant"
 
         # 14. Verify NOT in escalation anymore (Screen 7)
-        r = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token))
         assert bid not in [b["building_id"] for b in r.json()]
 
         # 15. Verify in trends (Screen 9)
-        r = client.get("/v1/alarm/dashboard/trends", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/trends", headers=_h(alarm_admin_token))
         current = next((m for m in r.json()["months"] if m["month"] == month), None)
         assert current["compliant"] >= 1
 
         # 16. Verify drill-down (Screen 10)
-        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(alarm_admin_token))
         dd = r.json()
         assert dd["building"]["name"] == "E2E Full Workflow"
         assert len(dd["zones"]) == 3
@@ -528,15 +528,15 @@ class TestFullE2EWorkflow:
         assert dd["tests"][0]["status"] == "APPROVED"
 
         # 17. Controller records biannual check (Screen 4) — submit + approve
-        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", today.isoformat())
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CELLULAR_BACKUP", today.isoformat())
 
         # 18. Verify biannual status (Screen 11)
-        r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_h(alarm_admin_token))
         brow = next((r for r in r.json() if r["building_id"] == bid), None)
         assert brow["cellular_status"] == "COMPLIANT"
 
         # 19. Verify biannual in drill-down (Screen 10)
-        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(alarm_admin_token))
         assert len(r.json()["biannual_checks"]) == 1
 
 
@@ -547,56 +547,56 @@ class TestFullE2EWorkflow:
 class TestRejectionResubmitCycle:
     """Full reject → reopen → fix → resubmit → approve cycle with dashboard checks at each step."""
 
-    def test_multi_rejection_cycle(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "MultiReject Cycle")
-        z1 = _zone(client, admin_token, bid, 1, "Door")
-        z2 = _zone(client, admin_token, bid, 2, "Panic")
-        tid = _test(client, controller_token, bid)
+    def test_multi_rejection_cycle(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "MultiReject Cycle")
+        z1 = _zone(client, alarm_admin_token, bid, 1, "Door")
+        z2 = _zone(client, alarm_admin_token, bid, 2, "Panic")
+        tid = _test(client, alarm_tester_token, bid)
 
         # First attempt: mark panic as issue
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": {z1: {"result": "TESTED", "notes": ""}, z2: {"result": "ISSUE_FOUND", "notes": "stuck"}}})
-        _submit(client, controller_token, tid)
+        _submit(client, alarm_tester_token, tid)
 
         # Reject #1
-        _reject(client, admin_token, tid, "Fix the panic button")
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        _reject(client, alarm_approver_token, tid, "Fix the panic button")
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         assert r.json()["test"]["status"] == "REJECTED"
         assert r.json()["test"]["rejection_reason"] == "Fix the panic button"
 
         # Dashboard: overdue (rejected = not approved)
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "overdue"
 
         # Reopen, fix zone, resubmit
-        client.post(f"/v1/alarm/tests/{tid}/reopen", headers=_h(controller_token))
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/reopen", headers=_h(alarm_tester_token))
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": {z1: {"result": "TESTED", "notes": ""}, z2: {"result": "TESTED", "notes": "fixed and retested"}}})
-        _submit(client, controller_token, tid)
+        _submit(client, alarm_tester_token, tid)
 
         # Verify zones updated
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         assert r.json()["test"]["zones_tested"] == 2
         assert r.json()["test"]["zones_issue"] == 0
 
         # Reject #2 — different reason
-        _reject(client, admin_token, tid, "Missing report upload")
+        _reject(client, alarm_approver_token, tid, "Missing report upload")
 
         # Reopen, resubmit again
-        client.post(f"/v1/alarm/tests/{tid}/reopen", headers=_h(controller_token))
-        _submit(client, controller_token, tid)
+        client.post(f"/v1/alarm/tests/{tid}/reopen", headers=_h(alarm_tester_token))
+        _submit(client, alarm_tester_token, tid)
 
         # Finally approve
-        _approve(client, admin_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
         # Dashboard: now compliant
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "compliant"
 
         # Escalation: gone
-        r = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token))
         assert bid not in [b["building_id"] for b in r.json()]
 
 
@@ -607,27 +607,27 @@ class TestRejectionResubmitCycle:
 class TestMultiBuildingDashboard:
     """Dashboard should correctly aggregate when buildings are in different states."""
 
-    def test_mixed_states_kpis(self, client, admin_token, controller_token):
+    def test_mixed_states_kpis(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         today = date.today()
         month = f"{today.year}-{today.month:02d}"
 
-        b_compliant = _building(client, admin_token, "Multi Compliant")
-        b_pending = _building(client, admin_token, "Multi Pending")
-        b_overdue = _building(client, admin_token, "Multi Overdue")
-        b_exempt = _building(client, admin_token, "Multi Exempt", status="temporarily_exempt")
+        b_compliant = _building(client, alarm_admin_token, "Multi Compliant")
+        b_pending = _building(client, alarm_admin_token, "Multi Pending")
+        b_overdue = _building(client, alarm_admin_token, "Multi Overdue")
+        b_exempt = _building(client, alarm_admin_token, "Multi Exempt", status="temporarily_exempt")
 
         # Make compliant
-        tid = _test(client, controller_token, b_compliant, month=month)
-        _submit(client, controller_token, tid)
-        _approve(client, admin_token, tid)
+        tid = _test(client, alarm_tester_token, b_compliant, month=month)
+        _submit(client, alarm_tester_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
         # Make pending
-        tid2 = _test(client, controller_token, b_pending, month=month)
-        _submit(client, controller_token, tid2)
+        tid2 = _test(client, alarm_tester_token, b_pending, month=month)
+        _submit(client, alarm_tester_token, tid2)
 
         # b_overdue has no test, b_exempt is exempt
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         buildings = r.json()["buildings"]
 
         state_map = {b["building_id"]: b["status"] for b in buildings}
@@ -636,14 +636,14 @@ class TestMultiBuildingDashboard:
         assert state_map[b_overdue] == "overdue"
         assert state_map[b_exempt] == "exempt"
 
-    def test_region_filter_isolates(self, client, admin_token, controller_token):
+    def test_region_filter_isolates(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         today = date.today()
         month = f"{today.year}-{today.month:02d}"
 
-        b_mw = _building(client, admin_token, "Region MW", region="Midwest")
-        b_se = _building(client, admin_token, "Region SE", region="Southeast")
+        b_mw = _building(client, alarm_admin_token, "Region MW", region="Midwest")
+        b_se = _building(client, alarm_admin_token, "Region SE", region="Southeast")
 
-        r = client.get("/v1/alarm/dashboard/overview?region=Southeast", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview?region=Southeast", headers=_h(alarm_admin_token))
         bids = [b["building_id"] for b in r.json()["buildings"]]
         assert b_se in bids
         assert b_mw not in bids
@@ -656,45 +656,45 @@ class TestMultiBuildingDashboard:
 class TestBuildingStatusTransitions:
     """Changing building status should immediately reflect in dashboard and escalation."""
 
-    def test_active_to_exempt_removes_from_overdue(self, client, admin_token):
-        bid = _building(client, admin_token, "StatusTx Active")
+    def test_active_to_exempt_removes_from_overdue(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "StatusTx Active")
 
         # Initially overdue
-        r = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token))
         assert bid in [b["building_id"] for b in r.json()]
 
         # Change to exempt
-        client.put(f"/v1/alarm/buildings/{bid}", headers=_h(admin_token),
+        client.put(f"/v1/alarm/buildings/{bid}", headers=_h(alarm_admin_token),
             json={"status": "temporarily_exempt"})
 
         # No longer overdue
-        r = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token))
         assert bid not in [b["building_id"] for b in r.json()]
 
         # Dashboard shows exempt
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "exempt"
 
-    def test_exempt_to_active_makes_overdue(self, client, admin_token):
-        bid = _building(client, admin_token, "StatusTx Exempt", status="temporarily_exempt")
+    def test_exempt_to_active_makes_overdue(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "StatusTx Exempt", status="temporarily_exempt")
 
         # Initially exempt, not in escalation
-        r = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token))
         assert bid not in [b["building_id"] for b in r.json()]
 
         # Change to active
-        client.put(f"/v1/alarm/buildings/{bid}", headers=_h(admin_token),
+        client.put(f"/v1/alarm/buildings/{bid}", headers=_h(alarm_admin_token),
             json={"status": "active"})
 
         # Now overdue (no test)
-        r = client.get("/v1/alarm/escalation/overdue", headers=_h(admin_token))
+        r = client.get("/v1/alarm/escalation/overdue", headers=_h(alarm_admin_token))
         assert bid in [b["building_id"] for b in r.json()]
 
-    def test_closed_building_shows_exempt(self, client, admin_token):
-        bid = _building(client, admin_token, "StatusTx Closed", status="closed")
+    def test_closed_building_shows_exempt(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "StatusTx Closed", status="closed")
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "exempt"
 
@@ -706,41 +706,41 @@ class TestBuildingStatusTransitions:
 class TestDuplicatePrevention:
     """Multiple tests for the same building in the same month — only latest status matters."""
 
-    def test_two_tests_same_month_approved_wins(self, client, admin_token, controller_token):
+    def test_two_tests_same_month_approved_wins(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         today = date.today()
         month = f"{today.year}-{today.month:02d}"
-        bid = _building(client, admin_token, "DupPrev Building")
+        bid = _building(client, alarm_admin_token, "DupPrev Building")
 
         # First test: submitted (pending)
-        tid1 = _test(client, controller_token, bid, month=month)
-        _submit(client, controller_token, tid1)
+        tid1 = _test(client, alarm_tester_token, bid, month=month)
+        _submit(client, alarm_tester_token, tid1)
 
         # Dashboard: pending
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "pending"
 
         # Second test: approved
-        tid2 = _test(client, controller_token, bid,
+        tid2 = _test(client, alarm_tester_token, bid,
             test_date=(today + timedelta(days=1)).isoformat(), month=month)
-        _submit(client, controller_token, tid2)
-        _approve(client, admin_token, tid2)
+        _submit(client, alarm_tester_token, tid2)
+        _approve(client, alarm_approver_token, tid2)
 
         # Dashboard: compliant (approved exists)
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
         assert row["status"] == "compliant"
 
-    def test_drill_down_shows_all_tests(self, client, admin_token, controller_token):
+    def test_drill_down_shows_all_tests(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
         today = date.today()
         month = f"{today.year}-{today.month:02d}"
-        bid = _building(client, admin_token, "DupPrev Drill")
+        bid = _building(client, alarm_admin_token, "DupPrev Drill")
 
-        tid1 = _test(client, controller_token, bid, month=month)
-        tid2 = _test(client, controller_token, bid,
+        tid1 = _test(client, alarm_tester_token, bid, month=month)
+        tid2 = _test(client, alarm_tester_token, bid,
             test_date=(today + timedelta(days=1)).isoformat(), month=month)
 
-        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(alarm_admin_token))
         assert len(r.json()["tests"]) == 2
 
 
@@ -751,34 +751,34 @@ class TestDuplicatePrevention:
 class TestBiannualIndependence:
     """Cellular and camera checks are independent per building."""
 
-    def test_one_compliant_one_missing(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "BiIndep Building")
+    def test_one_compliant_one_missing(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "BiIndep Building")
 
-        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CELLULAR_BACKUP", "2026-04-08")
 
-        r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_h(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "COMPLIANT"
         assert row["camera_status"] == "NO_CHECK"
 
-    def test_both_compliant(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "BiIndep Both")
+    def test_both_compliant(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "BiIndep Both")
 
-        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
-        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-04-08")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CELLULAR_BACKUP", "2026-04-08")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CAMERA_BACKUP", "2026-04-08")
 
-        r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_h(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "COMPLIANT"
         assert row["camera_status"] == "COMPLIANT"
 
-    def test_mixed_compliance(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "BiIndep Mixed")
+    def test_mixed_compliance(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "BiIndep Mixed")
 
-        _biannual_approved(client, controller_token, admin_token, bid, "CELLULAR_BACKUP", "2026-04-08")
-        _biannual_approved(client, controller_token, admin_token, bid, "CAMERA_BACKUP", "2026-04-08", status="NON_COMPLIANT")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CELLULAR_BACKUP", "2026-04-08")
+        _biannual_approved(client, alarm_tester_token, alarm_approver_token, bid, "CAMERA_BACKUP", "2026-04-08", status="NON_COMPLIANT")
 
-        r = client.get("/v1/alarm/biannual/status", headers=_h(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_h(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "COMPLIANT"
         assert row["camera_status"] == "NON_COMPLIANT"
@@ -791,47 +791,47 @@ class TestBiannualIndependence:
 class TestAccessUserConsistency:
     """Access grants reference valid users."""
 
-    def test_grant_references_real_user(self, client, admin_token):
-        bid = _building(client, admin_token, "AccUser Real")
-        users = client.get("/v1/alarm/users", headers=_h(admin_token)).json()
+    def test_grant_references_real_user(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "AccUser Real")
+        users = client.get("/v1/alarm/users", headers=_h(alarm_admin_token)).json()
         user = users[0]
 
-        r = client.post("/v1/alarm/access", headers=_h(admin_token),
+        r = client.post("/v1/alarm/access", headers=_h(alarm_admin_token),
             json={"user_id": user["id"], "access_type": "tester", "building_ids": [bid]})
         assert r.status_code == 201
         assert r.json()["user_name"] == user["name"]
 
-    def test_multiple_grants_same_user_different_buildings(self, client, admin_token):
-        bid1 = _building(client, admin_token, "AccUser Bld1")
-        bid2 = _building(client, admin_token, "AccUser Bld2")
-        users = client.get("/v1/alarm/users", headers=_h(admin_token)).json()
+    def test_multiple_grants_same_user_different_buildings(self, client, alarm_admin_token, alarm_approver_token):
+        bid1 = _building(client, alarm_admin_token, "AccUser Bld1")
+        bid2 = _building(client, alarm_admin_token, "AccUser Bld2")
+        users = client.get("/v1/alarm/users", headers=_h(alarm_admin_token)).json()
         user = users[0]
 
-        client.post("/v1/alarm/access", headers=_h(admin_token),
+        client.post("/v1/alarm/access", headers=_h(alarm_admin_token),
             json={"user_id": user["id"], "access_type": "tester", "building_ids": [bid1]})
-        client.post("/v1/alarm/access", headers=_h(admin_token),
+        client.post("/v1/alarm/access", headers=_h(alarm_admin_token),
             json={"user_id": user["id"], "access_type": "tester", "building_ids": [bid2]})
 
-        r = client.get("/v1/alarm/access", headers=_h(admin_token))
+        r = client.get("/v1/alarm/access", headers=_h(alarm_admin_token))
         user_grants = [g for g in r.json() if g["user_id"] == user["id"]]
         assert len(user_grants) >= 2
 
-    def test_revoke_one_keeps_others(self, client, admin_token):
-        bid1 = _building(client, admin_token, "AccRevoke Bld1")
-        bid2 = _building(client, admin_token, "AccRevoke Bld2")
-        users = client.get("/v1/alarm/users", headers=_h(admin_token)).json()
+    def test_revoke_one_keeps_others(self, client, alarm_admin_token, alarm_approver_token):
+        bid1 = _building(client, alarm_admin_token, "AccRevoke Bld1")
+        bid2 = _building(client, alarm_admin_token, "AccRevoke Bld2")
+        users = client.get("/v1/alarm/users", headers=_h(alarm_admin_token)).json()
         user = users[0]
 
-        r1 = client.post("/v1/alarm/access", headers=_h(admin_token),
+        r1 = client.post("/v1/alarm/access", headers=_h(alarm_admin_token),
             json={"user_id": user["id"], "access_type": "tester", "building_ids": [bid1]})
-        r2 = client.post("/v1/alarm/access", headers=_h(admin_token),
+        r2 = client.post("/v1/alarm/access", headers=_h(alarm_admin_token),
             json={"user_id": user["id"], "access_type": "tester", "building_ids": [bid2]})
 
         # Revoke first
-        client.delete(f"/v1/alarm/access/{r1.json()['id']}", headers=_h(admin_token))
+        client.delete(f"/v1/alarm/access/{r1.json()['id']}", headers=_h(alarm_admin_token))
 
         # Second still exists
-        r = client.get("/v1/alarm/access", headers=_h(admin_token))
+        r = client.get("/v1/alarm/access", headers=_h(alarm_admin_token))
         ids = [g["id"] for g in r.json()]
         assert r1.json()["id"] not in ids
         assert r2.json()["id"] in ids
@@ -844,21 +844,21 @@ class TestAccessUserConsistency:
 class TestZoneDeactivation:
     """Deactivating a zone doesn't remove historical test zone results."""
 
-    def test_deactivated_zone_test_results_persist(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "ZoneDeact Building")
-        z1 = _zone(client, admin_token, bid, 1, "Old Door")
-        tid = _test(client, controller_token, bid)
+    def test_deactivated_zone_test_results_persist(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "ZoneDeact Building")
+        z1 = _zone(client, alarm_admin_token, bid, 1, "Old Door")
+        tid = _test(client, alarm_tester_token, bid)
 
         # Save zone result
-        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(controller_token),
+        client.post(f"/v1/alarm/tests/{tid}/zones", headers=_h(alarm_tester_token),
             json={"results": {z1: {"result": "TESTED", "notes": "OK"}}})
 
         # Deactivate the zone
-        client.put(f"/v1/alarm/zones/{z1}", headers=_h(admin_token),
+        client.put(f"/v1/alarm/zones/{z1}", headers=_h(alarm_admin_token),
             json={"is_active": False})
 
         # Test detail still has the zone result
-        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(controller_token))
+        r = client.get(f"/v1/alarm/tests/{tid}", headers=_h(alarm_tester_token))
         assert len(r.json()["zones"]) == 1
         assert r.json()["zones"][0]["result"] == "TESTED"
 
@@ -870,32 +870,32 @@ class TestZoneDeactivation:
 class TestImportDashboard:
     """Bulk imported buildings appear correctly in dashboard."""
 
-    def test_imported_buildings_show_overdue(self, client, admin_token):
+    def test_imported_buildings_show_overdue(self, client, alarm_admin_token, alarm_approver_token):
         rows = [
             {"name": "Import Dash 1", "region": "Northeast"},
             {"name": "Import Dash 2", "region": "Northeast"},
         ]
-        r = client.post("/v1/alarm/buildings/import", headers=_h(admin_token),
+        r = client.post("/v1/alarm/buildings/import", headers=_h(alarm_admin_token),
             json={"buildings": rows})
         bids = [b["id"] for b in r.json()["buildings"]]
 
-        r = client.get("/v1/alarm/dashboard/overview", headers=_h(admin_token))
+        r = client.get("/v1/alarm/dashboard/overview", headers=_h(alarm_admin_token))
         for bid in bids:
             row = next((b for b in r.json()["buildings"] if b["building_id"] == bid), None)
             assert row is not None
             assert row["status"] == "overdue"
 
-    def test_imported_zones_in_drilldown(self, client, admin_token):
-        bid = _building(client, admin_token, "Import Zone Drill")
+    def test_imported_zones_in_drilldown(self, client, alarm_admin_token, alarm_approver_token):
+        bid = _building(client, alarm_admin_token, "Import Zone Drill")
         zones = [
             {"building_id": bid, "zone_number": 1, "zone_name": "Z1", "zone_type": "ENTRY_EXIT", "area_number": 1},
             {"building_id": bid, "zone_number": 2, "zone_name": "Z2", "zone_type": "INTERIOR_MOTION", "area_number": 1},
             {"building_id": bid, "zone_number": 3, "zone_name": "Z3", "zone_type": "PANIC_SILENT", "area_number": 1},
         ]
-        client.post("/v1/alarm/zones/import", headers=_h(admin_token),
+        client.post("/v1/alarm/zones/import", headers=_h(alarm_admin_token),
             json={"zones": zones})
 
-        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(admin_token))
+        r = client.get(f"/v1/alarm/dashboard/building/{bid}", headers=_h(alarm_admin_token))
         assert len(r.json()["zones"]) == 3
 
 
@@ -906,26 +906,26 @@ class TestImportDashboard:
 class TestApprovalRoleRestrictions:
     """Only admin/RC can approve/reject. Controllers can only create/submit/reopen."""
 
-    def test_controller_full_tester_flow(self, client, admin_token, controller_token):
-        bid = _building(client, admin_token, "RoleTest Ctrl")
-        tid = _test(client, controller_token, bid)
-        _submit(client, controller_token, tid)
+    def test_controller_full_tester_flow(self, client, alarm_admin_token, alarm_approver_token, alarm_tester_token):
+        bid = _building(client, alarm_admin_token, "RoleTest Ctrl")
+        tid = _test(client, alarm_tester_token, bid)
+        _submit(client, alarm_tester_token, tid)
 
         # Controller cannot approve
-        r = client.post(f"/v1/alarm/tests/{tid}/approve", headers=_h(controller_token),
+        r = client.post(f"/v1/alarm/tests/{tid}/approve", headers=_h(alarm_tester_token),
             json={"notes": "self-approve"})
         assert r.status_code == 403
 
         # Controller cannot reject
-        r = client.post(f"/v1/alarm/tests/{tid}/reject", headers=_h(controller_token),
+        r = client.post(f"/v1/alarm/tests/{tid}/reject", headers=_h(alarm_tester_token),
             json={"reason": "self-reject"})
         assert r.status_code == 403
 
         # Admin can approve
-        _approve(client, admin_token, tid)
+        _approve(client, alarm_approver_token, tid)
 
-    def test_operator_cannot_do_anything(self, client, admin_token, operator_token):
-        bid = _building(client, admin_token, "RoleTest Op")
+    def test_operator_cannot_do_anything(self, client, alarm_admin_token, alarm_approver_token, operator_token):
+        bid = _building(client, alarm_admin_token, "RoleTest Op")
 
         # Operator cannot create buildings
         r = client.post("/v1/alarm/buildings", headers=_h(operator_token),

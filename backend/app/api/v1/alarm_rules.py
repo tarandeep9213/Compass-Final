@@ -10,7 +10,11 @@ from app.schemas.alarm import AlarmComplianceRulesOut, UpdateAlarmComplianceRule
 
 router = APIRouter(prefix="/alarm/rules", tags=["alarm-rules"])
 
-_ADMIN = [Depends(require_roles(UserRole.ADMIN))]
+_ADMIN = [Depends(require_roles(UserRole.ALARM_ADMIN))]
+_READER = [Depends(require_roles(
+    UserRole.ALARM_TESTER, UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+))]
 
 
 def _get_or_create(db: Session) -> AlarmComplianceRules:
@@ -24,7 +28,7 @@ def _get_or_create(db: Session) -> AlarmComplianceRules:
     return rules
 
 
-@router.get("", response_model=AlarmComplianceRulesOut)
+@router.get("", response_model=AlarmComplianceRulesOut, dependencies=_READER)
 def get_rules(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

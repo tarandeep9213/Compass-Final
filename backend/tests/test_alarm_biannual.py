@@ -44,10 +44,10 @@ def _create_check(client, token: str, bid: str, check_type: str = "CELLULAR_BACK
 # ── Create Check (starts as DRAFT) ──────────────────────────────────────────
 
 class TestCreateBiannualCheck:
-    def test_create_starts_as_draft(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Create Draft")
+    def test_create_starts_as_draft(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Create Draft")
         r = client.post("/v1/alarm/biannual",
-            headers=_headers(controller_token),
+            headers=_headers(alarm_tester_token),
             json={"building_id": bid, "check_type": "CELLULAR_BACKUP",
                   "check_date": "2026-04-08", "status": "COMPLIANT",
                   "notes": "Cellular backup verified OK"})
@@ -57,12 +57,12 @@ class TestCreateBiannualCheck:
         assert body["check_type"] == "CELLULAR_BACKUP"
         assert body["status"] == "COMPLIANT"
         assert body["next_due_date"] is not None
-        assert body["checked_by_name"] == "Chris Controller"
+        assert body["checked_by_name"] == "Tara Tester"
 
-    def test_create_camera(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Create Camera")
+    def test_create_camera(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Create Camera")
         r = client.post("/v1/alarm/biannual",
-            headers=_headers(controller_token),
+            headers=_headers(alarm_tester_token),
             json={"building_id": bid, "check_type": "CAMERA_BACKUP",
                   "check_date": "2026-04-08", "status": "COMPLIANT", "days_verified": 30})
         assert r.status_code == 201
@@ -74,9 +74,9 @@ class TestCreateBiannualCheck:
             "check_date": "2026-04-08", "status": "COMPLIANT"})
         assert r.status_code in (401, 403)
 
-    def test_missing_fields_fails(self, client, controller_token):
+    def test_missing_fields_fails(self, client, alarm_tester_token):
         r = client.post("/v1/alarm/biannual",
-            headers=_headers(controller_token),
+            headers=_headers(alarm_tester_token),
             json={"check_type": "CELLULAR_BACKUP"})
         assert r.status_code == 422
 
@@ -84,170 +84,170 @@ class TestCreateBiannualCheck:
 # ── Submit ───────────────────────────────────────────────────────────────────
 
 class TestSubmitBiannualCheck:
-    def test_submit_draft(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Submit")
-        cid = _create_check(client, controller_token, bid)
+    def test_submit_draft(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Submit")
+        cid = _create_check(client, alarm_tester_token, bid)
 
-        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
         assert r.status_code == 200
         assert r.json()["approval_status"] == "SUBMITTED"
         assert r.json()["submitted_at"] is not None
 
-    def test_cannot_submit_twice(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Double Submit")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_cannot_submit_twice(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Double Submit")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
 
-        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
         assert r.status_code == 400
 
 
 # ── Approve ──────────────────────────────────────────────────────────────────
 
 class TestApproveBiannualCheck:
-    def test_admin_can_approve(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Approve")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_admin_can_approve(self, client, alarm_tester_token, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Approve")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
 
         r = client.post(f"/v1/alarm/biannual/{cid}/approve",
-            headers=_headers(admin_token), json={"notes": "Looks good"})
+            headers=_headers(alarm_approver_token), json={"notes": "Looks good"})
         assert r.status_code == 200
         assert r.json()["approval_status"] == "APPROVED"
-        assert r.json()["approved_by_name"] == "Adam Admin"
+        assert r.json()["approved_by_name"] == "Aaron Approver"
         assert r.json()["approved_at"] is not None
 
-    def test_controller_cannot_approve(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Ctrl Approve")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_controller_cannot_approve(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Ctrl Approve")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
 
         r = client.post(f"/v1/alarm/biannual/{cid}/approve",
-            headers=_headers(controller_token), json={"notes": "self"})
+            headers=_headers(alarm_tester_token), json={"notes": "self"})
         assert r.status_code == 403
 
-    def test_cannot_approve_draft(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Bi Approve Draft")
-        cid = _create_check(client, admin_token, bid)
+    def test_cannot_approve_draft(self, client, alarm_admin_token, alarm_tester_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Approve Draft")
+        cid = _create_check(client, alarm_tester_token, bid)
 
         r = client.post(f"/v1/alarm/biannual/{cid}/approve",
-            headers=_headers(admin_token), json={"notes": "x"})
+            headers=_headers(alarm_approver_token), json={"notes": "x"})
         assert r.status_code == 400
 
 
 # ── Reject ───────────────────────────────────────────────────────────────────
 
 class TestRejectBiannualCheck:
-    def test_reject_with_reason(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Reject")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_reject_with_reason(self, client, alarm_tester_token, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Reject")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
 
         r = client.post(f"/v1/alarm/biannual/{cid}/reject",
-            headers=_headers(admin_token), json={"reason": "Evidence unclear"})
+            headers=_headers(alarm_approver_token), json={"reason": "Evidence unclear"})
         assert r.status_code == 200
         assert r.json()["approval_status"] == "REJECTED"
         assert r.json()["rejection_reason"] == "Evidence unclear"
 
-    def test_reject_requires_reason(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Reject NoReason")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_reject_requires_reason(self, client, alarm_tester_token, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Reject NoReason")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
 
         r = client.post(f"/v1/alarm/biannual/{cid}/reject",
-            headers=_headers(admin_token), json={})
+            headers=_headers(alarm_approver_token), json={})
         assert r.status_code == 422
 
 
 # ── Reopen ───────────────────────────────────────────────────────────────────
 
 class TestReopenBiannualCheck:
-    def test_reopen_rejected(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Reopen")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_reopen_rejected(self, client, alarm_tester_token, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Reopen")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
         client.post(f"/v1/alarm/biannual/{cid}/reject",
-            headers=_headers(admin_token), json={"reason": "Redo"})
+            headers=_headers(alarm_approver_token), json={"reason": "Redo"})
 
-        r = client.post(f"/v1/alarm/biannual/{cid}/reopen", headers=_headers(controller_token))
+        r = client.post(f"/v1/alarm/biannual/{cid}/reopen", headers=_headers(alarm_tester_token))
         assert r.status_code == 200
         assert r.json()["approval_status"] == "DRAFT"
         assert r.json()["rejection_reason"] is None
 
-    def test_cannot_reopen_non_rejected(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Reopen Fail")
-        cid = _create_check(client, controller_token, bid)
+    def test_cannot_reopen_non_rejected(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Reopen Fail")
+        cid = _create_check(client, alarm_tester_token, bid)
 
-        r = client.post(f"/v1/alarm/biannual/{cid}/reopen", headers=_headers(controller_token))
+        r = client.post(f"/v1/alarm/biannual/{cid}/reopen", headers=_headers(alarm_tester_token))
         assert r.status_code == 400
 
 
 # ── Full Lifecycle ───────────────────────────────────────────────────────────
 
 class TestBiannualLifecycle:
-    def test_create_submit_reject_reopen_submit_approve(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Lifecycle")
-        cid = _create_check(client, controller_token, bid)
+    def test_create_submit_reject_reopen_submit_approve(self, client, alarm_tester_token, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Lifecycle")
+        cid = _create_check(client, alarm_tester_token, bid)
 
         # Submit
-        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
         assert r.json()["approval_status"] == "SUBMITTED"
 
         # Reject
         r = client.post(f"/v1/alarm/biannual/{cid}/reject",
-            headers=_headers(admin_token), json={"reason": "Need photo"})
+            headers=_headers(alarm_approver_token), json={"reason": "Need photo"})
         assert r.json()["approval_status"] == "REJECTED"
 
         # Reopen
-        r = client.post(f"/v1/alarm/biannual/{cid}/reopen", headers=_headers(controller_token))
+        r = client.post(f"/v1/alarm/biannual/{cid}/reopen", headers=_headers(alarm_tester_token))
         assert r.json()["approval_status"] == "DRAFT"
 
         # Re-submit
-        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+        r = client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
         assert r.json()["approval_status"] == "SUBMITTED"
 
         # Approve
         r = client.post(f"/v1/alarm/biannual/{cid}/approve",
-            headers=_headers(admin_token), json={"notes": "OK now"})
+            headers=_headers(alarm_approver_token), json={"notes": "OK now"})
         assert r.json()["approval_status"] == "APPROVED"
 
 
 # ── Status only counts APPROVED ──────────────────────────────────────────────
 
 class TestBiannualStatusApprovalAware:
-    def test_draft_check_shows_no_check(self, client, controller_token, admin_token):
+    def test_draft_check_shows_no_check(self, client, alarm_tester_token, alarm_admin_token):
         """A draft check should NOT count as compliant in status."""
-        bid = _create_building(client, admin_token, "Bi Status Draft")
-        _create_check(client, controller_token, bid)  # stays DRAFT
+        bid = _create_building(client, alarm_admin_token, "Bi Status Draft")
+        _create_check(client, alarm_tester_token, bid)  # stays DRAFT
 
-        r = client.get("/v1/alarm/biannual/status", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_headers(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "NO_CHECK"
 
-    def test_submitted_check_shows_pending(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Status Submitted")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_submitted_check_shows_pending(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Status Submitted")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
 
-        r = client.get("/v1/alarm/biannual/status", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_headers(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "PENDING"
 
-    def test_approved_check_shows_compliant(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi Status Approved")
-        cid = _create_check(client, controller_token, bid)
-        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(controller_token))
+    def test_approved_check_shows_compliant(self, client, alarm_tester_token, alarm_admin_token, alarm_approver_token):
+        bid = _create_building(client, alarm_admin_token, "Bi Status Approved")
+        cid = _create_check(client, alarm_tester_token, bid)
+        client.post(f"/v1/alarm/biannual/{cid}/submit", headers=_headers(alarm_tester_token))
         client.post(f"/v1/alarm/biannual/{cid}/approve",
-            headers=_headers(admin_token), json={"notes": "OK"})
+            headers=_headers(alarm_approver_token), json={"notes": "OK"})
 
-        r = client.get("/v1/alarm/biannual/status", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/biannual/status", headers=_headers(alarm_admin_token))
         row = next((r for r in r.json() if r["building_id"] == bid), None)
         assert row["cellular_status"] == "COMPLIANT"
 
-    def test_list_has_approval_status(self, client, controller_token, admin_token):
-        bid = _create_building(client, admin_token, "Bi List Status")
-        _create_check(client, controller_token, bid)
+    def test_list_has_approval_status(self, client, alarm_tester_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Bi List Status")
+        _create_check(client, alarm_tester_token, bid)
 
-        r = client.get(f"/v1/alarm/biannual?building_id={bid}", headers=_headers(controller_token))
+        r = client.get(f"/v1/alarm/biannual?building_id={bid}", headers=_headers(alarm_tester_token))
         for c in r.json():
             assert "approval_status" in c

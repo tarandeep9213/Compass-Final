@@ -51,3 +51,14 @@ def require_roles(*roles: UserRole):
         return current_user
 
     return checker
+
+
+def block_alarm_roles(current_user: User = Depends(get_current_user)) -> User:
+    """Router-level dependency: deny cashroom endpoints to alarm-only roles."""
+    from app.models.user import ALARM_ROLES
+    if current_user.role in ALARM_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Alarm system users cannot access cashroom endpoints. Please use alarm.* URL.",
+        )
+    return current_user

@@ -16,10 +16,14 @@ from app.schemas.alarm import (
 
 router = APIRouter(prefix="/alarm/zones", tags=["alarm-zones"])
 
-_ADMIN = [Depends(require_roles(UserRole.ADMIN))]
+_ADMIN = [Depends(require_roles(UserRole.ALARM_ADMIN))]
+_READER = [Depends(require_roles(
+    UserRole.ALARM_TESTER, UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+))]
 
 
-@router.get("", response_model=list[AlarmZoneOut])
+@router.get("", response_model=list[AlarmZoneOut], dependencies=_READER)
 def list_zones(
     building_id: str = Query(...),
     current_user: User = Depends(get_current_user),

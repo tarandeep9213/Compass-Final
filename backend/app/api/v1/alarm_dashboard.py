@@ -6,12 +6,18 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.db.session import get_db
-from app.core.deps import get_current_user
-from app.models.user import User
+from app.core.deps import get_current_user, require_roles
+from app.models.user import User, UserRole
 from app.models.alarm import AlarmBuilding, AlarmTest, AlarmZone, AlarmBiannualCheck
 from app.schemas.alarm import AlarmBuildingOut, AlarmTestOut, AlarmZoneOut, AlarmBiannualCheckOut
 
 router = APIRouter(prefix="/alarm/dashboard", tags=["alarm-dashboard"])
+
+# Compliance dashboards: alarm-side users + cross-functional cashroom roles (read-only)
+_DASHBOARD_READER = [Depends(require_roles(
+    UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+))]
 
 
 # ── Response models ──────────────────────────────────────────────────────────
@@ -67,7 +73,7 @@ class BuildingDrillDownResponse(BaseModel):
 
 # ── Screen 8: Overview ───────────────────────────────────────────────────────
 
-@router.get("/overview", response_model=OverviewResponse)
+@router.get("/overview", response_model=OverviewResponse, dependencies=_DASHBOARD_READER)
 def get_overview(
     region: str | None = Query(None),
     month: str | None = Query(None),
@@ -148,7 +154,7 @@ def get_overview(
 
 # ── Screen 9: Trends ────────────────────────────────────────────────────────
 
-@router.get("/trends", response_model=TrendsResponse)
+@router.get("/trends", response_model=TrendsResponse, dependencies=_DASHBOARD_READER)
 def get_trends(
     months: int = Query(12, ge=1, le=24),
     current_user: User = Depends(get_current_user),
@@ -181,7 +187,7 @@ def get_trends(
 
 # ── Screen 10: Building Drill-Down ───────────────────────────────────────────
 
-@router.get("/building/{building_id}", response_model=BuildingDrillDownResponse)
+@router.get("/building/{building_id}", response_model=BuildingDrillDownResponse, dependencies=_DASHBOARD_READER)
 def get_building_drilldown(
     building_id: str,
     current_user: User = Depends(get_current_user),

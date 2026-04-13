@@ -36,6 +36,10 @@ SEED_USERS = [
     {"email": "admin@compass.com",      "name": "Adam Admin",       "role": UserRole.ADMIN,               "location_ids": []},
     {"email": "auditor@compass.com",    "name": "Audrey Auditor",   "role": UserRole.AUDITOR,             "location_ids": []},
     {"email": "rc@compass.com",         "name": "Rachel RC",        "role": UserRole.REGIONAL_CONTROLLER, "location_ids": []},
+    # Alarm-side users (separate URL: alarm.*)
+    {"email": "tester@alarm.compass.com",     "name": "Tara Tester",       "role": UserRole.ALARM_TESTER,   "location_ids": []},
+    {"email": "approver@alarm.compass.com",   "name": "Aaron Approver",    "role": UserRole.ALARM_APPROVER, "location_ids": []},
+    {"email": "alarmadmin@alarm.compass.com", "name": "Alice Alarm Admin", "role": UserRole.ALARM_ADMIN,    "location_ids": []},
 ]
 
 SEED_LOCATIONS = [
@@ -70,12 +74,12 @@ def setup_db():
             db.add(SystemConfig(id=1))
         # Ensure alarm compliance rules exist with permissive defaults
         from app.models.alarm import AlarmComplianceRules
-        if not db.get(AlarmComplianceRules, 1):
-            db.add(AlarmComplianceRules(id=1))
-        else:
-            rules = db.get(AlarmComplianceRules, 1)
-            rules.require_all_zones_tested = False
-            rules.require_report_upload = False
+        rules = db.get(AlarmComplianceRules, 1)
+        if not rules:
+            rules = AlarmComplianceRules(id=1)
+            db.add(rules)
+        rules.require_all_zones_tested = False
+        rules.require_report_upload = False
         db.commit()
     finally:
         db.close()
@@ -116,5 +120,40 @@ def operator_token(client):
 @pytest.fixture(scope="session")
 def controller_token(client):
     r = client.post("/v1/auth/login", json={"email": "controller@compass.com", "password": DEMO_PASSWORD})
+    assert r.status_code == 200
+    return r.json()["access_token"]
+
+
+@pytest.fixture(scope="session")
+def dgm_token(client):
+    r = client.post("/v1/auth/login", json={"email": "dgm@compass.com", "password": DEMO_PASSWORD})
+    assert r.status_code == 200
+    return r.json()["access_token"]
+
+
+@pytest.fixture(scope="session")
+def rc_token(client):
+    r = client.post("/v1/auth/login", json={"email": "rc@compass.com", "password": DEMO_PASSWORD})
+    assert r.status_code == 200
+    return r.json()["access_token"]
+
+
+@pytest.fixture(scope="session")
+def alarm_tester_token(client):
+    r = client.post("/v1/auth/login", json={"email": "tester@alarm.compass.com", "password": DEMO_PASSWORD})
+    assert r.status_code == 200
+    return r.json()["access_token"]
+
+
+@pytest.fixture(scope="session")
+def alarm_approver_token(client):
+    r = client.post("/v1/auth/login", json={"email": "approver@alarm.compass.com", "password": DEMO_PASSWORD})
+    assert r.status_code == 200
+    return r.json()["access_token"]
+
+
+@pytest.fixture(scope="session")
+def alarm_admin_token(client):
+    r = client.post("/v1/auth/login", json={"email": "alarmadmin@alarm.compass.com", "password": DEMO_PASSWORD})
     assert r.status_code == 200
     return r.json()["access_token"]

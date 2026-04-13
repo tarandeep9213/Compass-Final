@@ -51,6 +51,25 @@ USERS = [
         "role": UserRole.REGIONAL_CONTROLLER,
         "location_ids": [],
     },
+    # ── Alarm system users (separate URL: alarm.*) ───────────────────────
+    {
+        "email": "tester@alarm.compass.com",
+        "name": "Tara Tester",
+        "role": UserRole.ALARM_TESTER,
+        "location_ids": [],
+    },
+    {
+        "email": "approver@alarm.compass.com",
+        "name": "Aaron Approver",
+        "role": UserRole.ALARM_APPROVER,
+        "location_ids": [],
+    },
+    {
+        "email": "alarmadmin@alarm.compass.com",
+        "name": "Alice Alarm Admin",
+        "role": UserRole.ALARM_ADMIN,
+        "location_ids": [],
+    },
 ]
 
 

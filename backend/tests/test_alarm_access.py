@@ -36,8 +36,8 @@ def _create_building(client, token: str, name: str) -> str:
 class TestListAlarmUsers:
     """GET /v1/alarm/users"""
 
-    def test_list_users(self, client, admin_token):
-        r = client.get("/v1/alarm/users", headers=_headers(admin_token))
+    def test_list_users(self, client, alarm_admin_token):
+        r = client.get("/v1/alarm/users", headers=_headers(alarm_admin_token))
         assert r.status_code == 200
         users = r.json()
         assert isinstance(users, list)
@@ -54,14 +54,14 @@ class TestListAlarmUsers:
 class TestGrantAccess:
     """POST /v1/alarm/access"""
 
-    def test_admin_can_grant_tester(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Access Grant Test")
+    def test_admin_can_grant_tester(self, client, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Access Grant Test")
         # Get an operator user ID
-        users = client.get("/v1/alarm/users", headers=_headers(admin_token)).json()
+        users = client.get("/v1/alarm/users", headers=_headers(alarm_admin_token)).json()
         op_user = next(u for u in users if u["role"] == "OPERATOR")
 
         r = client.post("/v1/alarm/access",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={
                 "user_id": op_user["id"],
                 "access_type": "tester",
@@ -78,13 +78,13 @@ class TestGrantAccess:
         assert "id" in body
         assert "granted_at" in body
 
-    def test_admin_can_grant_approver(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Approver Grant Test")
-        users = client.get("/v1/alarm/users", headers=_headers(admin_token)).json()
+    def test_admin_can_grant_approver(self, client, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Approver Grant Test")
+        users = client.get("/v1/alarm/users", headers=_headers(alarm_admin_token)).json()
         rc_user = next(u for u in users if u["role"] == "REGIONAL_CONTROLLER")
 
         r = client.post("/v1/alarm/access",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={
                 "user_id": rc_user["id"],
                 "access_type": "approver",
@@ -94,17 +94,17 @@ class TestGrantAccess:
         assert r.status_code == 201
         assert r.json()["access_type"] == "approver"
 
-    def test_operator_cannot_grant(self, client, operator_token, admin_token):
-        bid = _create_building(client, admin_token, "Op Grant Fail")
+    def test_operator_cannot_grant(self, client, operator_token, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Op Grant Fail")
         r = client.post("/v1/alarm/access",
             headers=_headers(operator_token),
             json={"user_id": "some-id", "access_type": "tester", "building_ids": [bid]},
         )
         assert r.status_code == 403
 
-    def test_grant_missing_fields_fails(self, client, admin_token):
+    def test_grant_missing_fields_fails(self, client, alarm_admin_token):
         r = client.post("/v1/alarm/access",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"access_type": "tester"},
         )
         assert r.status_code == 422
@@ -115,8 +115,8 @@ class TestGrantAccess:
 class TestListAccess:
     """GET /v1/alarm/access"""
 
-    def test_list_grants(self, client, admin_token):
-        r = client.get("/v1/alarm/access", headers=_headers(admin_token))
+    def test_list_grants(self, client, alarm_admin_token):
+        r = client.get("/v1/alarm/access", headers=_headers(alarm_admin_token))
         assert r.status_code == 200
         grants = r.json()
         assert isinstance(grants, list)
@@ -134,29 +134,29 @@ class TestListAccess:
 class TestRevokeAccess:
     """DELETE /v1/alarm/access/{id}"""
 
-    def test_admin_can_revoke(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Revoke Test")
-        users = client.get("/v1/alarm/users", headers=_headers(admin_token)).json()
+    def test_admin_can_revoke(self, client, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Revoke Test")
+        users = client.get("/v1/alarm/users", headers=_headers(alarm_admin_token)).json()
         user = users[0]
 
         # Grant
         r = client.post("/v1/alarm/access",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"user_id": user["id"], "access_type": "tester", "building_ids": [bid]},
         )
         grant_id = r.json()["id"]
 
         # Revoke
-        r = client.delete(f"/v1/alarm/access/{grant_id}", headers=_headers(admin_token))
+        r = client.delete(f"/v1/alarm/access/{grant_id}", headers=_headers(alarm_admin_token))
         assert r.status_code == 200
 
         # Verify gone from list
-        r = client.get("/v1/alarm/access", headers=_headers(admin_token))
+        r = client.get("/v1/alarm/access", headers=_headers(alarm_admin_token))
         ids = [g["id"] for g in r.json()]
         assert grant_id not in ids
 
-    def test_revoke_nonexistent_returns_404(self, client, admin_token):
-        r = client.delete("/v1/alarm/access/nonexistent", headers=_headers(admin_token))
+    def test_revoke_nonexistent_returns_404(self, client, alarm_admin_token):
+        r = client.delete("/v1/alarm/access/nonexistent", headers=_headers(alarm_admin_token))
         assert r.status_code == 404
 
     def test_operator_cannot_revoke(self, client, operator_token):
@@ -169,16 +169,16 @@ class TestRevokeAccess:
 class TestImportAccess:
     """POST /v1/alarm/access/import"""
 
-    def test_bulk_import(self, client, admin_token):
-        bid = _create_building(client, admin_token, "Import Access Test")
-        users = client.get("/v1/alarm/users", headers=_headers(admin_token)).json()
+    def test_bulk_import(self, client, alarm_admin_token):
+        bid = _create_building(client, alarm_admin_token, "Import Access Test")
+        users = client.get("/v1/alarm/users", headers=_headers(alarm_admin_token)).json()
 
         grants = [
             {"user_id": users[0]["id"], "access_type": "tester", "building_ids": [bid]},
             {"user_id": users[1]["id"], "access_type": "approver", "building_ids": [bid]},
         ]
         r = client.post("/v1/alarm/access/import",
-            headers=_headers(admin_token),
+            headers=_headers(alarm_admin_token),
             json={"grants": grants},
         )
         assert r.status_code == 201

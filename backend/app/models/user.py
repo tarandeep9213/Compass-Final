@@ -15,6 +15,23 @@ class UserRole(str, enum.Enum):
     ADMIN               = "ADMIN"
     AUDITOR             = "AUDITOR"
     REGIONAL_CONTROLLER = "REGIONAL_CONTROLLER"
+    # Alarm system roles (separate URL: alarm.*)
+    ALARM_TESTER        = "ALARM_TESTER"
+    ALARM_APPROVER      = "ALARM_APPROVER"
+    ALARM_ADMIN         = "ALARM_ADMIN"
+
+
+# Role groupings for RBAC
+ALARM_ROLES = (UserRole.ALARM_TESTER, UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN)
+CASHROOM_ROLES = (
+    UserRole.OPERATOR, UserRole.CONTROLLER, UserRole.DGM,
+    UserRole.ADMIN, UserRole.AUDITOR, UserRole.REGIONAL_CONTROLLER,
+)
+# Roles allowed to read alarm compliance dashboards & audit (cross-functional + alarm side)
+ALARM_DASHBOARD_READERS = (
+    UserRole.ALARM_APPROVER, UserRole.ALARM_ADMIN,
+    UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER,
+)
 
 
 def _now() -> datetime:
