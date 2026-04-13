@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getTest, approveTest, rejectTest } from '../../../api/alarm'
+import { getTest, approveTestAll, rejectTest, getBiannualContext } from '../../../api/alarm'
+import type { BiannualContext } from '../../../api/alarm'
 import type { AlarmTest, AlarmTestZone, AlarmTestAttachment, AlarmZone } from '../../../mock/alarmData'
 import { listZones } from '../../../api/alarm'
 import ZoneChecklist from '../../../components/alarm/ZoneChecklist'
@@ -61,6 +62,7 @@ export default function AlarmReview({ userName: _userName, userRole, ctx, onNavi
   const [zones, setZones] = useState<AlarmZone[]>([])
   const [testZones, setTestZones] = useState<AlarmTestZone[]>([])
   const [attachments, setAttachments] = useState<AlarmTestAttachment[]>([])
+  const [biannualCtx, setBiannualCtx] = useState<BiannualContext | null>(null)
   const [loading, setLoading] = useState(true)
   const [rejectModal, setRejectModal] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -80,6 +82,8 @@ export default function AlarmReview({ userName: _userName, userRole, ctx, onNavi
       .then((z) => setZones(z))
       .catch(() => toast.error('Failed to load test'))
       .finally(() => setLoading(false))
+    // Load biannual context for this test (cellular & camera status)
+    getBiannualContext(testId).then(setBiannualCtx).catch(() => { /* no biannual context, OK */ })
   }, [testId])
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -115,13 +119,24 @@ export default function AlarmReview({ userName: _userName, userRole, ctx, onNavi
   }
 
   const handleApprove = async () => {
-    if (!window.confirm('Approve this test?')) return
+    const submittedBiannuals = [
+      biannualCtx?.cellular.pendingCheck,
+      biannualCtx?.camera.pendingCheck,
+    ].filter(c => c && c.approval_status === 'SUBMITTED')
+
+    const msg = submittedBiannuals.length > 0
+      ? `Approve this test AND ${submittedBiannuals.length} linked biannual check(s)?`
+      : 'Approve this test?'
+    if (!window.confirm(msg)) return
     try {
-      await approveTest(testId)
-      toast.success('Test approved')
+      await approveTestAll(testId, reviewerNotes || undefined)
+      const successMsg = submittedBiannuals.length > 0
+        ? `Test + ${submittedBiannuals.length} biannual approved`
+        : 'Test approved'
+      toast.success(successMsg)
       onNavigate(ctx.fromPanel || 'alarm-approval')
     } catch {
-      toast.error('Failed to approve test')
+      toast.error('Failed to approve')
     }
   }
 
@@ -318,8 +333,21 @@ export default function AlarmReview({ userName: _userName, userRole, ctx, onNavi
         </div>
       </div>
 
+      {/* ── Biannual checks summary ── */}
+      {biannualCtx && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Biannual Checks (will be approved together)</span>
+          </div>
+          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <BiannualSummaryCard title="Cellular Backup" slot={biannualCtx.cellular} />
+            <BiannualSummaryCard title="Camera Backup" slot={biannualCtx.camera} />
+          </div>
+        </div>
+      )}
+
       {/* ── Approval action card (only for SUBMITTED + approver roles) ── */}
-      {test.status === 'SUBMITTED' && (userRole === 'admin' || userRole === 'regional-controller') && (
+      {test.status === 'SUBMITTED' && (userRole === 'admin' || userRole === 'regional-controller' || userRole === 'alarm-approver') && (
         <div className="card">
           <div className="card-header">
             <span className="card-title">Approval Decision</span>
@@ -430,6 +458,46 @@ export default function AlarmReview({ userName: _userName, userRole, ctx, onNavi
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Biannual summary card (compact view for approver) ────────────────────────
+function BiannualSummaryCard({ title, slot }: { title: string; slot: import('../../../api/alarm').BiannualSlotInfo }) {
+  const pending = slot.pendingCheck
+  const last = slot.lastCheck
+  const icon = (s: string | undefined) => s === 'COMPLIANT' ? '\u2713' : s === 'NON_COMPLIANT' ? '\u26a0' : '\u2014'
+  const color = (s: string | undefined) => s === 'COMPLIANT' ? '#15803d' : s === 'NON_COMPLIANT' ? '#991b1b' : '#64748b'
+  const bg = (s: string | undefined) => s === 'COMPLIANT' ? '#dcfce7' : s === 'NON_COMPLIANT' ? '#fee2e2' : '#f1f5f9'
+
+  return (
+    <div style={{ border: '1px solid var(--ow2)', borderRadius: 8, padding: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 13 }}>{title}</div>
+        {slot.overdue && (
+          <span style={{ background: '#fee2e2', color: '#991b1b', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+            OVERDUE
+          </span>
+        )}
+      </div>
+      {pending ? (
+        <div style={{ background: bg(pending.status), padding: '8px 10px', borderRadius: 6 }}>
+          <div style={{ fontSize: 12, color: color(pending.status), fontWeight: 700 }}>
+            {icon(pending.status)} New check this cycle: {pending.status}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--ts)', marginTop: 3 }}>
+            Date: {pending.checkDate} \u00b7 By: {pending.checkedByName}
+          </div>
+          {pending.notes && <div style={{ fontSize: 11, color: 'var(--ts)', marginTop: 3, fontStyle: 'italic' }}>"{pending.notes}"</div>}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--ts)' }}>No new check submitted with this test.</div>
+      )}
+      {last && (
+        <div style={{ fontSize: 11, color: 'var(--ts)', marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--ow2)' }}>
+          Previous: {last.checkDate} ({last.status}) \u00b7 Next due: {last.nextDueDate ?? '\u2014'}
         </div>
       )}
     </div>

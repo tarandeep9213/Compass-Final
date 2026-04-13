@@ -284,6 +284,48 @@ export function getBiannualStatus(): Promise<BiannualStatusRow[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Integrated test + biannual endpoints (added to AlarmTestForm)
+// ---------------------------------------------------------------------------
+
+export interface BiannualSlotInfo {
+  checkType: 'CELLULAR_BACKUP' | 'CAMERA_BACKUP'
+  due: boolean
+  overdue: boolean
+  daysUntilDue: number | null
+  lastCheck: BiannualCheck | null
+  pendingCheck: BiannualCheck | null
+}
+
+export interface BiannualContext {
+  cellular: BiannualSlotInfo
+  camera: BiannualSlotInfo
+}
+
+export function getBiannualContext(testId: string): Promise<BiannualContext> {
+  return api.get<unknown>(`/alarm/tests/${testId}/biannual-context`).then(r => fromApi<BiannualContext>(r))
+}
+
+export interface AddBiannualToTestBody {
+  checkType: 'CELLULAR_BACKUP' | 'CAMERA_BACKUP'
+  checkDate: string
+  status?: 'COMPLIANT' | 'NON_COMPLIANT' | 'PENDING'
+  daysVerified?: number
+  notes?: string
+}
+
+export function addBiannualToTest(testId: string, body: AddBiannualToTestBody): Promise<BiannualCheck> {
+  return api.post<unknown>(`/alarm/tests/${testId}/biannual`, toApi(body)).then(r => fromApi<BiannualCheck>(r))
+}
+
+export function submitTestWithBiannual(testId: string): Promise<unknown> {
+  return api.post<unknown>(`/alarm/tests/${testId}/submit-with-biannual`, {})
+}
+
+export function approveTestAll(testId: string, notes?: string): Promise<unknown> {
+  return api.post<unknown>(`/alarm/tests/${testId}/approve-all`, { notes: notes || '' })
+}
+
+// ---------------------------------------------------------------------------
 // Compliance Rules (Screen 14)
 // ---------------------------------------------------------------------------
 

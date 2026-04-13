@@ -54,7 +54,6 @@ import RcBizDash      from './pages/regional-controller/RcBizDash'
 import AlarmTestForm       from './pages/alarm/tester/AlarmTestForm'
 import AlarmUpload         from './pages/alarm/tester/AlarmUpload'
 import AlarmHistory        from './pages/alarm/tester/AlarmHistory'
-import BiannualCheck       from './pages/alarm/tester/BiannualCheck'
 import AlarmApproval       from './pages/alarm/approver/AlarmApproval'
 import AlarmReview         from './pages/alarm/approver/AlarmReview'
 import AlarmEscalation     from './pages/alarm/approver/AlarmEscalation'
@@ -85,7 +84,6 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
     switch (role) {
       case 'alarm-tester': return [
         { id: 'alarm-history',   icon: '🔔', label: 'My Tests',          panel: 'alarm-history'   },
-        { id: 'biannual-check',  icon: '📅', label: 'Biannual Checks',   panel: 'biannual-check'  },
       ]
       case 'alarm-approver': return [
         { id: 'alarm-approval',  icon: '✅', label: 'Pending Approvals', panel: 'alarm-approval'   },
@@ -303,7 +301,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
   const alarmIds = new Set([
     'alarm-testing', 'alarm-overview', 'alarm-trends', 'alarm-config',
     'alarm-approvals', 'alarm-approval', 'alarm-audit', 'alarm-audit-trail',
-    'alarm-escalation', 'alarm-history', 'biannual-check',
+    'alarm-escalation', 'alarm-history',
     'alarm-building-setup', 'alarm-zone-config', 'alarm-compliance-rules', 'alarm-user-mgmt',
   ])
   // ALARM_ENABLED only suppresses alarm features on cashroom URL — alarm URL ignores it
@@ -372,7 +370,6 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       case 'alarm-test-form': return <AlarmTestForm userName={auth.name} locationIds={auth.locationIds} ctx={ctx} onNavigate={navigate} />
       case 'alarm-upload':    return <AlarmUpload   ctx={ctx} onNavigate={navigate} />
       case 'alarm-history':   return <AlarmHistory  userName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
-      case 'biannual-check':  return <BiannualCheck userName={auth.name} locationIds={auth.locationIds} onNavigate={navigate} />
 
       // ── Alarm Approver panels ──────────────────────────────────────
       case 'alarm-approval':   return <AlarmApproval   adminName={auth.name} onNavigate={navigate} />
@@ -410,7 +407,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
     if (p === 'adm-audit')      return 'adm-audit'
     if (p === 'adm-reports')    return 'adm-reports'
     // Alarm sub-panels: map to their parent nav item
-    if (p === 'alarm-test-form' || p === 'alarm-upload' || p === 'alarm-history' || p === 'biannual-check') return 'alarm-history'
+    if (p === 'alarm-test-form' || p === 'alarm-upload' || p === 'alarm-history') return 'alarm-history'
     if (p === 'alarm-approval' || p === 'alarm-review' || p === 'alarm-escalation') return 'alarm-approval'
     if (p === 'alarm-overview' || p === 'alarm-trends' || p === 'alarm-drilldown' || p === 'biannual-status') return 'alarm-overview'
     if (p === 'alarm-audit-trail') return 'alarm-audit-trail'

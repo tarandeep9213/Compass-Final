@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { listAlarmBuildings, listZones, listTests, getTest, createTest, updateTest, submitTest, saveTestZones, reopenTest, listAttachments, uploadAttachment, deleteAttachment } from '../../../api/alarm'
+import { listAlarmBuildings, listZones, listTests, getTest, createTest, updateTest, submitTestWithBiannual, saveTestZones, reopenTest, listAttachments, uploadAttachment, deleteAttachment } from '../../../api/alarm'
 import type { AlarmBuilding, AlarmZone, AlarmTest } from '../../../mock/alarmData'
 import ZoneChecklist from '../../../components/alarm/ZoneChecklist'
 import ZoneSummaryBar from '../../../components/alarm/ZoneSummaryBar'
 import FileUploadDropzone from '../../../components/alarm/FileUploadDropzone'
 import type { UploadedFile } from '../../../components/alarm/FileUploadDropzone'
+import BiannualSection from '../../../components/alarm/BiannualSection'
 import { toast } from '../../../components/ui/Toast'
 
 interface Props {
@@ -292,7 +293,9 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
       }
 
       await saveTestZones(id, zoneResults)
-      await submitTest(id)
+      // submitTestWithBiannual atomically submits the test AND any DRAFT biannual checks
+      // for this building. If no biannual was filled, only the test is submitted.
+      await submitTestWithBiannual(id)
       toast.success('Test submitted for approval')
       onNavigate('alarm-history')
     } catch {
@@ -561,6 +564,9 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
           </div>
         </div>
       </div>
+
+      {/* ── Biannual checks section (optional) ── */}
+      {selectedBuildingId && <BiannualSection testId={draftId} />}
 
       {/* ── Sticky action footer ── */}
       <div

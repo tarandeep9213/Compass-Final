@@ -5,6 +5,7 @@ import uuid as _uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "uploads", "alarm")
@@ -12,7 +13,7 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pat
 from app.db.session import get_db
 from app.core.deps import get_current_user, require_roles
 from app.models.user import User, UserRole
-from app.models.alarm import AlarmTest, AlarmTestZone, AlarmTestAttachment, AlarmComplianceRules, AlarmZone
+from app.models.alarm import AlarmTest, AlarmTestZone, AlarmTestAttachment, AlarmComplianceRules, AlarmZone, AlarmBiannualCheck
 from app.api.v1.alarm_audit_helper import log_alarm_event
 from app.schemas.alarm import (
     AlarmTestOut,
@@ -247,6 +248,294 @@ def reject_test(
     t.status = "REJECTED"
     t.rejection_reason = body.reason
     log_alarm_event(db, current_user, "TEST_REJECTED", "testing", f"Test rejected for building {t.building_id} ({t.test_month}): {body.reason}")
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+# ── Integrated Biannual Endpoints ─────────────────────────────────────────────
+# Tester can add/submit biannual checks while filling out a monthly test.
+# Approver can approve all (test + linked biannual) in one action.
+# Backward-compatible: existing /alarm/biannual endpoints still work.
+
+def _calc_next_due_iso(check_date: str) -> str:
+    """Calculate next due date: +6 months, day clamped to 28 to avoid end-of-month issues."""
+    from datetime import date as _dt_date
+    d = _dt_date.fromisoformat(check_date)
+    month = d.month + 6
+    year = d.year + (month - 1) // 12
+    month = (month - 1) % 12 + 1
+    day = min(d.day, 28)
+    return _dt_date(year, month, day).isoformat()
+
+
+class CreateBiannualForTestBody(BaseModel):
+    check_type: str  # CELLULAR_BACKUP, CAMERA_BACKUP
+    check_date: str
+    status: str = "COMPLIANT"  # COMPLIANT, NON_COMPLIANT, PENDING
+    days_verified: int | None = None
+    notes: str | None = None
+
+
+class BiannualWithTestOut(BaseModel):
+    id: str
+    building_id: str
+    check_type: str
+    check_date: str
+    next_due_date: str | None
+    status: str
+    approval_status: str
+    days_verified: int | None = None
+    notes: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class BiannualSlot(BaseModel):
+    """One slot (cellular or camera) for the test form."""
+    check_type: str  # CELLULAR_BACKUP or CAMERA_BACKUP
+    due: bool                 # true if a new check is needed (overdue or due this 6-month window)
+    overdue: bool             # true if past next_due_date
+    days_until_due: int | None  # negative = overdue, null = never checked
+    last_check: BiannualWithTestOut | None  # most recent APPROVED check (or null)
+    pending_check: BiannualWithTestOut | None  # current DRAFT/SUBMITTED check linked to this test cycle
+
+
+class BiannualContextOut(BaseModel):
+    cellular: BiannualSlot
+    camera: BiannualSlot
+
+
+def _biannual_slot(db: Session, building_id: str, check_type: str) -> BiannualSlot:
+    from datetime import date as _dt_date
+    today = _dt_date.today()
+
+    # Most recent APPROVED check
+    last = db.query(AlarmBiannualCheck).filter(
+        AlarmBiannualCheck.building_id == building_id,
+        AlarmBiannualCheck.check_type == check_type,
+        AlarmBiannualCheck.approval_status == "APPROVED",
+    ).order_by(AlarmBiannualCheck.check_date.desc()).first()
+
+    # Current DRAFT or SUBMITTED check (the one being worked on)
+    pending = db.query(AlarmBiannualCheck).filter(
+        AlarmBiannualCheck.building_id == building_id,
+        AlarmBiannualCheck.check_type == check_type,
+        AlarmBiannualCheck.approval_status.in_(("DRAFT", "SUBMITTED")),
+    ).order_by(AlarmBiannualCheck.created_at.desc()).first()
+
+    days_until = None
+    overdue = False
+    due = pending is None  # if no pending, due unless we have an unexpired APPROVED
+
+    if last and last.next_due_date:
+        try:
+            next_due = _dt_date.fromisoformat(last.next_due_date)
+            days_until = (next_due - today).days
+            if days_until < 0:
+                overdue = True
+                due = True
+            elif days_until <= 30:
+                due = True  # due soon
+            elif pending is None:
+                due = False  # have a recent APPROVED check, not due yet
+        except ValueError:
+            pass
+
+    return BiannualSlot(
+        check_type=check_type,
+        due=due,
+        overdue=overdue,
+        days_until_due=days_until,
+        last_check=last,
+        pending_check=pending,
+    )
+
+
+@router.get("/{test_id}/biannual-context", response_model=BiannualContextOut, dependencies=_TEST_READER)
+def get_biannual_context(
+    test_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return cellular & camera biannual context for the test's building."""
+    t = db.get(AlarmTest, test_id)
+    if not t:
+        raise HTTPException(404, "Test not found")
+    return BiannualContextOut(
+        cellular=_biannual_slot(db, t.building_id, "CELLULAR_BACKUP"),
+        camera=_biannual_slot(db, t.building_id, "CAMERA_BACKUP"),
+    )
+
+
+@router.post("/{test_id}/biannual", response_model=BiannualWithTestOut, status_code=201, dependencies=_TESTER)
+def add_biannual_to_test(
+    test_id: str,
+    body: CreateBiannualForTestBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Add or update a biannual check linked to this test's building (DRAFT state)."""
+    t = db.get(AlarmTest, test_id)
+    if not t:
+        raise HTTPException(404, "Test not found")
+    if t.status not in ("DRAFT", "REJECTED"):
+        raise HTTPException(400, f"Cannot add biannual to test in {t.status} state")
+    if body.check_type not in ("CELLULAR_BACKUP", "CAMERA_BACKUP"):
+        raise HTTPException(400, "check_type must be CELLULAR_BACKUP or CAMERA_BACKUP")
+
+    # Look for an existing DRAFT/REJECTED biannual of this type for this building (so update vs create)
+    existing = db.query(AlarmBiannualCheck).filter(
+        AlarmBiannualCheck.building_id == t.building_id,
+        AlarmBiannualCheck.check_type == body.check_type,
+        AlarmBiannualCheck.approval_status.in_(("DRAFT", "REJECTED")),
+    ).order_by(AlarmBiannualCheck.created_at.desc()).first()
+
+    if existing:
+        existing.check_date = body.check_date
+        existing.next_due_date = _calc_next_due_iso(body.check_date)
+        existing.status = body.status
+        existing.days_verified = body.days_verified
+        existing.notes = body.notes
+        existing.checked_by = current_user.id
+        existing.checked_by_name = current_user.name
+        existing.approval_status = "DRAFT"
+        existing.rejection_reason = None
+        check = existing
+        action_label = "BIANNUAL_UPDATED"
+    else:
+        check = AlarmBiannualCheck(
+            building_id=t.building_id,
+            check_type=body.check_type,
+            check_date=body.check_date,
+            next_due_date=_calc_next_due_iso(body.check_date),
+            status=body.status,
+            checked_by=current_user.id,
+            checked_by_name=current_user.name,
+            days_verified=body.days_verified,
+            notes=body.notes,
+            approval_status="DRAFT",
+        )
+        db.add(check)
+        action_label = "BIANNUAL_CREATED"
+
+    log_alarm_event(
+        db, current_user, action_label, "testing",
+        f"{body.check_type} for building {t.building_id} via test {test_id}",
+    )
+    db.commit()
+    db.refresh(check)
+    return check
+
+
+@router.post("/{test_id}/submit-with-biannual", response_model=AlarmTestOut, dependencies=_TESTER)
+def submit_test_with_biannual(
+    test_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Submit the test AND any DRAFT biannual checks for the same building.
+
+    Soft policy: missing biannual is allowed. Approver/dashboard surfaces gaps.
+    """
+    t = db.get(AlarmTest, test_id)
+    if not t:
+        raise HTTPException(404, "Test not found")
+    if t.status != "DRAFT":
+        raise HTTPException(400, f"Test is {t.status}, not DRAFT")
+
+    # Apply same compliance rules as regular submit
+    rules = db.get(AlarmComplianceRules, 1)
+    if not rules:
+        rules = AlarmComplianceRules(id=1)
+        db.add(rules)
+        db.commit()
+        db.refresh(rules)
+
+    if rules.require_all_zones_tested:
+        building_zones = db.query(AlarmZone).filter(
+            AlarmZone.building_id == t.building_id, AlarmZone.is_active == True
+        ).all()
+        test_zone_results = db.query(AlarmTestZone).filter(
+            AlarmTestZone.alarm_test_id == test_id
+        ).all()
+        result_map = {tz.alarm_zone_id: tz.result for tz in test_zone_results}
+        if building_zones:
+            for z in building_zones:
+                result = result_map.get(z.id)
+                if not result or result == "NOT_TESTED":
+                    raise HTTPException(400, f"All zones must be tested. Zone '{z.zone_name}' (#{z.zone_number}) is untested.")
+
+    if rules.require_report_upload:
+        attachments = db.query(AlarmTestAttachment).filter(
+            AlarmTestAttachment.alarm_test_id == test_id
+        ).count()
+        if attachments == 0:
+            raise HTTPException(400, "A report attachment must be uploaded before submitting.")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    t.status = "SUBMITTED"
+    t.submitted_at = now_iso
+
+    # Submit any DRAFT biannual checks for the same building
+    draft_biannuals = db.query(AlarmBiannualCheck).filter(
+        AlarmBiannualCheck.building_id == t.building_id,
+        AlarmBiannualCheck.approval_status == "DRAFT",
+    ).all()
+    for b in draft_biannuals:
+        b.approval_status = "SUBMITTED"
+        b.submitted_at = now_iso
+
+    log_alarm_event(
+        db, current_user, "TEST_SUBMITTED_WITH_BIANNUAL", "testing",
+        f"Test submitted for {t.building_id} ({t.test_month}); {len(draft_biannuals)} biannual check(s) included",
+    )
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+class ApproveAllBody(BaseModel):
+    notes: str | None = None
+
+
+@router.post("/{test_id}/approve-all", response_model=AlarmTestOut, dependencies=_APPROVER)
+def approve_all(
+    test_id: str,
+    body: ApproveAllBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Approve the test AND any SUBMITTED biannual checks for the same building."""
+    t = db.get(AlarmTest, test_id)
+    if not t:
+        raise HTTPException(404, "Test not found")
+    if t.status != "SUBMITTED":
+        raise HTTPException(400, f"Test is {t.status}, not SUBMITTED")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    t.status = "APPROVED"
+    t.approved_by = current_user.id
+    t.approved_by_name = current_user.name
+    t.approved_at = now_iso
+    if body.notes:
+        t.notes = (t.notes or "") + f"\n[Approver] {body.notes}"
+
+    # Approve any SUBMITTED biannual checks for the same building
+    submitted_biannuals = db.query(AlarmBiannualCheck).filter(
+        AlarmBiannualCheck.building_id == t.building_id,
+        AlarmBiannualCheck.approval_status == "SUBMITTED",
+    ).all()
+    for b in submitted_biannuals:
+        b.approval_status = "APPROVED"
+        b.approved_by = current_user.id
+        b.approved_by_name = current_user.name
+        b.approved_at = now_iso
+
+    log_alarm_event(
+        db, current_user, "TEST_APPROVED_ALL", "testing",
+        f"Test + {len(submitted_biannuals)} biannual approved for {t.building_id} ({t.test_month})",
+    )
     db.commit()
     db.refresh(t)
     return t
