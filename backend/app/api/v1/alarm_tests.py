@@ -55,7 +55,27 @@ def list_tests(
         q = q.filter(AlarmTest.status == status)
     if tester_id:
         q = q.filter(AlarmTest.tester_id == tester_id)
-    return q.order_by(AlarmTest.test_date.desc()).all()
+    tests = q.order_by(AlarmTest.test_date.desc()).all()
+
+    # Bulk-fetch attachment counts for has_attachment flag (one query, not N)
+    test_ids = [t.id for t in tests]
+    if test_ids:
+        from sqlalchemy import func
+        rows = db.query(
+            AlarmTestAttachment.alarm_test_id, func.count(AlarmTestAttachment.id)
+        ).filter(AlarmTestAttachment.alarm_test_id.in_(test_ids)).group_by(
+            AlarmTestAttachment.alarm_test_id
+        ).all()
+        attached_set = {tid for tid, cnt in rows if cnt > 0}
+    else:
+        attached_set = set()
+
+    out = []
+    for t in tests:
+        d = AlarmTestOut.model_validate(t).model_dump()
+        d["has_attachment"] = t.id in attached_set
+        out.append(d)
+    return out
 
 
 @router.get("/{test_id}", response_model=AlarmTestDetailOut, dependencies=_TEST_READER)
@@ -69,8 +89,10 @@ def get_test(
         raise HTTPException(404, "Test not found")
     zones = db.query(AlarmTestZone).filter(AlarmTestZone.alarm_test_id == test_id).all()
     attachments = db.query(AlarmTestAttachment).filter(AlarmTestAttachment.alarm_test_id == test_id).all()
+    test_out = AlarmTestOut.model_validate(t).model_dump()
+    test_out["has_attachment"] = len(attachments) > 0
     return AlarmTestDetailOut(
-        test=t,
+        test=test_out,
         zones=[AlarmTestZoneOut.model_validate(z) for z in zones],
         attachments=[AlarmTestAttachmentOut.model_validate(a) for a in attachments],
     )

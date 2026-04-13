@@ -67,6 +67,7 @@ export interface AlarmTest {
   zonesTested: number;
   zonesIssue: number;
   attachments: AlarmTestAttachment[];
+  hasAttachment?: boolean;  // populated by backend; true if any attachment exists
 }
 
 export interface AlarmTestZone {

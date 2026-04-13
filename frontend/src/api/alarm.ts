@@ -72,6 +72,7 @@ export interface BuildingComplianceRow {
   status: 'compliant' | 'pending' | 'overdue' | 'exempt'
   lastTestDate?: string
   lastTestStatus?: string
+  lastTestHasReport?: boolean
   approverName?: string
 }
 

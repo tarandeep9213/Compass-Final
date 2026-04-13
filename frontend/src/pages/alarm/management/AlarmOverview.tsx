@@ -601,6 +601,7 @@ export default function AlarmOverview({ adminName: _adminName, onNavigate }: Pro
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('lastTestDate')}>
                   Last Test{sortIndicator('lastTestDate')}
                 </th>
+                <th>Report</th>
                 <th style={{ cursor: 'pointer' }} onClick={() => handleSort('zonesTotal')}>
                   Zones{sortIndicator('zonesTotal')}
                 </th>
@@ -616,7 +617,7 @@ export default function AlarmOverview({ adminName: _adminName, onNavigate }: Pro
             <tbody>
               {pagedBuildings.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', color: 'var(--ts)', padding: 24 }}>
+                  <td colSpan={11} style={{ textAlign: 'center', color: 'var(--ts)', padding: 24 }}>
                     No buildings match the current filters.
                   </td>
                 </tr>
@@ -668,6 +669,29 @@ export default function AlarmOverview({ adminName: _adminName, onNavigate }: Pro
                   </td>
                   <td style={{ fontSize: 12, color: 'var(--ts)' }}>
                     {b.lastTestDate ?? '\u2014'}
+                  </td>
+                  <td>
+                    {b.lastTestDate ? (
+                      b.lastTestHasReport ? (
+                        <span style={{
+                          background: '#dcfce7', color: '#15803d',
+                          padding: '2px 8px', borderRadius: 4,
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                        }} title="Alarm company report attached">
+                          {'\u{1F4CE}'} Yes
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: '#fef3c7', color: '#92400e',
+                          padding: '2px 8px', borderRadius: 4,
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                        }} title="No alarm company report uploaded">
+                          {'\u26A0'} None
+                        </span>
+                      )
+                    ) : (
+                      <span style={{ color: 'var(--ts)' }}>{'\u2014'}</span>
+                    )}
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

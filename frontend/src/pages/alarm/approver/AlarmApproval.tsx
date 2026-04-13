@@ -300,6 +300,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
                     <th>Test Date</th>
                     <th>Tester</th>
                     <th>Zones</th>
+                    <th>Report</th>
                     {statusFilter === 'ALL' && <th>Status</th>}
                     <th>{statusFilter === 'REJECTED' ? 'Rejection Reason' : statusFilter === 'APPROVED' ? 'Approved' : 'Waiting'}</th>
                     <th>Actions</th>
@@ -331,6 +332,25 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
                               {t.zonesTested}/{t.zonesTotal}
                             </span>
                           </div>
+                        </td>
+                        <td>
+                          {t.hasAttachment ? (
+                            <span style={{
+                              background: '#dcfce7', color: '#15803d',
+                              padding: '2px 8px', borderRadius: 4,
+                              fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                            }} title="Alarm company report attached">
+                              {'\u{1F4CE}'} Report
+                            </span>
+                          ) : (
+                            <span style={{
+                              background: '#fef3c7', color: '#92400e',
+                              padding: '2px 8px', borderRadius: 4,
+                              fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                            }} title="No alarm company report uploaded">
+                              {'\u26A0'} None
+                            </span>
+                          )}
                         </td>
                         {statusFilter === 'ALL' && (
                           <td><StatusBadge status={t.status} /></td>

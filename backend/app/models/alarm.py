@@ -187,7 +187,7 @@ class AlarmComplianceRules(Base):
     monthly_deadline_day: Mapped[int] = mapped_column(Integer, nullable=False, default=28)
     approval_sla_days: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     require_all_zones_tested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    require_report_upload: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    require_report_upload: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     require_approver_signoff: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     escalation: Mapped[dict] = mapped_column(JSON, nullable=False, default=lambda: _DEFAULT_ESCALATION.copy())
     biannual: Mapped[dict] = mapped_column(JSON, nullable=False, default=lambda: _DEFAULT_BIANNUAL.copy())

@@ -38,6 +38,7 @@ class BuildingComplianceRow(BaseModel):
     status: str  # compliant, pending, overdue, exempt
     last_test_date: Optional[str] = None
     last_test_status: Optional[str] = None
+    last_test_has_report: bool = False  # true if last test has at least one attachment
     approver_name: Optional[str] = None
 
 
@@ -93,6 +94,20 @@ def get_overview(
     for t in all_tests:
         test_map.setdefault(t.building_id, []).append(t)
 
+    # Bulk attachment lookup: which test_ids have at least one attachment?
+    from app.models.alarm import AlarmTestAttachment
+    from sqlalchemy import func
+    test_ids = [t.id for t in all_tests]
+    if test_ids:
+        att_rows = db.query(
+            AlarmTestAttachment.alarm_test_id, func.count(AlarmTestAttachment.id)
+        ).filter(AlarmTestAttachment.alarm_test_id.in_(test_ids)).group_by(
+            AlarmTestAttachment.alarm_test_id
+        ).all()
+        tests_with_attachments = {tid for tid, cnt in att_rows if cnt > 0}
+    else:
+        tests_with_attachments = set()
+
     rows = []
     for b in buildings:
         if b.status in ("temporarily_exempt", "closed"):
@@ -116,6 +131,7 @@ def get_overview(
             building_id=b.id, building_name=b.name, region=b.region, status=status,
             last_test_date=latest.test_date if latest else None,
             last_test_status=latest.status if latest else None,
+            last_test_has_report=(latest.id in tests_with_attachments) if latest else False,
         ))
 
     compliant = sum(1 for r in rows if r.status == "compliant")

@@ -167,6 +167,7 @@ class AlarmTestOut(BaseModel):
     approved_by_name: Optional[str] = None
     approved_at: Optional[str] = None
     rejection_reason: Optional[str] = None
+    has_attachment: bool = False  # populated by API; true if any attachment exists
     created_at: datetime
     updated_at: datetime
 

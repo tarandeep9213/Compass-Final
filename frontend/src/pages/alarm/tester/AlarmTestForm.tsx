@@ -53,7 +53,8 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
   const issueCount = Object.values(zoneResults).filter((r) => r.result === 'ISSUE_FOUND').length
   const unmarkedCount = zones.length - Object.keys(zoneResults).length
   const markedCount = Object.keys(zoneResults).length
-  const canSubmit = markedCount > 0 && files.length > 0
+  // Report upload is no longer mandatory — soft warning shown on submit if missing
+  const canSubmit = markedCount > 0
 
   // ── Load buildings ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -276,6 +277,12 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
     // Warn about NOT_TESTED zones
     if (notTestedCount > 0) {
       const ok = window.confirm(`${notTestedCount} zones are marked as Not Tested. Are you sure?`)
+      if (!ok) return
+    }
+
+    // Soft warn if no alarm company report uploaded
+    if (files.length === 0) {
+      const ok = window.confirm('No alarm company report uploaded. The submission can still proceed, but reviewers may flag it. Continue?')
       if (!ok) return
     }
 
@@ -560,7 +567,7 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
             className="alert-info"
             style={{ marginTop: 12 }}
           >
-            Upload the Customer Activity Report from your security company. PDF format preferred.
+            <strong>Optional:</strong> Upload the Customer Activity Report from your security company. PDF format preferred.
           </div>
         </div>
       </div>
@@ -604,7 +611,7 @@ export default function AlarmTestForm({ userName, locationIds, ctx, onNavigate }
         </button>
         {!canSubmit && !saving && (
           <span style={{ fontSize: 11, color: 'var(--ts)', fontStyle: 'italic', marginLeft: 8 }}>
-            {files.length === 0 ? 'Upload alarm company report first' : 'Mark at least one zone to submit'}
+            Mark at least one zone to submit
           </span>
         )}
       </div>
