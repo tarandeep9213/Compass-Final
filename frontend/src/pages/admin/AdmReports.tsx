@@ -124,7 +124,8 @@ export default function AdmReports({ adminName }: Props) {
           variancePct: s.variance_pct ?? variancePct,
           approvedBy: s.approved_by || undefined,
           approvedByName: s.approved_by_name || undefined,
-          rejectionReason: s.rejection_reason || undefined
+          rejectionReason: s.rejection_reason || undefined,
+          submittedByRole: s.submitted_by_role || 'OPERATOR',
         }
       });
     }
@@ -247,9 +248,11 @@ export default function AdmReports({ adminName }: Props) {
     date: string
     locId: string
     locName: string
-    operator: string
+    submittedBy: string
+    submittedByRole: 'OPERATOR' | 'CONTROLLER' | 'DGM'
     subStatus: string
     approvedBy: string
+    approvedSelf: boolean
     controller: string
     dgm: string
     rc: string
@@ -270,15 +273,21 @@ export default function AdmReports({ adminName }: Props) {
         const dgm  = filteredVerifs.find(v => v.locationId === locId && v.date === date && v.type === 'dgm'        && v.status === 'completed')
         // RC: first check audit events for an RC actor on this location+date, then fall back to assigned RC
         const rc = assignedRcByLoc[locId] ?? '—'
+        const role = sub?.submittedByRole ?? 'OPERATOR'
+        const approvedByName = sub?.approvedByName ?? sub?.approvedBy ?? '—'
+        // Self-approved = controller/DGM filled the form (auto-approved by themselves)
+        const approvedSelf = role !== 'OPERATOR' && sub?.operatorName === approvedByName
         return {
           date,
           locId,
-          locName:    loc?.name ?? locId,
-          operator:   sub?.operatorName ?? '—',
-          subStatus:  sub?.status ?? '—',
-          approvedBy: sub?.approvedByName ?? sub?.approvedBy ?? '—',
-          controller: ctrl?.verifierName ?? '—',
-          dgm:        dgm?.verifierName  ?? '—',
+          locName:       loc?.name ?? locId,
+          submittedBy:   sub?.operatorName ?? '—',
+          submittedByRole: role,
+          subStatus:     sub?.status ?? '—',
+          approvedBy:    approvedByName,
+          approvedSelf,
+          controller:    ctrl?.verifierName ?? '—',
+          dgm:           dgm?.verifierName  ?? '—',
           rc,
         }
       })
@@ -298,11 +307,11 @@ export default function AdmReports({ adminName }: Props) {
 
     // Section 1: Submissions
     rows.push(['=== SUBMISSIONS ==='])
-    rows.push(['Date','Location','Operator','Status','Total Cash','Variance','Variance %','Exception'])
+    rows.push(['Date','Location','Submitted By','Submitted By Role','Status','Total Cash','Variance','Variance %','Exception'])
     filteredSubs.forEach(s => {
       const loc = allLocs.find(l => l.id === s.locationId)
       rows.push([
-        s.date, loc?.name ?? s.locationId, s.operatorName,
+        s.date, loc?.name ?? s.locationId, s.operatorName, s.submittedByRole,
         s.status, String(s.totalCash.toFixed(2)), String(s.variance.toFixed(2)),
         String(s.variancePct.toFixed(2)), Math.abs(s.variancePct) > tolerance ? 'Yes' : 'No',
       ])
@@ -317,11 +326,11 @@ export default function AdmReports({ adminName }: Props) {
       ? `DATE-LEVEL DETAIL — ${allLocs.find(l=>l.id===dtlLocFilter)?.name ?? dtlLocFilter}`
       : 'DATE-LEVEL DETAIL — ALL LOCATIONS'
     rows.push([`=== ${dtlLabel} ===`])
-    rows.push(['Date','Location','Operator','Submission Status','Approved By','Controller','DGM','Regional Controller'])
+    rows.push(['Date','Location','Submitted By','Submitted By Role','Submission Status','Approved By','Auto-Approved','Controller','DGM','Regional Controller'])
     dtlFiltered.forEach(r => {
       rows.push([
-        r.date, r.locName, r.operator, r.subStatus, r.approvedBy,
-        r.controller, r.dgm, r.rc,
+        r.date, r.locName, r.submittedBy, r.submittedByRole, r.subStatus, r.approvedBy,
+        r.approvedSelf ? 'Yes' : 'No', r.controller, r.dgm, r.rc,
       ])
     })
 
@@ -513,9 +522,9 @@ export default function AdmReports({ adminName }: Props) {
               <tr>
                 <th style={{whiteSpace:'nowrap'}}>Date</th>
                 <th style={{minWidth:140}}>Location</th>
-                <th style={{minWidth:130}}>Operator</th>
+                <th style={{minWidth:150}}>Submitted By</th>
                 <th style={{minWidth:100,textAlign:'center'}}>Sub Status</th>
-                <th style={{minWidth:130}}>Approved By</th>
+                <th style={{minWidth:150}}>Approved By</th>
                 <th style={{minWidth:130}}>Controller</th>
                 <th style={{minWidth:130}}>DGM</th>
                 <th style={{minWidth:150}}>Regional Controller</th>
@@ -544,7 +553,18 @@ export default function AdmReports({ adminName }: Props) {
                       <div style={{fontSize:10,fontFamily:'monospace',color:'var(--ts)'}}>{r.locId}</div>
                     </td>
                     <td style={{fontSize:12}}>
-                      {r.operator !== '—' ? <span style={{fontWeight:500}}>{r.operator}</span> : <span style={{color:'#bbb'}}>—</span>}
+                      {r.submittedBy !== '—' ? (
+                        <div>
+                          <span style={{fontWeight:500}}>{r.submittedBy}</span>
+                          {r.submittedByRole !== 'OPERATOR' && (
+                            <span style={{marginLeft:6,fontSize:9,fontWeight:700,padding:'1px 5px',borderRadius:4,
+                              background: r.submittedByRole === 'CONTROLLER' ? '#fdf4ff' : '#f0fdf4',
+                              color: r.submittedByRole === 'CONTROLLER' ? '#7e22ce' : '#15803d',
+                              border: `1px solid ${r.submittedByRole === 'CONTROLLER' ? '#7e22ce30' : '#15803d30'}`,
+                            }}>{r.submittedByRole}</span>
+                          )}
+                        </div>
+                      ) : <span style={{color:'#bbb'}}>—</span>}
                     </td>
                     <td style={{textAlign:'center'}}>
                       {r.subStatus !== '—'
@@ -555,7 +575,15 @@ export default function AdmReports({ adminName }: Props) {
                         : <span style={{color:'#bbb',fontSize:12}}>No submission</span>}
                     </td>
                     <td style={{fontSize:12}}>
-                      {r.approvedBy !== '—' ? <span style={{fontWeight:500}}>{r.approvedBy}</span> : <span style={{color:'#bbb'}}>—</span>}
+                      {r.approvedBy !== '—' ? (
+                        <div>
+                          <span style={{fontWeight:500}}>{r.approvedBy}</span>
+                          {r.approvedSelf && (
+                            <span style={{marginLeft:6,fontSize:9,fontWeight:700,padding:'1px 5px',borderRadius:4,
+                              background:'#fffbeb',color:'#92400e',border:'1px solid #fcd34d'}}>AUTO</span>
+                          )}
+                        </div>
+                      ) : <span style={{color:'#bbb'}}>—</span>}
                     </td>
                     <td style={{fontSize:12}}>
                       {r.controller !== '—' ? <span style={{color:'var(--g7)',fontWeight:500}}>✓ {r.controller}</span> : <span style={{color:'#bbb'}}>—</span>}
@@ -737,7 +765,7 @@ export default function AdmReports({ adminName }: Props) {
             <table className="dt">
               <thead>
                 <tr>
-                  <th>Date</th><th>Location</th><th>Operator</th>
+                  <th>Date</th><th>Location</th><th>Submitted By</th>
                   <th style={{textAlign:'right'}}>Total Cash</th>
                   <th style={{textAlign:'right'}}>Variance</th>
                   <th>Status</th><th>Note</th>
@@ -753,7 +781,16 @@ export default function AdmReports({ adminName }: Props) {
                         <div style={{fontWeight:500,fontSize:12}}>{loc?.name??s.locationId}</div>
                         <div style={{fontSize:10,fontFamily:'monospace',color:'var(--ts)'}}>{s.locationId}</div>
                       </td>
-                      <td style={{fontSize:12}}>{s.operatorName}</td>
+                      <td style={{fontSize:12}}>
+                        {s.operatorName}
+                        {s.submittedByRole !== 'OPERATOR' && (
+                          <span style={{marginLeft:6,fontSize:9,fontWeight:700,padding:'1px 5px',borderRadius:4,
+                            background: s.submittedByRole === 'CONTROLLER' ? '#fdf4ff' : '#f0fdf4',
+                            color: s.submittedByRole === 'CONTROLLER' ? '#7e22ce' : '#15803d',
+                            border: `1px solid ${s.submittedByRole === 'CONTROLLER' ? '#7e22ce30' : '#15803d30'}`,
+                          }}>{s.submittedByRole}</span>
+                        )}
+                      </td>
                       <td style={{textAlign:'right',fontFamily:'DM Serif Display,serif',fontSize:14}}>{formatCurrency(s.totalCash)}</td>
                       <td style={{textAlign:'right'}}>
                         <span style={{color:'var(--red)',fontWeight:700,fontSize:13}}>{s.variance>=0?'+':''}{formatCurrency(s.variance)}</span>
