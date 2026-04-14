@@ -141,7 +141,7 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
   const rejectedCount = inRange.filter(s => effectiveStatus(s) === 'rejected').length
   const actionedInRange = inRange.filter(s => effectiveStatus(s) !== 'pending_approval')
   const avgVariance   = actionedInRange.length > 0
-    ? actionedInRange.reduce((sum, s) => sum + Math.abs(s.variancePct), 0) / actionedInRange.length
+    ? actionedInRange.reduce((sum, s) => sum + s.variancePct, 0) / actionedInRange.length
     : null
 
   // ── Filter counts (for chips) ────────────────────────────────────────────
@@ -223,15 +223,15 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
         />
         <KpiCard
           label="Avg Variance"
-          value={avgVariance !== null ? `${avgVariance.toFixed(2)}%` : '—'}
+          value={avgVariance !== null ? `${avgVariance >= 0 ? '+' : ''}${avgVariance.toFixed(2)}%` : '—'}
           sub={dateRangeLabel}
-          accent={avgVariance !== null ? varColor(avgVariance, tolerance) : 'var(--ts)'}
-          highlight={avgVariance !== null ? varHighlight(avgVariance, tolerance) : false}
+          accent={avgVariance !== null ? varColor(Math.abs(avgVariance), tolerance) : 'var(--ts)'}
+          highlight={avgVariance !== null ? varHighlight(Math.abs(avgVariance), tolerance) : false}
           tooltip={{
-            what: "Average absolute variance percentage across submissions in the selected period.",
-            how: "Sums the absolute variance % of every submission in the period and divides by count.",
-            formula: "Σ|variancePct| ÷ COUNT(submissions in period)",
-            flag: `Amber >${tolerance / 2}%, red >${tolerance}%. Consistently high values suggest a systemic cash handling issue.`,
+            what: "Average signed variance percentage across submissions in the selected period.",
+            how: "Sums the variance % (positive = over, negative = short) of every submission in the period and divides by count.",
+            formula: "Σ(variancePct) ÷ COUNT(submissions in period)",
+            flag: `Amber >±${tolerance / 2}%, red >±${tolerance}%. Negative = cash short, positive = cash over.`,
           }}
         />
       </div>

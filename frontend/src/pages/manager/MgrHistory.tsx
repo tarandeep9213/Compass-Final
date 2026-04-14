@@ -101,7 +101,7 @@ export default function MgrHistory({ managerName, locationIds, onNavigate }: Pro
   const approvedCount = allActioned.filter(s => s.status === 'approved').length
   const rejectedCount = allActioned.filter(s => s.status === 'rejected').length
   const avgVariance   = allActioned.length > 0
-    ? allActioned.reduce((sum, s) => sum + Math.abs(s.variancePct), 0) / allActioned.length
+    ? allActioned.reduce((sum, s) => sum + s.variancePct, 0) / allActioned.length
     : 0
 
   const dateRangeLabel = dateRange === '7d' ? 'last 7 days' : dateRange === '30d' ? 'last 30 days' : 'all time'
@@ -161,14 +161,14 @@ export default function MgrHistory({ managerName, locationIds, onNavigate }: Pro
         />
         <KpiCard
           label="Avg Variance"
-          value={allActioned.length > 0 ? `${avgVariance.toFixed(2)}%` : '—'}
-          accent={varColor(avgVariance, tolerance)}
-          highlight={varHighlight(avgVariance, tolerance)}
+          value={allActioned.length > 0 ? `${avgVariance >= 0 ? '+' : ''}${avgVariance.toFixed(2)}%` : '—'}
+          accent={varColor(Math.abs(avgVariance), tolerance)}
+          highlight={varHighlight(Math.abs(avgVariance), tolerance)}
           tooltip={{
-            what: "Average absolute variance percentage across all submissions you actioned.",
-            how: "Sums the absolute variance % of every actioned submission and divides by total count.",
-            formula: "Σ|variancePct| ÷ COUNT(actioned)",
-            flag: `Amber >${tolerance / 2}%, red >${tolerance}%. Consistently high values suggest a location-level cash handling issue.`,
+            what: "Average signed variance percentage across all submissions you actioned.",
+            how: "Sums the variance % (positive = over, negative = short) of every actioned submission and divides by total count.",
+            formula: "Σ(variancePct) ÷ COUNT(actioned)",
+            flag: `Amber >±${tolerance / 2}%, red >±${tolerance}%. Negative = cash short, positive = cash over.`,
           }}
         />
       </div>
