@@ -217,6 +217,7 @@ export interface CompleteVerificationBody {
   notes?: string
   dow_warning_reason?: DowWarningReason | null
   visit_section_reviews?: Record<string, { decision: string; note: string }>
+  early_completion_acknowledged?: boolean
 }
 
 export interface MissVerificationBody {

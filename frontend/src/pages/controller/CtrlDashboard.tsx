@@ -136,10 +136,11 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   }
 
   // Complete inline form
-  const [cNotes,      setCNotes]      = useState('')
-  const [cWarnReason, setCWarnReason] = useState<DowWarningReason | ''>('')
-  const [cSig,        setCSig]        = useState('')
-  const [cErrors,     setCErrors]     = useState<Record<string, string>>({})
+  const [cNotes,        setCNotes]        = useState('')
+  const [cWarnReason,   setCWarnReason]   = useState<DowWarningReason | ''>('')
+  const [cSig,          setCSig]          = useState('')
+  const [cErrors,       setCErrors]       = useState<Record<string, string>>({})
+  const [earlyWarning,  setEarlyWarning]  = useState<string | null>(null)
 
   const cSigRef   = useRef<HTMLCanvasElement | null>(null)
   const isDrawing = useRef(false)
@@ -264,7 +265,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
   function closeExpand() {
     setExpandedId(null); setExpandAction(null)
-    setCNotes(''); setCWarnReason(''); setCSig(''); setCErrors({})
+    setCNotes(''); setCWarnReason(''); setCSig(''); setCErrors({}); setEarlyWarning(null)
     setMReason(''); setMNotes(''); setMErrors({})
   }
 
@@ -380,7 +381,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   */
 
   // ── Handle Complete ──────────────────────────────────────────────────────
-  async function handleComplete(id: string) {
+  async function handleComplete(id: string, earlyAck = false) {
     const e: Record<string, string> = {}
 
     if (dowWarning && !cWarnReason)       e.warn = 'Please select a reason to proceed.'
@@ -403,12 +404,18 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     const observedTotal = subTotal ?? (ctrlFormTotal ? parseFloat(ctrlFormTotal) : undefined)
 
     try {
-      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning && cWarnReason ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: observedTotal })
-    } catch (err) {
+      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning && cWarnReason ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: observedTotal, early_completion_acknowledged: earlyAck || undefined })
+    } catch (err: unknown) {
+      // 409 = early completion warning — show acknowledgement prompt instead of error
+      if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 409) {
+        setEarlyWarning((err as { message?: string }).message || 'You are completing this visit before the scheduled time. Proceed anyway?')
+        return
+      }
       const msg = err instanceof Error ? err.message : 'Failed to complete visit.'
       setCErrors({ api: msg })
       return
     }
+    setEarlyWarning(null)
 
     // Clean up session storage after successful save
     sessionStorage.removeItem(`visit_review_${id}`)
@@ -1027,6 +1034,22 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                                   {/* Confirm button + helper */}
                                   {cErrors.api && (
                                     <div style={{ fontSize: 11, color: 'var(--red)', fontWeight: 500 }}>{cErrors.api}</div>
+                                  )}
+
+                                  {earlyWarning && (
+                                    <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                                      <div style={{ fontSize: 12, fontWeight: 600, color: '#92400e', marginBottom: 6 }}>
+                                        Early Completion Warning
+                                      </div>
+                                      <div style={{ fontSize: 11, color: '#78350f', marginBottom: 8 }}>{earlyWarning}</div>
+                                      <button
+                                        className="btn btn-primary"
+                                        style={{ fontSize: 11, padding: '5px 14px', background: '#d97706' }}
+                                        onClick={() => { setEarlyWarning(null); handleComplete(v.id, true) }}
+                                      >
+                                        Acknowledge &amp; Complete
+                                      </button>
+                                    </div>
                                   )}
 
                                   {!canConfirm && (

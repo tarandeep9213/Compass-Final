@@ -247,8 +247,8 @@ def complete_controller_visit(
         h, m = map(int, v.scheduled_time.split(':'))
         sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m)
         now = _now_local()
-        if now < sched_dt:
-            raise HTTPException(400, f"Too early — visit is scheduled for {v.scheduled_time}.")
+        if now < sched_dt and not body.early_completion_acknowledged:
+            raise HTTPException(409, f"This visit is scheduled for {v.scheduled_time} but it is currently {now.strftime('%H:%M')}. Proceed anyway?")
         if now > sched_dt + timedelta(hours=sla_hours):
             raise HTTPException(400, f"{sla_hours}-hour completion window has passed (scheduled {v.scheduled_time}). Use 'Mark as Missed'.")
 
