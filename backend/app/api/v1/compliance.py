@@ -97,6 +97,20 @@ def get_compliance_dashboard(
             Verification.month_year == month_year,
         ).order_by(Verification.created_at.desc()).first()
 
+        # Check if controller/DGM filled a form today
+        ctrl_form_filled = db.query(Submission).filter(
+            Submission.location_id == loc.id,
+            Submission.submission_date == today,
+            Submission.submitted_by_role == "CONTROLLER",
+            Submission.status != SubmissionStatus.DRAFT,
+        ).first() is not None
+        dgm_form_filled = db.query(Submission).filter(
+            Submission.location_id == loc.id,
+            Submission.submission_date == today,
+            Submission.submitted_by_role == "DGM",
+            Submission.status != SubmissionStatus.DRAFT,
+        ).first() is not None
+
         # Submission rate last 30 days — only operator submissions count
         from datetime import date as dtdate, timedelta
         thirty_days_ago = (dtdate.today() - timedelta(days=30)).isoformat()
@@ -159,11 +173,13 @@ def get_compliance_dashboard(
                 "days_since": days_since_ctrl,
                 "warning_flag": warning_flag,
                 "next_scheduled_date": next_ctrl.verification_date if next_ctrl else None,
+                "form_filled": ctrl_form_filled,
             },
             "dgm_visit": {
                 "status": dgm_visit.status.value if dgm_visit else None,
                 "visit_date": dgm_visit.verification_date if dgm_visit else None,
                 "observed_total": dgm_visit.observed_total if dgm_visit else None,
+                "form_filled": dgm_form_filled,
             },
         })
 

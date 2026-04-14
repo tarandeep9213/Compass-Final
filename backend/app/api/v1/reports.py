@@ -28,6 +28,7 @@ def get_report_summary(
         Submission.submission_date >= date_from,
         Submission.submission_date <= date_to,
         Submission.status != SubmissionStatus.DRAFT,
+        Submission.submitted_by_role == "OPERATOR",
     ).all()
 
     approved   = sum(1 for s in subs if s.status == SubmissionStatus.APPROVED)
@@ -82,6 +83,7 @@ def get_location_report(
         Submission.submission_date >= date_from,
         Submission.submission_date <= date_to,
         Submission.status != SubmissionStatus.DRAFT,
+        Submission.submitted_by_role == "OPERATOR",
     ).all()
 
     by_loc: dict = defaultdict(lambda: {"total": 0, "approved": 0, "rejected": 0,
@@ -125,6 +127,7 @@ def get_actor_report(
         Submission.submission_date >= date_from,
         Submission.submission_date <= date_to,
         Submission.status != SubmissionStatus.DRAFT,
+        Submission.submitted_by_role == "OPERATOR",
     ).all()
 
     by_op: dict = defaultdict(lambda: {"total": 0, "approved": 0, "rejected": 0,
@@ -165,6 +168,7 @@ def get_exception_report(
         Submission.submission_date <= date_to,
         Submission.variance_exception == True,
         Submission.status != SubmissionStatus.DRAFT,
+        Submission.submitted_by_role == "OPERATOR",
     )
     total = q.count()
     items = q.order_by(Submission.submission_date.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -195,6 +199,7 @@ def get_section_trends(
 ):
     q = db.query(Submission).filter(
         Submission.status == SubmissionStatus.APPROVED,
+        Submission.submitted_by_role == "OPERATOR",
     )
     if location_id:
         q = q.filter(Submission.location_id == location_id)
@@ -279,6 +284,7 @@ def get_sla_summary(
         Submission.submission_date >= date_from,
         Submission.submission_date <= date_to,
         Submission.status.in_([SubmissionStatus.APPROVED, SubmissionStatus.REJECTED]),
+        Submission.submitted_by_role == "OPERATOR",
     ).all()
 
     total_reviewed = len(subs)
@@ -331,6 +337,7 @@ def export_report(
         Submission.submission_date >= date_from,
         Submission.submission_date <= date_to,
         Submission.status != SubmissionStatus.DRAFT,
+        Submission.submitted_by_role == "OPERATOR",
     ).order_by(Submission.submission_date).all()
 
     output = io.StringIO()

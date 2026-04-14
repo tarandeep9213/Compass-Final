@@ -185,19 +185,21 @@ def create_submission(
     if not loc:
         raise HTTPException(404, "Location not found")
 
-    # One submission per location per date (excluding drafts being replaced)
-    existing = db.query(Submission).filter(
+    # One submission per role per location per date (excluding drafts)
+    current_role = body.submitted_by_role if (body.submitted_by_role and is_verifier_submission) else "OPERATOR"
+    existing_same_role = db.query(Submission).filter(
         Submission.location_id == body.location_id,
         Submission.submission_date == body.submission_date,
         Submission.status != SubmissionStatus.DRAFT,
+        Submission.submitted_by_role == current_role,
     ).first()
-    if existing and not body.save_as_draft:
-        # Controller can replace a rejected submission with a fresh one
-        if is_verifier_submission and existing.status == SubmissionStatus.REJECTED:
-            db.delete(existing)
+    if existing_same_role and not body.save_as_draft:
+        # Verifier can replace a rejected operator submission with a fresh one
+        if is_verifier_submission and existing_same_role.status == SubmissionStatus.REJECTED:
+            db.delete(existing_same_role)
             db.flush()
         else:
-            raise HTTPException(409, f"A submission already exists for this location on {body.submission_date}. Use the Update feature instead.")
+            raise HTTPException(409, f"A {current_role} submission already exists for this location on {body.submission_date}. Use the Update feature instead.")
 
     # Prevent duplicate drafts — return existing draft if one exists for same location+date+operator
     if body.save_as_draft:

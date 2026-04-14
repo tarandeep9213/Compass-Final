@@ -259,39 +259,59 @@ export default function AdmReports({ adminName }: Props) {
   }
 
   const dtlAllRows = useMemo((): DtlRow[] => {
-    // Collect all active (date, locationId) pairs from submissions and verifications
-    const pairs = new Set<string>()
-    filteredSubs.forEach(s => pairs.add(`${s.date}|${s.locationId}`))
-    filteredVerifs.forEach(v => pairs.add(`${v.date}|${v.locationId}`))
+    // Build rows: one per submission, plus rows for dates with verifications but no submission
+    const rows: DtlRow[] = []
+    const coveredPairs = new Set<string>()
 
-    return [...pairs]
-      .map(key => {
-        const [date, locId] = key.split('|')
-        const loc  = allLocs.find(l => l.id === locId)
-        const sub  = filteredSubs.find(s => s.locationId === locId && s.date === date)
-        const ctrl = filteredVerifs.find(v => v.locationId === locId && v.date === date && v.type === 'controller' && v.status === 'completed')
-        const dgm  = filteredVerifs.find(v => v.locationId === locId && v.date === date && v.type === 'dgm'        && v.status === 'completed')
-        // RC: first check audit events for an RC actor on this location+date, then fall back to assigned RC
-        const rc = assignedRcByLoc[locId] ?? '—'
-        const role = sub?.submittedByRole ?? 'OPERATOR'
-        const approvedByName = sub?.approvedByName ?? sub?.approvedBy ?? '—'
-        // Self-approved = controller/DGM filled the form (auto-approved by themselves)
-        const approvedSelf = role !== 'OPERATOR' && sub?.operatorName === approvedByName
-        return {
-          date,
-          locId,
-          locName:       loc?.name ?? locId,
-          submittedBy:   sub?.operatorName ?? '—',
-          submittedByRole: role,
-          subStatus:     sub?.status ?? '—',
-          approvedBy:    approvedByName,
-          approvedSelf,
-          controller:    ctrl?.verifierName ?? '—',
-          dgm:           dgm?.verifierName  ?? '—',
-          rc,
-        }
+    // One row per submission (handles multiple roles per location+date)
+    filteredSubs.forEach(sub => {
+      const loc = allLocs.find(l => l.id === sub.locationId)
+      const ctrl = filteredVerifs.find(v => v.locationId === sub.locationId && v.date === sub.date && v.type === 'controller' && v.status === 'completed')
+      const dgm  = filteredVerifs.find(v => v.locationId === sub.locationId && v.date === sub.date && v.type === 'dgm'        && v.status === 'completed')
+      const rc = assignedRcByLoc[sub.locationId] ?? '—'
+      const role = sub.submittedByRole ?? 'OPERATOR'
+      const approvedByName = sub.approvedByName ?? sub.approvedBy ?? '—'
+      const approvedSelf = role !== 'OPERATOR' && sub.operatorName === approvedByName
+      rows.push({
+        date: sub.date,
+        locId: sub.locationId,
+        locName: loc?.name ?? sub.locationId,
+        submittedBy: sub.operatorName ?? '—',
+        submittedByRole: role,
+        subStatus: sub.status ?? '—',
+        approvedBy: approvedByName,
+        approvedSelf,
+        controller: ctrl?.verifierName ?? '—',
+        dgm: dgm?.verifierName ?? '—',
+        rc,
       })
-      .sort((a, b) => b.date.localeCompare(a.date) || a.locName.localeCompare(b.locName))
+      coveredPairs.add(`${sub.date}|${sub.locationId}`)
+    })
+
+    // Add rows for verifications without any submission
+    filteredVerifs.forEach(v => {
+      const key = `${v.date}|${v.locationId}`
+      if (coveredPairs.has(key)) return
+      coveredPairs.add(key)
+      const loc = allLocs.find(l => l.id === v.locationId)
+      const ctrl = filteredVerifs.find(vv => vv.locationId === v.locationId && vv.date === v.date && vv.type === 'controller' && vv.status === 'completed')
+      const dgm  = filteredVerifs.find(vv => vv.locationId === v.locationId && vv.date === v.date && vv.type === 'dgm'        && vv.status === 'completed')
+      rows.push({
+        date: v.date,
+        locId: v.locationId,
+        locName: loc?.name ?? v.locationId,
+        submittedBy: '—',
+        submittedByRole: 'OPERATOR',
+        subStatus: '—',
+        approvedBy: '—',
+        approvedSelf: false,
+        controller: ctrl?.verifierName ?? '—',
+        dgm: dgm?.verifierName ?? '—',
+        rc: assignedRcByLoc[v.locationId] ?? '—',
+      })
+    })
+
+    return rows.sort((a, b) => b.date.localeCompare(a.date) || a.locName.localeCompare(b.locName))
   }, [filteredSubs, filteredVerifs, assignedRcByLoc])
 
   const dtlFiltered   = dtlLocFilter !== 'all'

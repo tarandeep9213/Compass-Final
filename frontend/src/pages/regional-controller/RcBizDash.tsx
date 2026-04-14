@@ -1278,6 +1278,7 @@ export default function RcBizDash({ adminName }: Props) {
                             <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>No visit recorded</span>
                           )}
                           {loc.controller_visit.next_scheduled_date && <div style={{ fontSize: 10, color: 'var(--ts)', marginTop: 2 }}>Next: {loc.controller_visit.next_scheduled_date}</div>}
+                          {loc.controller_visit.form_filled && <div style={{ fontSize: 10, color: '#7e22ce', fontWeight: 600, marginTop: 2 }}>📋 Form filled</div>}
                         </td>
 
                         {/* DGM Visit */}
@@ -1298,9 +1299,13 @@ export default function RcBizDash({ adminName }: Props) {
                                   Observed: ${loc.dgm_visit.observed_total.toLocaleString()}
                                 </div>
                               )}
+                              {loc.dgm_visit.form_filled && <div style={{ fontSize: 10, color: '#7e22ce', fontWeight: 600, marginTop: 2 }}>📋 Form filled</div>}
                             </div>
                           ) : (
-                            <span style={{ fontSize: 12, color: 'var(--amb)', fontWeight: 600 }}>No visit this month</span>
+                            <div>
+                              <span style={{ fontSize: 12, color: 'var(--amb)', fontWeight: 600 }}>No visit this month</span>
+                              {loc.dgm_visit.form_filled && <div style={{ fontSize: 10, color: '#7e22ce', fontWeight: 600, marginTop: 2 }}>📋 Form filled</div>}
+                            </div>
                           )}
                         </td>
                       </tr>

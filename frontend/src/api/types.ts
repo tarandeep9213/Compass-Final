@@ -348,11 +348,13 @@ export interface LocationCompliance {
     days_since: number | null
     warning_flag: boolean
     next_scheduled_date: string | null
+    form_filled?: boolean
   }
   dgm_visit: {
     status: VerificationStatus | null
     visit_date: string | null
     observed_total: number | null
+    form_filled?: boolean
   }
 }
 
