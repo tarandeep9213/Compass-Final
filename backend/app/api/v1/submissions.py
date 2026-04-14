@@ -194,8 +194,8 @@ def create_submission(
         Submission.submitted_by_role == current_role,
     ).first()
     if existing_same_role and not body.save_as_draft:
-        # Verifier can replace a rejected operator submission with a fresh one
-        if is_verifier_submission and existing_same_role.status == SubmissionStatus.REJECTED:
+        # Allow replacing a rejected submission (by the same role or a verifier)
+        if existing_same_role.status == SubmissionStatus.REJECTED:
             db.delete(existing_same_role)
             db.flush()
         else:

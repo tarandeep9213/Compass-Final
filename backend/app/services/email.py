@@ -57,6 +57,35 @@ async def _send(to: list[str], subject: str, template: str, ctx: dict) -> None:
         logger.error("Failed to send email to %s: %s -%s", to, subject, exc)
 
 
+def _send_smtp(to: list[str], subject: str, template: str, ctx: dict) -> None:
+    """Sync email sender using smtplib — reliable in background tasks from sync endpoints."""
+    if not settings.EMAIL_ENABLED:
+        logger.debug("EMAIL_ENABLED=false — skipping send to %s: %s", to, subject)
+        return
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        html = _jinja.get_template(template).render(**ctx)
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>"
+        msg["To"] = ", ".join(to)
+        msg.attach(MIMEText(html, "html"))
+
+        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
+        if settings.SMTP_STARTTLS:
+            server.starttls()
+        if settings.SMTP_USER:
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+        server.sendmail(settings.FROM_EMAIL, to, msg.as_string())
+        server.quit()
+        logger.info("Email sent to %s: %s", to, subject)
+    except Exception as exc:
+        logger.error("Failed to send email to %s: %s — %s", to, subject, exc)
+
+
 def send_email_background(
     background: BackgroundTasks,
     to: list[str],
@@ -64,8 +93,8 @@ def send_email_background(
     template: str,
     ctx: dict,
 ) -> None:
-    """Queue email in FastAPI BackgroundTasks -non-blocking."""
-    background.add_task(_send, to, subject, template, ctx)
+    """Queue sync email send as background task."""
+    background.add_task(_send_smtp, to, subject, template, ctx)
 
 
 # ── Convenience senders (used by route handlers) ─────────────────────────────

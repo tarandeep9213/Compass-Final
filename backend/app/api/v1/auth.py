@@ -135,6 +135,20 @@ def forgot_password(
     return MessageResponse(message="If that email is registered, a reset code has been sent.")
 
 
+@router.get("/dev/test-email", include_in_schema=False)
+def dev_test_email(to: str):
+    """DEBUG: send a test email inline and return the result."""
+    if not settings.DEBUG:
+        raise HTTPException(status_code=404, detail="Not found")
+    from app.services.email import _send_smtp
+    from app.core.config import settings as s
+    try:
+        _send_smtp([to], "Uvicorn Inline Test", "password_reset.html", {"name": "Test", "otp": "000000"})
+        return {"result": "sent", "smtp_host": s.SMTP_HOST, "smtp_user": s.SMTP_USER, "starttls": s.SMTP_STARTTLS}
+    except Exception as e:
+        return {"result": "failed", "error": str(e), "smtp_host": s.SMTP_HOST, "smtp_user": s.SMTP_USER}
+
+
 @router.get("/dev/last-otp", include_in_schema=False, summary="E2E test helper — DEBUG only")
 def dev_last_otp(email: str, db: Session = Depends(get_db)):
     """Returns the most recently generated raw OTP for E2E testing. Only available when DEBUG=True."""

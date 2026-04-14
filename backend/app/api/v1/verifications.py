@@ -172,20 +172,18 @@ def schedule_controller_visit(
     db.commit()
     db.refresh(v)
 
-    # N-05: Notify DGMs about the scheduled controller visit
-    dgms = db.query(User).filter(User.active == True, User.role == UserRole.DGM).all()
-    for dgm in dgms:
-        send_visit_scheduled_background(
-            background,
-            recipient_email=dgm.email,
-            recipient_name=dgm.name,
-            visit_type="Controller",
-            verifier_name=current_user.name,
-            location_name=loc.name,
-            visit_date=body.date,
-            scheduled_time=body.scheduled_time,
-            warning_flag=v.warning_flag,
-        )
+    # N-05: Confirm scheduled visit to the controller only (surprise visit — no one else notified)
+    send_visit_scheduled_background(
+        background,
+        recipient_email=current_user.email,
+        recipient_name=current_user.name,
+        visit_type="Controller",
+        verifier_name=current_user.name,
+        location_name=loc.name,
+        visit_date=body.date,
+        scheduled_time=body.scheduled_time,
+        warning_flag=v.warning_flag,
+    )
 
     return _to_out(v)
 
@@ -461,20 +459,18 @@ def schedule_dgm_visit(
     db.commit()
     db.refresh(v)
 
-    # N-07: Notify Regional Controllers about DGM visit
-    rcs = db.query(User).filter(User.active == True, User.role == UserRole.REGIONAL_CONTROLLER).all()
-    for rc in rcs:
-        send_visit_scheduled_background(
-            background,
-            recipient_email=rc.email,
-            recipient_name=rc.name,
-            visit_type="DGM",
-            verifier_name=current_user.name,
-            location_name=loc.name,
-            visit_date=body.date,
-            scheduled_time=None,
-            warning_flag=False,
-        )
+    # N-07: Confirm scheduled visit to the DGM only (surprise visit — no one else notified)
+    send_visit_scheduled_background(
+        background,
+        recipient_email=current_user.email,
+        recipient_name=current_user.name,
+        visit_type="DGM",
+        verifier_name=current_user.name,
+        location_name=loc.name,
+        visit_date=body.date,
+        scheduled_time=None,
+        warning_flag=False,
+    )
 
     return _to_out(v)
 
