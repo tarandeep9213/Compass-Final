@@ -170,7 +170,7 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
   useEffect(() => { sessionStorage.removeItem('dgm_session_updates') }, [])
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
-  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number }>>({})
+  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number; submittedByRole: string }>>({})
   const [slaHours, setSlaHours] = useState(48)
   const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
 
@@ -202,9 +202,9 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
     if (locationIds.length > 0) {
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
-          const map: Record<string, { status: string; id: string; totalCash: number }> = {}
+          const map: Record<string, { status: string; id: string; totalCash: number; submittedByRole: string }> = {}
           arrays.flat().forEach(s => {
-            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash }
+            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash, submittedByRole: s.submitted_by_role || 'OPERATOR' }
           })
           setApiSubsMap(map)
         })
@@ -225,6 +225,11 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
   function getSubTotalCash(locId: string, date: string): number | null {
     const key = `${locId}_${date}`
     return apiSubsMap[key]?.totalCash ?? null
+  }
+
+  function getSubRole(locId: string, date: string): string {
+    const key = `${locId}_${date}`
+    return apiSubsMap[key]?.submittedByRole ?? 'OPERATOR'
   }
 
   function closeExpand() {
@@ -655,8 +660,11 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                       {/* Expand: Complete */}
                       {isExpanded && expandAction === 'complete' && (() => {
                         const subStatus = getSubStatus(v.locationId, v.date)
-                        const isPathA = subStatus === 'pending_approval' || subStatus === 'approved'
-                        const isPathB = !subStatus || subStatus === 'rejected'
+                        const subRole = getSubRole(v.locationId, v.date)
+                        // Path A: operator submitted (pending or approved) — DGM reviews sections
+                        // Path B: no submission, rejected, OR controller/DGM filled the form themselves
+                        const isPathA = (subStatus === 'pending_approval' || subStatus === 'approved') && subRole === 'OPERATOR'
+                        const isPathB = !subStatus || subStatus === 'rejected' || subRole !== 'OPERATOR'
                         const reviewDone = !!sessionStorage.getItem(`visit_review_${v.id}`)
                         const verifierFormDone = !!sessionStorage.getItem(`verifier_form_${v.id}`)
                         const canConfirm = isPathA ? (reviewDone && !!cSig) : (verifierFormDone && !!cSig)

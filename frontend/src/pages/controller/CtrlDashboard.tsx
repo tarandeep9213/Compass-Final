@@ -212,7 +212,7 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   // API-fetched verifications — overlay over mock data
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   // Map of locationId_date to { status, id }
-  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number; expectedCash: number; variance: number; variancePct: number }>>({})
+  const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number; expectedCash: number; variance: number; variancePct: number; submittedByRole: string }>>({})
 
   // Clear any stale sessionStorage from old code so it doesn't affect other reads
   useEffect(() => {
@@ -235,9 +235,9 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
           const flats = arrays.flat()
-          const map: Record<string, { status: string; id: string; totalCash: number; expectedCash: number; variance: number; variancePct: number }> = {}
+          const map: Record<string, { status: string; id: string; totalCash: number; expectedCash: number; variance: number; variancePct: number; submittedByRole: string }> = {}
           flats.forEach(s => {
-            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash, expectedCash: s.expected_cash, variance: s.variance, variancePct: s.variance_pct }
+            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash, expectedCash: s.expected_cash, variance: s.variance, variancePct: s.variance_pct, submittedByRole: s.submitted_by_role || 'OPERATOR' }
           })
           setApiSubsMap(map)
         })
@@ -259,6 +259,11 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
   function getSubTotalCash(locId: string, date: string): number | null {
     const key = `${locId}_${date}`
     return apiSubsMap[key]?.totalCash ?? null
+  }
+
+  function getSubRole(locId: string, date: string): string {
+    const key = `${locId}_${date}`
+    return apiSubsMap[key]?.submittedByRole ?? 'OPERATOR'
   }
 
 
@@ -882,8 +887,11 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
                       {/* ── Expand: Complete Visit ── */}
                       {isExpanded && expandAction === 'complete' && (() => {
                         const subStatus = getSubStatus(v.locationId, v.date)
-                        const isPathA = subStatus === 'pending_approval' || subStatus === 'approved'
-                        const isPathB = !subStatus || subStatus === 'rejected'
+                        const subRole = getSubRole(v.locationId, v.date)
+                        // Path A: operator submitted (pending or approved) — controller reviews sections
+                        // Path B: no submission, rejected, OR controller/DGM filled the form themselves
+                        const isPathA = (subStatus === 'pending_approval' || subStatus === 'approved') && subRole === 'OPERATOR'
+                        const isPathB = !subStatus || subStatus === 'rejected' || subRole !== 'OPERATOR'
                         const reviewDone = !!sessionStorage.getItem(`visit_review_${v.id}`)
                         const ctrlFormDone = !!sessionStorage.getItem(`verifier_form_${v.id}`)
                         const canConfirm = isPathA ? (reviewDone && !!cSig) : (ctrlFormDone && !!cSig)

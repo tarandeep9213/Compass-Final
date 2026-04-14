@@ -65,18 +65,20 @@ def get_compliance_dashboard(
     submitted_today = overdue = variance_exceptions = controller_issues = 0
 
     for loc in locations:
-        # Today's submission
+        # Today's submission — only operator submissions count as official
         today_sub = db.query(Submission).filter(
             Submission.location_id == loc.id,
             Submission.submission_date == today,
             Submission.status != SubmissionStatus.DRAFT,
+            Submission.submitted_by_role == "OPERATOR",
         ).order_by(Submission.created_at.desc()).first()
 
-        # Last approved controller visit
+        # Last approved controller visit (on or before today)
         last_ctrl = db.query(Verification).filter(
             Verification.location_id == loc.id,
             Verification.verification_type == VerificationType.CONTROLLER,
             Verification.status == VerificationStatus.COMPLETED,
+            Verification.verification_date <= today,
         ).order_by(Verification.verification_date.desc()).first()
 
         # Next scheduled controller visit
@@ -95,13 +97,14 @@ def get_compliance_dashboard(
             Verification.month_year == month_year,
         ).order_by(Verification.created_at.desc()).first()
 
-        # Submission rate last 30 days
+        # Submission rate last 30 days — only operator submissions count
         from datetime import date as dtdate, timedelta
         thirty_days_ago = (dtdate.today() - timedelta(days=30)).isoformat()
         total_30d = db.query(Submission).filter(
             Submission.location_id == loc.id,
             Submission.submission_date >= thirty_days_ago,
             Submission.status != SubmissionStatus.DRAFT,
+            Submission.submitted_by_role == "OPERATOR",
         ).count()
         sub_rate_30d = round(min(total_30d / 30 * 100, 100), 1)
 
@@ -243,6 +246,7 @@ def get_compliance_trend(
             Submission.submission_date >= start,
             Submission.submission_date <= end,
             Submission.status != SubmissionStatus.DRAFT,
+            Submission.submitted_by_role == "OPERATOR",
         ).all()
 
         total_subs = len(subs)
