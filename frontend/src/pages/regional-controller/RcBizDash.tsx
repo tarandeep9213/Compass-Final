@@ -1215,9 +1215,17 @@ export default function RcBizDash({ adminName }: Props) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                             <HealthDot health={subDisplayStatus === 'none' ? 'amber' : ss.dotHealth} />
                             <span style={{ fontSize: 12, fontWeight: 600, color: subDisplayStatus === 'none' ? '#bbb' : 'var(--td)' }}>{ss.label}</span>
+                            {sub?.submitted_by_role && sub.submitted_by_role !== 'OPERATOR' && (
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
+                                background: sub.submitted_by_role === 'CONTROLLER' ? '#fdf4ff' : '#f0fdf4',
+                                color: sub.submitted_by_role === 'CONTROLLER' ? '#7e22ce' : '#15803d',
+                                border: `1px solid ${sub.submitted_by_role === 'CONTROLLER' ? '#7e22ce30' : '#15803d30'}`,
+                              }}>{sub.submitted_by_role}</span>
+                            )}
                           </div>
                           {sub && (
                             <div style={{ fontSize: 11, color: 'var(--ts)' }}>
+                              {sub.operator_name && <span style={{ marginRight: 6 }}>{sub.operator_name}</span>}
                               ${sub.total_cash.toLocaleString()}
                               <span style={{
                                 marginLeft: 4, fontWeight: 600,
@@ -1232,7 +1240,13 @@ export default function RcBizDash({ adminName }: Props) {
                         {/* Controller Approval */}
                         <td>
                           {subDisplayStatus === 'approved' ? (
-                            <span style={{ fontSize: 12, color: 'var(--g7)', fontWeight: 600 }}>✓ Approved</span>
+                            <div>
+                              <span style={{ fontSize: 12, color: 'var(--g7)', fontWeight: 600 }}>✓ Approved</span>
+                              {sub?.submitted_by_role && sub.submitted_by_role !== 'OPERATOR' && sub.operator_name === sub.approved_by_name && (
+                                <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d' }}>AUTO</span>
+                              )}
+                              {sub?.approved_by_name && <div style={{ fontSize: 10, color: 'var(--ts)', marginTop: 1 }}>by {sub.approved_by_name}</div>}
+                            </div>
                           ) : subDisplayStatus === 'rejected' ? (
                             <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>✕ Rejected</span>
                           ) : subDisplayStatus === 'overdue' ? (
@@ -1270,7 +1284,15 @@ export default function RcBizDash({ adminName }: Props) {
                         <td>
                           {loc.dgm_visit.visit_date ? (
                             <div>
-                              <span style={{ fontSize: 12, color: '#7e22ce', fontWeight: 600 }}>✓ {loc.dgm_visit.visit_date}</span>
+                              {loc.dgm_visit.status === 'completed' ? (
+                                <span style={{ fontSize: 12, color: '#7e22ce', fontWeight: 600 }}>✓ {loc.dgm_visit.visit_date}</span>
+                              ) : loc.dgm_visit.status === 'scheduled' ? (
+                                <span style={{ fontSize: 12, color: 'var(--amb)', fontWeight: 600 }}>Scheduled: {loc.dgm_visit.visit_date}</span>
+                              ) : loc.dgm_visit.status === 'missed' ? (
+                                <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>Missed: {loc.dgm_visit.visit_date}</span>
+                              ) : (
+                                <span style={{ fontSize: 12, color: 'var(--ts)', fontWeight: 600 }}>{loc.dgm_visit.status}: {loc.dgm_visit.visit_date}</span>
+                              )}
                               {loc.dgm_visit.observed_total !== null && (
                                 <div style={{ fontSize: 10, color: 'var(--ts)', marginTop: 2 }}>
                                   Observed: ${loc.dgm_visit.observed_total.toLocaleString()}

@@ -146,6 +146,9 @@ def get_compliance_dashboard(
                 "variance": today_sub.variance,
                 "variance_pct": today_sub.variance_pct,
                 "submitted_at": today_sub.submitted_at.isoformat() if today_sub.submitted_at else None,
+                "operator_name": today_sub.operator_name,
+                "submitted_by_role": today_sub.submitted_by_role or "OPERATOR",
+                "approved_by_name": today_sub.approved_by_name,
             } if today_sub else None,
             "submission_rate_30d": sub_rate_30d,
             "controller_visit": {

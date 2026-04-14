@@ -338,6 +338,9 @@ export interface LocationCompliance {
     variance: number
     variance_pct: number
     submitted_at: string
+    operator_name?: string
+    submitted_by_role?: 'OPERATOR' | 'CONTROLLER' | 'DGM'
+    approved_by_name?: string
   } | null
   submission_rate_30d: number
   controller_visit: {

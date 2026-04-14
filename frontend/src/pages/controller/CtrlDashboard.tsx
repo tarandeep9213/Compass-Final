@@ -62,6 +62,8 @@ type StatusFilter = 'all' | 'scheduled' | 'completed' | 'missed' | 'cancelled'
 type SessionUpdate = {
   status: 'completed' | 'missed' | 'cancelled'
   observedTotal?: number
+  varianceVsImprest?: number
+  variancePct?: number
   missedReason?: string
   notes?: string
   warningFlag?: boolean
@@ -285,8 +287,10 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
         const upd = sessionUpdates[v.id]
         if (!upd) return v
         const merged: VerificationRecord = { ...v, status: upd.status }
-        if (upd.observedTotal !== undefined) merged.observedTotal = upd.observedTotal
-        if (upd.missedReason)               merged.missedReason  = upd.missedReason
+        if (upd.observedTotal !== undefined)    merged.observedTotal    = upd.observedTotal
+        if (upd.varianceVsImprest !== undefined) merged.varianceVsImprest = upd.varianceVsImprest
+        if (upd.variancePct !== undefined)       merged.variancePct       = upd.variancePct
+        if (upd.missedReason)                    merged.missedReason      = upd.missedReason
         if (upd.notes)                      merged.notes         = upd.notes
         if (upd.warningFlag !== undefined)  merged.warningFlag   = upd.warningFlag
         if (upd.signatureData)              merged.signatureData = upd.signatureData
@@ -403,8 +407,9 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
     const ctrlFormTotal = sessionStorage.getItem(`verifier_form_total_${id}`)
     const observedTotal = subTotal ?? (ctrlFormTotal ? parseFloat(ctrlFormTotal) : undefined)
 
+    let result: Awaited<ReturnType<typeof completeControllerVisit>>
     try {
-      await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning && cWarnReason ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: observedTotal, early_completion_acknowledged: earlyAck || undefined })
+      result = await completeControllerVisit(id, { signature_data: cSig, notes: fullNotes || undefined, dow_warning_reason: dowWarning && cWarnReason ? cWarnReason : undefined, visit_section_reviews: visitSectionReviews, observed_total: observedTotal, early_completion_acknowledged: earlyAck || undefined })
     } catch (err: unknown) {
       // 409 = early completion warning — show acknowledgement prompt instead of error
       if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 409) {
@@ -424,7 +429,15 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
 
     setSessionUpdates(prev => ({
       ...prev,
-      [id]: { status: 'completed', observedTotal: subTotal ?? 0, notes: fullNotes, warningFlag: !!dowWarning, signatureData: cSig },
+      [id]: {
+        status: 'completed',
+        observedTotal: result.observed_total ?? subTotal ?? 0,
+        varianceVsImprest: result.variance_vs_imprest ?? undefined,
+        variancePct: result.variance_pct ?? undefined,
+        notes: fullNotes,
+        warningFlag: !!dowWarning,
+        signatureData: cSig,
+      },
     }))
     closeExpand()
   }
