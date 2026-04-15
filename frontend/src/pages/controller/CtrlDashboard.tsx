@@ -236,8 +236,18 @@ export default function CtrlDashboard({ controllerName, locationIds, ctx, onNavi
         .then(arrays => {
           const flats = arrays.flat()
           const map: Record<string, { status: string; id: string; totalCash: number; expectedCash: number; variance: number; variancePct: number; submittedByRole: string }> = {}
+          // Priority: OPERATOR first, then CONTROLLER's own form. DGM's form never shown.
+          const ROLE_PRIORITY: Record<string, number> = { OPERATOR: 2, CONTROLLER: 1 }
           flats.forEach(s => {
-            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash, expectedCash: s.expected_cash, variance: s.variance, variancePct: s.variance_pct, submittedByRole: s.submitted_by_role || 'OPERATOR' }
+            const key = `${s.location_id}_${s.submission_date}`
+            const role = s.submitted_by_role || 'OPERATOR'
+            const priority = ROLE_PRIORITY[role] ?? -1
+            if (priority < 0) return  // skip DGM submissions
+            const existing = map[key]
+            const existingPriority = existing ? (ROLE_PRIORITY[existing.submittedByRole] ?? 0) : -1
+            if (priority > existingPriority) {
+              map[key] = { status: s.status, id: s.id, totalCash: s.total_cash, expectedCash: s.expected_cash, variance: s.variance, variancePct: s.variance_pct, submittedByRole: role }
+            }
           })
           setApiSubsMap(map)
         })

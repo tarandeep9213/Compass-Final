@@ -203,8 +203,18 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
       Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items)))
         .then(arrays => {
           const map: Record<string, { status: string; id: string; totalCash: number; submittedByRole: string }> = {}
+          // Priority: OPERATOR first, then DGM's own form. Controller's form never shown.
+          const ROLE_PRIORITY: Record<string, number> = { OPERATOR: 2, DGM: 1 }
           arrays.flat().forEach(s => {
-            map[`${s.location_id}_${s.submission_date}`] = { status: s.status, id: s.id, totalCash: s.total_cash, submittedByRole: s.submitted_by_role || 'OPERATOR' }
+            const key = `${s.location_id}_${s.submission_date}`
+            const role = s.submitted_by_role || 'OPERATOR'
+            const priority = ROLE_PRIORITY[role] ?? -1
+            if (priority < 0) return  // skip CONTROLLER submissions
+            const existing = map[key]
+            const existingPriority = existing ? (ROLE_PRIORITY[existing.submittedByRole] ?? 0) : -1
+            if (priority > existingPriority) {
+              map[key] = { status: s.status, id: s.id, totalCash: s.total_cash, submittedByRole: role }
+            }
           })
           setApiSubsMap(map)
         })
