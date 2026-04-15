@@ -14,7 +14,6 @@ alembic upgrade head
 echo "[2/3] Seeding data (skip if already seeded)..."
 python seed.py
 python seed_locations.py
-python seed_demo.py
 
 echo "[3/3] Starting uvicorn..."
 exec uvicorn app.main:app \
