@@ -79,6 +79,7 @@ class CreateLocationBody(BaseModel):
     name: str
     city: str = ""
     address: str = ""
+    cost_center: Optional[str] = None
     expected_cash: float = 0.0
     tolerance_pct: Optional[float] = None
     sla_hours: int = 24
@@ -124,12 +125,16 @@ def admin_create_location(
 ):
     if db.query(Location).filter(Location.name == body.name.strip()).first():
         raise HTTPException(409, f"A location named '{body.name}' already exists")
-    if body.id and db.get(Location, body.id.strip()):
-        raise HTTPException(409, f"Cost center '{body.id}' is already in use")
+    # Auto-generate location ID from name slug (matches Excel import pattern)
+    name_slug = _re.sub(r'[^a-z0-9]+', '-', body.name.lower().strip()).strip('-')
+    loc_id = body.id.strip() if body.id and body.id.strip() else f"loc-{name_slug}"
+    if db.get(Location, loc_id):
+        raise HTTPException(409, f"Location ID '{loc_id}' is already in use")
     loc = Location(
+        id=loc_id,
         name=body.name, city=body.city, address=body.address,
+        cost_center=body.cost_center.strip() if body.cost_center else None,
         expected_cash=body.expected_cash, sla_hours=body.sla_hours,
-        **({"id": body.id.strip()} if body.id and body.id.strip() else {}),
     )
     db.add(loc)
     if body.tolerance_pct is not None:

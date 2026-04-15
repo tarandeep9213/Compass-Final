@@ -82,11 +82,7 @@ export default function AdmLocations({ adminName }: Props) {
 
   function validate() {
     const e: Record<string,string> = {}
-    if (mode === 'add' && !form.id.trim()) e.id = 'Cost center required'
-    if (mode === 'add' && form.id.trim() && !/^\d+$/.test(form.id.trim())) e.id = 'Cost center must be numeric'
-    if (mode === 'add' && locs.some(l => l.id === form.id.trim())) e.id = 'ID must be unique'
-    
-    if (mode !== 'add' && form.cost_center !== undefined && !form.cost_center.trim()) e.cost_center = 'Cost center required'
+    // Cost center is optional and non-unique (multiple locations can share a CC)
     
     if (!form.name.trim()) {
       e.name = 'Name required'
@@ -115,17 +111,25 @@ export default function AdmLocations({ adminName }: Props) {
     const e = validate()
     if (Object.keys(e).length) { setErrors(e); return }
     if (mode === 'add') {
+      const costCenter = (form.id || form.cost_center || '').trim()
       const newLoc: Location = {
-        id: form.id.trim(),
+        id: '',  // backend will auto-generate
         name: form.name.trim(), city: '',
+        cost_center: costCenter || undefined,
         expectedCash: Number(form.expectedCash),
         tolerancePct: Number(form.tolerancePct),
         slaHours: Number(defaults.slaHours),
         active: true,
       }
       try {
-        const created = await createLocation({ id: newLoc.id, name: newLoc.name, city: '', expected_cash: newLoc.expectedCash, tolerance_pct: newLoc.tolerancePct })
+        const created = await createLocation({
+          name: newLoc.name, city: '',
+          cost_center: costCenter || undefined,
+          expected_cash: newLoc.expectedCash,
+          tolerance_pct: newLoc.tolerancePct,
+        })
         newLoc.id = created.id
+        newLoc.cost_center = created.cost_center || undefined
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to create location.'
         setErrors({ name: msg })
