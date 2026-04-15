@@ -270,18 +270,16 @@ def complete_controller_visit(
     db.commit()
     db.refresh(v)
 
-    # N-06: Notify DGMs when controller visit is completed
-    dgms = db.query(User).filter(User.active == True, User.role == UserRole.DGM).all()
-    for dgm in dgms:
-        send_visit_completed_background(
-            background,
-            recipient_email=dgm.email,
-            recipient_name=dgm.name,
-            visit_type="Controller",
-            verifier_name=v.verifier_name,
-            location_name=v.location_name,
-            visit_date=v.verification_date,
-            observed_total=f"${body.observed_total:,.2f}",
+    # N-06: Confirm visit completion to the controller only (surprise visit)
+    send_visit_completed_background(
+        background,
+        recipient_email=current_user.email,
+        recipient_name=current_user.name,
+        visit_type="Controller",
+        verifier_name=v.verifier_name,
+        location_name=v.location_name,
+        visit_date=v.verification_date,
+        observed_total=f"${body.observed_total:,.2f}",
             notes=body.notes or "",
         )
 
@@ -551,18 +549,16 @@ def complete_dgm_visit(
     db.commit()
     db.refresh(v)
 
-    # N-08: Notify Regional Controllers when DGM visit is completed
-    rcs = db.query(User).filter(User.active == True, User.role == UserRole.REGIONAL_CONTROLLER).all()
-    for rc in rcs:
-        send_visit_completed_background(
-            background,
-            recipient_email=rc.email,
-            recipient_name=rc.name,
-            visit_type="DGM",
-            verifier_name=v.verifier_name,
-            location_name=v.location_name,
-            visit_date=v.verification_date,
-            observed_total=f"${body.observed_total:,.2f}",
+    # N-08: Confirm visit completion to the DGM only (surprise visit)
+    send_visit_completed_background(
+        background,
+        recipient_email=current_user.email,
+        recipient_name=current_user.name,
+        visit_type="DGM",
+        verifier_name=v.verifier_name,
+        location_name=v.location_name,
+        visit_date=v.verification_date,
+        observed_total=f"${body.observed_total:,.2f}",
             notes=body.notes or "",
         )
 
