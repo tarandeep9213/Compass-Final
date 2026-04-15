@@ -120,7 +120,7 @@ def forgot_password(
         # Invalidate any old token by generating a fresh one and updating the expiry
         # Overwrite the old token and reset the 15-minute expiry window
         user.password_reset_token = hash_password(otp)
-        user.password_reset_expires = datetime.utcnow() + timedelta(minutes=15)
+        user.password_reset_expires = datetime.now() + timedelta(minutes=15)
         
         # Explicitly update the debug store to prevent stale codes in local testing
         if settings.DEBUG:
@@ -165,7 +165,7 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
     from datetime import datetime
     invalid = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset code.")
     user = db.query(User).filter(User.email == body.email.lower().strip()).first()
-    now = datetime.utcnow()
+    now = datetime.now()
     if (
         not user or not user.active
         or not user.password_reset_token
@@ -186,7 +186,7 @@ def reset_password(body: ResetPasswordRequest, background: BackgroundTasks, db: 
     from datetime import datetime
     invalid = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset code.")
     user = db.query(User).filter(User.email == body.email.lower().strip()).first()
-    now = datetime.utcnow()
+    now = datetime.now()
     if (
         not user or not user.active
         or not user.password_reset_token
@@ -223,6 +223,6 @@ def change_password(
               entity_id=current_user.id, entity_type="User")
     db.commit()
     from datetime import datetime
-    reset_at = datetime.utcnow().strftime("%d %b %Y %H:%M UTC")
+    reset_at = datetime.now().strftime("%d %b %Y %H:%M")
     send_password_changed_background(background, current_user.email, current_user.name, reset_at)
     return MessageResponse(message="Password changed successfully.")
