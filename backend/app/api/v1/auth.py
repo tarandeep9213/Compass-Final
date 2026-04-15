@@ -166,11 +166,12 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
     invalid = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset code.")
     user = db.query(User).filter(User.email == body.email.lower().strip()).first()
     now = datetime.now()
+    expires = user.password_reset_expires.replace(tzinfo=None) if user and user.password_reset_expires and user.password_reset_expires.tzinfo else (user.password_reset_expires if user else None)
     if (
         not user or not user.active
         or not user.password_reset_token
-        or not user.password_reset_expires
-        or user.password_reset_expires < now
+        or not expires
+        or expires < now
         or not verify_password(body.otp, user.password_reset_token)
     ):
         raise invalid
@@ -187,11 +188,12 @@ def reset_password(body: ResetPasswordRequest, background: BackgroundTasks, db: 
     invalid = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset code.")
     user = db.query(User).filter(User.email == body.email.lower().strip()).first()
     now = datetime.now()
+    expires = user.password_reset_expires.replace(tzinfo=None) if user and user.password_reset_expires and user.password_reset_expires.tzinfo else (user.password_reset_expires if user else None)
     if (
         not user or not user.active
         or not user.password_reset_token
-        or not user.password_reset_expires
-        or user.password_reset_expires < now
+        or not expires
+        or expires < now
         or not verify_password(body.otp, user.password_reset_token)
     ):
         raise invalid

@@ -93,8 +93,8 @@ def send_email_background(
     template: str,
     ctx: dict,
 ) -> None:
-    """Queue sync email send as background task."""
-    background.add_task(_send_smtp, to, subject, template, ctx)
+    """Queue email as async background task using fastapi-mail."""
+    background.add_task(_send, to, subject, template, ctx)
 
 
 # ── Convenience senders (used by route handlers) ─────────────────────────────
