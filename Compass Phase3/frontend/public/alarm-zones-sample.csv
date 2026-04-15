@@ -1,0 +1,19 @@
+zone_number,zone_name,zone_type,area_number
+3,Main Entry Door,ENTRY_EXIT,1
+5,North Door Vehicle Storage,ENTRY_EXIT,1
+6,East Employee Door,ENTRY_EXIT,1
+7,North OHD,ENTRY_EXIT,1
+8,Secure Office Door,ENTRY_EXIT,2
+9,South Vehicle OH Door,ENTRY_EXIT,1
+10,East OH Door North,ENTRY_EXIT,1
+11,East OH Door Central,ENTRY_EXIT,1
+12,East OH Door South,ENTRY_EXIT,1
+13,South OHD,ENTRY_EXIT,1
+14,Motion South End Hallway,INTERIOR_MOTION,1
+15,Motion North End Hallway,INTERIOR_MOTION,1
+17,Cooler Door Motion,ENTRY_EXIT,1
+18,Panic Button Front Office 1,PANIC_SILENT,1
+19,Secure Office Panic,PANIC_SILENT,2
+20,Freezer Panic Alarm,PANIC_SILENT,1
+21,Cooler Panic Alarm,PANIC_SILENT,1
+24,Main Office Motion,INTERIOR_MOTION,1

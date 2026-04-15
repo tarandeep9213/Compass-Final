@@ -1,0 +1,5 @@
+name,region,security_company_name,security_customer_id,security_company_phone,status
+Canteen Vending - Wausau,Midwest,AES IntelliNet,AES9925,(800) 555-0101,active
+Canteen Vending - Chicago North,Midwest,ADT Commercial,ADT-7821,(800) 555-0102,active
+Canteen Vending - Atlanta Central,Southeast,Securitas,SEC-4401,(800) 555-0103,active
+Canteen Vending - Boston HQ,Northeast,Brinks Security,BRK-2210,(800) 555-0104,temporarily_exempt

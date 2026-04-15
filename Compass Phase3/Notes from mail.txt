@@ -1,0 +1,31 @@
+Current setup-
+
+Right now, we have a flash on Teams that the team will update the file as they complete each month. (Alarm Test Flash 2026 file)
+
+They should update the log each month noting by zone if tested. 
+
+ 
+
+Each building should have an alarm test done monthly testing every zone, hold up, panic button, and complete a log for that building listing each zone on the log and pull/receive the alarm test report from security company and they currently save on Teams for their area.   Each building has different zones, so we will need some flexibility for an admin user to add zones/hold ups/panic buttons as needed.
+
+ 
+
+One of the items on the report is biannual item which is Cellular Back up that will need to be tracked for compliance along with minimum of 30 days of camera back up.
+
+ 
+
+Thoughts- if zones are set up in system can the alarm testing report be used to confirm that every zone was tested?  Examples the alarm reports attached-3 PDF’s, and 2 excel.
+
+ 
+
+Users-
+
+Tester ( this would be DGM, Controller, Safety Mgr) on site Managers that review/upload complete the monthly tests
+
+Management- Regional/Divisional that would have access to their area to review.
+
+Approver/Admin- Division Safety Mgrs- -add/remove/update info and approve the monthly test is compliant.
+
+ 
+
+Bi annual Reviews- there have been many findings regarding security- we would like to incorporate below if possible.
