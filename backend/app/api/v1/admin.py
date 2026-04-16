@@ -139,7 +139,11 @@ def admin_create_location(
     db.add(loc)
     if body.tolerance_pct is not None:
         db.flush()
-        db.add(LocationToleranceOverride(location_id=loc.id, tolerance_pct=body.tolerance_pct))
+        existing_override = db.get(LocationToleranceOverride, loc.id)
+        if existing_override:
+            existing_override.tolerance_pct = body.tolerance_pct
+        else:
+            db.add(LocationToleranceOverride(location_id=loc.id, tolerance_pct=body.tolerance_pct))
     log_event(db, current_user, "LOCATION_CREATED", f"Location {body.name} created",
               location_id=loc.id, location_name=body.name,
               entity_id=loc.id, entity_type="Location")
