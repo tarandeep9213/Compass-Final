@@ -127,6 +127,9 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
       { id: 'alarm-audit-trail', icon: '📋', label: 'Alarm Audit',   panel: 'alarm-audit-trail' },
     ]
     case 'admin': return [
+      { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard', panel: 'rc-biz-dash'   },
+      { id: 'reports',    icon: '📊', label: 'Reports',            panel: 'adm-reports' },
+      { id: 'trends',     icon: '📉', label: 'Cash Trends',        panel: 'rc-trends'   },
       { id: 'audit',     icon: '📑', label: 'Audit Trail',   panel: 'adm-audit'    },
       { id: 'locations', icon: '📍', label: 'Locations',     panel: 'adm-locations' },
       { id: 'users',     icon: '👥', label: 'Users',         panel: 'adm-users' },
