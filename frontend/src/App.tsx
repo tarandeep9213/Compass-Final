@@ -48,8 +48,9 @@ import AdmAudit       from './pages/admin/AdmAudit'
 import AdmReports     from './pages/admin/AdmReports'
 import AdmReasonableness from './pages/admin/AdmReasonableness'
 import AdmImport      from './pages/admin/AdmImport'
-import RcTrends       from './pages/regional-controller/RcTrends'
-import RcBizDash      from './pages/regional-controller/RcBizDash'
+import RcTrends          from './pages/regional-controller/RcTrends'
+import RcBizDash         from './pages/regional-controller/RcBizDash'
+import RcLocationReview  from './pages/regional-controller/RcLocationReview'
 // ── Alarm Testing Module (Phase 3) ───────────────────────────────────────
 import AlarmTestForm       from './pages/alarm/tester/AlarmTestForm'
 import AlarmUpload         from './pages/alarm/tester/AlarmUpload'
@@ -138,6 +139,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
     ]
     case 'regional-controller': return [
       { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard',   panel: 'rc-biz-dash'   },
+      { id: 'loc-review', icon: '📋', label: 'Location Review',      panel: 'rc-location-review' },
       { id: 'audit',      icon: '📑', label: 'Audit Trail',          panel: 'adm-audit' },
       { id: 'reports',    icon: '📊', label: 'Reports',              panel: 'adm-reports' },
       { id: 'trends',     icon: '📉', label: 'Cash Trends',          panel: 'rc-trends'   },
@@ -356,6 +358,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
 
       // ── Regional Controller panels ──────────────────────────────────
       case 'rc-biz-dash': return <RcBizDash adminName={auth.name} />
+      case 'rc-location-review': return <RcLocationReview userName={auth.name} onNavigate={navigate} />
 
       // ── Admin panels ─────────────────────────────────────────────────
       case 'adm-locations':  return <AdmLocations  adminName={auth.name} />

@@ -176,10 +176,10 @@ def create_submission(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DGM) and not _has_operator_grant(current_user):
-        raise HTTPException(403, "Only operators, controllers, or DGMs can create submissions")
+    if current_user.role not in (UserRole.OPERATOR, UserRole.ADMIN, UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER) and not _has_operator_grant(current_user):
+        raise HTTPException(403, "Only operators, controllers, DGMs, or regional controllers can create submissions")
 
-    is_verifier_submission = current_user.role in (UserRole.CONTROLLER, UserRole.DGM)
+    is_verifier_submission = current_user.role in (UserRole.CONTROLLER, UserRole.DGM, UserRole.REGIONAL_CONTROLLER)
 
     loc = db.get(Location, body.location_id)
     if not loc:
