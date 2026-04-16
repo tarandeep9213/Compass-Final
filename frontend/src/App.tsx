@@ -327,8 +327,8 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       // ── Operator panels ──────────────────────────────────────────────
       case 'op-start':    return <OpStart    locationIds={auth.locationIds} userName={auth.name} onNavigate={navigate} />
       case 'op-method':   return <OpMethod   ctx={ctx} onNavigate={navigate} />
-      case 'op-form':     return <OpForm     ctx={ctx} onNavigate={navigate} />
-      case 'op-chat':     return <OpChat     ctx={ctx} onNavigate={navigate} />
+      case 'op-form':     return <OpForm     userName={auth.name} ctx={ctx} onNavigate={navigate} />
+      case 'op-chat':     return <OpChat     userName={auth.name} ctx={ctx} onNavigate={navigate} />
       case 'op-excel':    return <OpExcel    ctx={ctx} onNavigate={navigate} />
       case 'op-readonly': return <OpReadonly ctx={ctx} onNavigate={navigate} />
       case 'op-missed':   return <OpMissed   ctx={ctx} onNavigate={navigate} />

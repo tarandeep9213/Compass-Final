@@ -4,6 +4,7 @@ import { api } from '../../api/client'
 import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
 interface Props {
+  userName?: string
   ctx: Record<string, string>
   onNavigate: (panel: string, ctx?: Record<string, string>) => void
 }
@@ -44,7 +45,7 @@ function sectionName(s: string) {
   return map[s] || s
 }
 
-export default function OpChat({ ctx, onNavigate }: Props) {
+export default function OpChat({ userName, ctx, onNavigate }: Props) {
   const location = getLocation(ctx.locationId)
   const dateLabel = new Date(ctx.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
@@ -142,7 +143,7 @@ export default function OpChat({ ctx, onNavigate }: Props) {
     const variancePct = Math.round((variance / IMPREST) * 10000) / 100
     const newId = `SUB-${Date.now()}`
     SUBMISSIONS.push({
-      id: newId, locationId: ctx.locationId, operatorName: 'A. Patel',
+      id: newId, locationId: ctx.locationId, operatorName: userName || 'Operator',
       date: ctx.date, status: 'pending_approval', source: 'CHAT',
       totalCash: Math.round(runningTotal * 100) / 100,
       expectedCash: IMPREST,

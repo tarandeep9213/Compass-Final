@@ -93,6 +93,7 @@ function getExcelPrefill(ctx: Record<string, string>): ExcelPrefill | null {
 }
 
 interface Props {
+  userName?: string
   ctx: Record<string, string>
   onNavigate: (panel: string, ctx?: Record<string, string>) => void
 }
@@ -188,7 +189,7 @@ interface FormLocation {
   [key: string]: unknown;
 }
 
-export default function OpForm({ ctx, onNavigate }: Props) {
+export default function OpForm({ userName, ctx, onNavigate }: Props) {
   const [location, setLocation] = useState<FormLocation | undefined>(() => getLocation(ctx.locationId) as unknown as FormLocation)
   const [realTolerance, setRealTolerance] = useState<number | null>(null)
 
@@ -723,7 +724,7 @@ export default function OpForm({ ctx, onNavigate }: Props) {
           {[
             ['Location',    location?.name ?? '—'],
             ['Date',        dateLabel],
-            ['Counted By',  'A. Patel'],
+            ['Counted By',  userName || '—'],
             ['Verified By', '—'],
           ].map(([label, value], i) => (
             <div key={label} style={{
