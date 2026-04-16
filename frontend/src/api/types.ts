@@ -205,7 +205,7 @@ export interface DowCheckResponse {
 export interface ScheduleControllerBody {
   location_id: string
   date: string
-  scheduled_time: '09:00' | '11:00' | '13:00' | '15:00' | '17:00'
+  scheduled_time?: '09:00' | '11:00' | '13:00' | '15:00' | '17:00' | null
   dow_warning_acknowledged: boolean
   dow_warning_reason: DowWarningReason | null
   notes?: string | null

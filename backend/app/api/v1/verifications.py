@@ -236,19 +236,23 @@ def complete_controller_visit(
         raise HTTPException(403, "Access denied")
     if v.status != VerificationStatus.SCHEDULED:
         raise HTTPException(400, "Visit is not in scheduled state")
-    # SLA window check: if visit has a scheduled time on today, enforce configurable window
+    # SLA window check: enforce configurable completion window
     visit_date = dt_date.fromisoformat(v.verification_date)
     today = _today_local()
-    if visit_date == today and v.scheduled_time:
+    if visit_date == today:
         cfg = _get_config(db)
         sla_hours = cfg.approval_sla_hours or 48
-        h, m = map(int, v.scheduled_time.split(':'))
+        # If no scheduled_time, default to 23:59 (end of day — full day to complete)
+        if v.scheduled_time:
+            h, m = map(int, v.scheduled_time.split(':'))
+        else:
+            h, m = 23, 59
         sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m)
         now = _now_local()
-        if now < sched_dt and not body.early_completion_acknowledged:
+        if now < sched_dt and v.scheduled_time and not body.early_completion_acknowledged:
             raise HTTPException(409, f"This visit is scheduled for {v.scheduled_time} but it is currently {now.strftime('%H:%M')}. Proceed anyway?")
         if now > sched_dt + timedelta(hours=sla_hours):
-            raise HTTPException(400, f"{sla_hours}-hour completion window has passed (scheduled {v.scheduled_time}). Use 'Mark as Missed'.")
+            raise HTTPException(400, f"{sla_hours}-hour completion window has passed. Use 'Mark as Missed'.")
 
     v.status = VerificationStatus.COMPLETED
     v.observed_total = body.observed_total
@@ -305,13 +309,17 @@ def miss_controller_visit(
     today = _today_local()
     if visit_date > today:
         raise HTTPException(400, "Cannot mark a future visit as missed. Use 'Cancel' instead.")
-    if visit_date == today and v.scheduled_time:
+    if visit_date == today:
         cfg = _get_config(db)
         sla_hours = cfg.approval_sla_hours or 48
-        h, m = map(int, v.scheduled_time.split(':'))
+        # Default to 23:59 if no scheduled_time
+        if v.scheduled_time:
+            h, m = map(int, v.scheduled_time.split(':'))
+        else:
+            h, m = 23, 59
         sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m)
         if _now_local() <= sched_dt + timedelta(hours=sla_hours):
-            raise HTTPException(400, f"Completion window is still open (until {sla_hours}hrs after {v.scheduled_time}). Complete or wait before marking as missed.")
+            raise HTTPException(400, f"Completion window is still open. Complete or wait before marking as missed.")
 
     v.status = VerificationStatus.MISSED
     v.missed_reason = body.missed_reason
@@ -341,11 +349,15 @@ def cancel_controller_visit(
         raise HTTPException(400, "Only scheduled visits can be cancelled")
     visit_date = dt_date.fromisoformat(v.verification_date)
     today = _today_local()
-    if visit_date == today and v.scheduled_time:
-        h, m = map(int, v.scheduled_time.split(':'))
+    if visit_date == today:
+        # Default to 00:01 if no scheduled_time — can't cancel once the day starts
+        if v.scheduled_time:
+            h, m = map(int, v.scheduled_time.split(':'))
+        else:
+            h, m = 0, 1
         sched_dt = datetime(visit_date.year, visit_date.month, visit_date.day, h, m)
         if _now_local() >= sched_dt:
-            raise HTTPException(400, "Cannot cancel — the scheduled time has arrived. Use 'Complete' or 'Mark as Missed'.")
+            raise HTTPException(400, "Cannot cancel — the visit day has arrived. Use 'Complete' or 'Mark as Missed'.")
 
     v.status = VerificationStatus.CANCELLED
     v.notes = body.notes or v.notes

@@ -18,7 +18,7 @@ const MONTH_LABELS = [
   'July','August','September','October','November','December',
 ]
 
-const TIME_SLOTS: string[] = ['09:00', '11:00', '13:00', '15:00', '17:00']
+// TIME_SLOTS removed — time selection no longer required
 const TIME_DISPLAY: Record<string, string> = {
   '09:00': '9:00 AM', '11:00': '11:00 AM',
   '13:00': '1:00 PM', '15:00': '3:00 PM', '17:00': '5:00 PM',
@@ -53,7 +53,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   const [calYear,      setCalYear]      = useState(new Date().getFullYear())
   const [calMonth,     setCalMonth]     = useState(new Date().getMonth())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  // selectedTime removed — time selection no longer required
   const [notes,        setNotes]        = useState('')
   const [errors,       setErrors]       = useState<Record<string, string>>({})
   const [submitted,    setSubmitted]    = useState<VerificationRecord | null>(null)
@@ -192,7 +192,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
 
   // ── Location change clears selection ──────────────────────────────────
   function handleLocationChange(loc: string) {
-    setLocation(loc); setSelectedDate(null); setSelectedTime(null); setErrors({})
+    setLocation(loc); setSelectedDate(null); setErrors({})
   }
 
   // ── Date cell click ────────────────────────────────────────────────────
@@ -203,9 +203,8 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
     const dow = new Date(dateStr + 'T12:00:00').getDay()
     if (dow === 0 || dow === 6) return    // weekend
     if (bookedMap.has(dateStr)) return    // already booked
-    if (selectedDate === dateStr) { setSelectedDate(null); setSelectedTime(null); return }
-    setSelectedDate(dateStr); setSelectedTime(null)
-    setErrors(p => ({ ...p, date: '' }))
+    if (selectedDate === dateStr) { setSelectedDate(null); return }
+    setSelectedDate(dateStr);    setErrors(p => ({ ...p, date: '' }))
     setFetchError('')
   }
 
@@ -215,7 +214,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
     if (!selectedDate)                        e.date = 'Please select a visit date from the calendar.'
     else if (bookedMap.has(selectedDate))     e.date = 'This date is already booked for this location. Choose another.'
     else if (blockedDates.has(selectedDate))  e.date = 'This date is blocked — one visit per business week (Mon-Fri).'
-    else if (!selectedTime)                   e.time = 'Please select a time slot.'
+    // Time slot selection removed — visits are unscheduled
     return e
   }
 
@@ -231,7 +230,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
       verifierName:  controllerName,
       type:          'controller',
       date:          selectedDate!,
-      scheduledTime: selectedTime!,
+      scheduledTime: undefined,
       notes:         combinedNotes,
       dayOfWeek:     dow,
       warningFlag:   !!dowWarning,
@@ -241,7 +240,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
         const res = await scheduleControllerVisit({
           location_id:                location,
           date:                       selectedDate!,
-          scheduled_time:             selectedTime! as '09:00' | '11:00' | '13:00' | '15:00' | '17:00',
+          scheduled_time:             undefined,
           dow_warning_acknowledged:   !!dowWarning,
           dow_warning_reason:         null,
           notes:                      notes.trim() || null,
@@ -263,8 +262,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
   }
 
   function handleReset() {
-    setSelectedDate(null); setSelectedTime(null)
-    setNotes(''); setErrors({}); setSubmitted(null)
+    setSelectedDate(null);    setNotes(''); setErrors({}); setSubmitted(null)
     setRefresh(r => r + 1) // Re-evaluates the calendar hooks so the new visit instantly appears
   }
 
@@ -360,7 +358,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
         <div>
           <h2>Schedule a Visit</h2>
           <p style={{ color: 'var(--ts)', fontSize: 13 }}>
-            Select a location, pick a date from the calendar and choose a time slot
+            Select a location and pick a date from the calendar
           </p>
         </div>
         <div className="ph-right">
@@ -622,7 +620,7 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
                 }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>📅</div>
                   <div style={{ fontWeight: 600, color: 'var(--td)', marginBottom: 4 }}>Pick a date</div>
-                  <div style={{ fontSize: 12 }}>Select any available date on the calendar to see time slots</div>
+                  <div style={{ fontSize: 12 }}>Select any available date on the calendar</div>
                 </div>
               )}
 
@@ -658,52 +656,18 @@ export default function CtrlLog({ controllerName, locationIds, ctx, onNavigate }
 
               {selectedDate && !selectedDateBooked && (
                 <>
-                  {/* Time slots */}
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--td)', marginBottom: 10 }}>
-                      Available Slots —&nbsp;
-                      <span style={{ fontWeight: 400, color: 'var(--ts)' }}>{selectedDateLabel}</span>
-                      {selectedDow >= 0 && (
-                        <span style={{
-                          marginLeft: 8, fontSize: 10, fontWeight: 800, padding: '2px 8px',
-                          borderRadius: 10, background: 'var(--g0)', color: 'var(--g7)',
-                          border: '1px solid var(--g1)', letterSpacing: '0.03em',
-                        }}>
-                          {DOW_LABELS[selectedDow].toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                      {TIME_SLOTS.map(slot => {
-                        const active = selectedTime === slot
-                        return (
-                          <button
-                            key={slot}
-                            onClick={() => {
-                              setSelectedTime(active ? null : slot)
-                              setErrors(p => ({ ...p, time: '' }))
-                            }}
-                            style={{
-                              padding: '11px 14px', borderRadius: 9, fontSize: 13, fontWeight: 600,
-                              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
-                              transition: 'all 0.12s',
-                              border: active ? '2px solid var(--g4)' : '1.5px solid var(--ow2)',
-                              background: active ? 'var(--g7)' : '#fff',
-                              color: active ? '#fff' : 'var(--td)',
-                              boxShadow: active
-                                ? '0 2px 10px rgba(52,160,110,0.22)'
-                                : '0 1px 3px rgba(0,0,0,0.06)',
-                            }}
-                          >
-                            {TIME_DISPLAY[slot]}
-                          </button>
-                        )
-                      })}
-                    </div>
-
-                    {errors.time && (
-                      <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 6 }}>{errors.time}</div>
+                  {/* Date confirmation */}
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--td)', marginBottom: 10 }}>
+                    Selected Date —&nbsp;
+                    <span style={{ fontWeight: 400, color: 'var(--ts)' }}>{selectedDateLabel}</span>
+                    {selectedDow >= 0 && (
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontWeight: 800, padding: '2px 8px',
+                        borderRadius: 10, background: 'var(--g0)', color: 'var(--g7)',
+                        border: '1px solid var(--g1)', letterSpacing: '0.03em',
+                      }}>
+                        {DOW_LABELS[selectedDow].toUpperCase()}
+                      </span>
                     )}
                   </div>
 

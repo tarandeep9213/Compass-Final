@@ -49,7 +49,7 @@ class DowCheckResponse(BaseModel):
 class ScheduleControllerBody(BaseModel):
     location_id: str
     date: str
-    scheduled_time: str
+    scheduled_time: Optional[str] = None
     dow_warning_acknowledged: bool = False
     dow_warning_reason: Optional[str] = None
     notes: Optional[str] = None

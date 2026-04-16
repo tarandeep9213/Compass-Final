@@ -117,6 +117,15 @@ async def send_submission_reminder(to: str, name: str, location_name: str, today
     )
 
 
+async def send_visit_reminder(to: str, name: str, visit_type: str, location_name: str, visit_date: str) -> None:
+    await _send(
+        to=[to],
+        subject=f"Reminder: {visit_type} Visit Today - {location_name}",
+        template="visit_reminder.html",
+        ctx={"recipient_name": name, "visit_type": visit_type, "location_name": location_name, "visit_date": visit_date},
+    )
+
+
 async def send_sla_breach(
     to: str, name: str, location_name: str, operator_name: str,
     submission_date: str, submitted_at: str, sla_hours: int, hours_pending: int,

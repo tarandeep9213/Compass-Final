@@ -18,8 +18,9 @@ from app.db.session import SessionLocal
 from app.models.user import User, UserRole
 from app.models.location import Location
 from app.models.submission import Submission, SubmissionStatus
+from app.models.verification import Verification, VerificationStatus
 from app.models.config import SystemConfig
-from app.services.email import send_submission_reminder, send_sla_breach
+from app.services.email import send_submission_reminder, send_sla_breach, send_visit_reminder
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,38 @@ def job_sla_breach_check() -> None:
         db.close()
 
 
+# ── Job 3: Visit day reminder ─────────────────────────────────────────────────
+
+def job_visit_reminder() -> None:
+    """Email controllers/DGMs who have visits scheduled for today."""
+    db = SessionLocal()
+    try:
+        today = date.today().isoformat()
+
+        visits = db.query(Verification).filter(
+            Verification.verification_date == today,
+            Verification.status == VerificationStatus.SCHEDULED,
+        ).all()
+
+        for v in visits:
+            user = db.query(User).filter(User.id == v.verifier_id).first()
+            if not user or not user.active:
+                continue
+            visit_type = "Controller" if v.verification_type.value == "CONTROLLER" else "DGM"
+            logger.info("Sending visit reminder to %s for %s at %s", user.email, v.location_name, today)
+            _run_async(send_visit_reminder(
+                to=user.email,
+                name=user.name,
+                visit_type=visit_type,
+                location_name=v.location_name,
+                visit_date=today,
+            ))
+    except Exception as exc:
+        logger.error("visit_reminder job failed: %s", exc)
+    finally:
+        db.close()
+
+
 # ── Scheduler lifecycle ───────────────────────────────────────────────────────
 
 def start_scheduler() -> None:
@@ -159,8 +192,15 @@ def start_scheduler() -> None:
         id="sla_breach_check",
         replace_existing=True,
     )
+    _scheduler.add_job(
+        job_visit_reminder,
+        CronTrigger(hour=8, minute=0),
+        id="visit_reminder",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
     _scheduler.start()
-    logger.info("Scheduler started — daily_reminder at %s:%s local time, sla_check every 1h", hour, minute)
+    logger.info("Scheduler started — daily_reminder at %s:%s, visit_reminder at 08:00, sla_check every 1h", hour, minute)
 
 
 def stop_scheduler() -> None:
