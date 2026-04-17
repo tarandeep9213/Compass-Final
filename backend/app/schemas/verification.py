@@ -67,7 +67,6 @@ class CompleteVerificationBody(BaseModel):
     notes: Optional[str] = None
     dow_warning_reason: Optional[str] = None
     visit_section_reviews: Optional[dict] = None
-    early_completion_acknowledged: bool = False
 
 
 class MissVerificationBody(BaseModel):
