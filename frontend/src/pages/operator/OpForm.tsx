@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { getLocation, formatCurrency, IMPREST } from '../../mock/data'
-import { createSubmission, updateDraft, submitDraft, deleteDraft, getSubmission } from '../../api/submissions'
+import { createSubmission, updateDraft, submitDraft, deleteDraft, getSubmission, getPriorSectionI } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
 import { api } from '../../api/client'
 
@@ -428,6 +428,27 @@ export default function OpForm({ userName, ctx, onNavigate }: Props) {
     }).catch(() => { /* keep empty if fetch fails */ })
       .finally(() => setFormLoading(false))
   }, [_loadId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-fill Section I Yesterday from prior in-month operator submission ──
+  // Runs only for fresh forms (no draft/existing submission, not loaded from Excel).
+  // On first-of-month or no prior submission → iYest stays "0" (readonly).
+  const [iYestAutoFilled, setIYestAutoFilled] = useState(false)
+  const [iYestSourceStatus, setIYestSourceStatus] = useState<string | null>(null)
+  useEffect(() => {
+    if (_loadId || ctx.fromExcel === 'true') return
+    if (!ctx.locationId || !ctx.date) return
+    getPriorSectionI(ctx.locationId, ctx.date)
+      .then(r => {
+        setIYest(String(r.ending ?? 0))
+        setIYestSourceStatus(r.source_status)
+        setIYestAutoFilled(true)
+      })
+      .catch(() => {
+        setIYest('0')
+        setIYestSourceStatus(null)
+        setIYestAutoFilled(true)
+      })
+  }, [_loadId, ctx.fromExcel, ctx.locationId, ctx.date])
 
   // ── Totals (formula cells) ─────────────────────────────────────────────────
   const totA = SEC_A.reduce((s, r) =>
@@ -1151,9 +1172,37 @@ export default function OpForm({ userName, ctx, onNavigate }: Props) {
           </thead>
           <tbody>
             <tr>
-              <td>Shortage / (Overage) as of Yesterday</td>
+              <td>
+                Shortage / (Overage) as of Yesterday
+                {iYestAutoFilled && (
+                  <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ts)', fontStyle: 'italic' }}>
+                    · auto-carried from prior day
+                    {iYestSourceStatus === 'pending_approval' && (
+                      <span style={{ color: 'var(--amb)', fontWeight: 600 }}> (pending)</span>
+                    )}
+                    {iYestSourceStatus === 'rejected' && (
+                      <span style={{ color: 'var(--red)', fontWeight: 600 }}> (rejected)</span>
+                    )}
+                    {' · resets on 1st of month'}
+                  </span>
+                )}
+              </td>
               <td style={{ textAlign: 'right' }}>
-                <NumInput val={iYest} onChange={setIYest} step="0.01" width={120} />
+                {iYestAutoFilled ? (
+                  <input
+                    type="text"
+                    value={iYest}
+                    readOnly
+                    style={{
+                      width: 120, padding: '4px 8px', textAlign: 'right',
+                      border: '1px solid var(--g2)', borderRadius: 4,
+                      background: 'var(--g0)', color: 'var(--g8)', fontWeight: 600,
+                      cursor: 'not-allowed',
+                    }}
+                  />
+                ) : (
+                  <NumInput val={iYest} onChange={setIYest} step="0.01" width={120} />
+                )}
               </td>
             </tr>
             <tr>

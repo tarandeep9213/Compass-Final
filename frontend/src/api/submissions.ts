@@ -32,6 +32,17 @@ export function getSubmission(id: string): Promise<ApiSubmissionDetail> {
   return api.get<ApiSubmissionDetail>(`/submissions/${id}`)
 }
 
+export interface PriorSectionIResult {
+  ending: number
+  source_date: string | null
+  source_status: string | null   // 'approved' | 'pending_approval' | 'rejected' | null
+}
+
+export function getPriorSectionI(locationId: string, date: string): Promise<PriorSectionIResult> {
+  const q = new URLSearchParams({ location_id: locationId, date }).toString()
+  return api.get<PriorSectionIResult>(`/submissions/prior-section-i?${q}`)
+}
+
 export function createSubmission(body: CreateSubmissionBody): Promise<ApiSubmission> {
   return api.post<ApiSubmission>('/submissions', body)
 }

@@ -148,6 +148,48 @@ def list_submissions(
     )
 
 
+# ── Prior in-month Section I carry-forward ───────────────────────────────────
+
+@router.get("/submissions/prior-section-i")
+def get_prior_section_i(
+    location_id: str = Query(...),
+    date: str = Query(..., description="Target submission date (YYYY-MM-DD)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the most recent operator Section I ending total within the same
+    calendar month as `date`, for use as the auto-filled `yesterday` value.
+
+    Returns 0.0 when there is no prior operator submission in the month
+    (first-of-month, or month with no operator submissions yet).
+    """
+    month_prefix = date[:7]  # YYYY-MM
+    prior = (
+        db.query(Submission)
+        .filter(
+            Submission.location_id == location_id,
+            Submission.submission_date >= f"{month_prefix}-01",
+            Submission.submission_date < date,
+            Submission.submitted_by_role == "OPERATOR",
+            Submission.status != SubmissionStatus.DRAFT,
+        )
+        .order_by(Submission.submission_date.desc())
+        .first()
+    )
+    ending = 0.0
+    if prior:
+        sec_i = (prior.sections or {}).get("I")
+        if isinstance(sec_i, dict):
+            ending = float(sec_i.get("total", 0) or 0)
+        elif isinstance(sec_i, (int, float)):
+            ending = float(sec_i)
+    return {
+        "ending": ending,
+        "source_date": prior.submission_date if prior else None,
+        "source_status": prior.status.value if prior else None,
+    }
+
+
 # ── Get single submission ─────────────────────────────────────────────────────
 
 @router.get("/submissions/{submission_id}", response_model=SubmissionDetailOut)
