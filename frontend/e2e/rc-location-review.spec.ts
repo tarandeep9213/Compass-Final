@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
-const BASE = 'http://localhost:3000'
-const API = 'http://localhost:8003/v1'
+const BASE = 'http://localhost:3003'
+const API = 'http://localhost:8004/v1'
 
 test.describe.serial('RC Location Review', () => {
 
@@ -74,9 +74,9 @@ test.describe.serial('RC Location Review', () => {
     const viewCount = await viewBtn.count()
     console.log(`  View Form buttons: ${viewCount}`)
 
-    const noSub = page.locator('text=No submission yet')
+    const noSub = page.locator('text=No submissions yet')
     const noSubCount = await noSub.count()
-    console.log(`  "No submission yet" labels: ${noSubCount}`)
+    console.log(`  "No submissions yet" labels: ${noSubCount}`)
 
     // If Fill Form exists, click it
     if (fillCount > 0) {
@@ -93,6 +93,51 @@ test.describe.serial('RC Location Review', () => {
     }
   })
 
+  test('RC sees badges for every role that has submitted today', async ({ page }) => {
+    // Seed 3 submissions (OPERATOR, CONTROLLER, DGM) for loc-appleton via DB helper
+    const { execSync } = await import('child_process')
+    const SEED = 'E:/Master - slave/Damco material/Compass-final-clone/frontend/e2e/_rc_badge_seed.py'
+    const BACKEND = 'E:/Master - slave/Damco material/Compass-final-clone/backend'
+    execSync(`python "${SEED}" seed`, { cwd: BACKEND, stdio: 'inherit' })
+
+    // Login and go to Location Review
+    await page.goto(BASE)
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+    await page.reload()
+    await page.locator('input').nth(0).fill('kyle.decker@compass.com')
+    await page.locator('input[type="password"]').fill('demo1234')
+    await page.locator('button:has-text("Sign In")').click()
+    await page.waitForTimeout(3000)
+    await page.locator('text=Location Review').click()
+    await page.waitForTimeout(3000)
+
+    // Find the loc-appleton row and check badges
+    const row = page.locator('tr', { hasText: 'APPLETON' }).first()
+    await expect(row).toBeVisible({ timeout: 8000 })
+
+    // Each role that submitted should render a button/badge
+    const opBadge = row.locator('button', { hasText: /OP · / })
+    const ctrlBadge = row.locator('button', { hasText: /CTRL · / })
+    const dgmBadge = row.locator('button', { hasText: /DGM · / })
+    const rcBadge = row.locator('button', { hasText: /RC · / })
+
+    expect(await opBadge.count()).toBe(1)
+    expect(await ctrlBadge.count()).toBe(1)
+    expect(await dgmBadge.count()).toBe(1)
+    expect(await rcBadge.count()).toBe(0)   // RC hasn't submitted — no badge
+    console.log('  Badges render per role: OP ✓ CTRL ✓ DGM ✓ RC ✗ (expected)')
+
+    // Click one badge → navigates to op-readonly
+    await opBadge.click()
+    await page.waitForTimeout(2000)
+    const bodyText = await page.textContent('body')
+    const isReadonly = bodyText?.includes('Section A') || bodyText?.includes('Counted By')
+    expect(isReadonly).toBe(true)
+    console.log('  Clicking badge opens readonly view ✓')
+
+    execSync(`python "${SEED}" clear`, { cwd: BACKEND, stdio: 'inherit' })
+  })
+
   test('RC Fill Form creates submission via API', async () => {
     console.log('Step 5: API test — RC fills form')
 
@@ -106,7 +151,13 @@ test.describe.serial('RC Location Review', () => {
 
     const today = new Date().toISOString().split('T')[0]
 
-    // Clean first
+    // Clean any prior RC submission for loc-wausau today
+    const { execSync: exec2 } = await import('child_process')
+    exec2(`python "E:/Master - slave/Damco material/Compass-final-clone/frontend/e2e/_rc_badge_seed.py" clear_wausau_rc`, {
+      cwd: 'E:/Master - slave/Damco material/Compass-final-clone/backend',
+      stdio: 'inherit',
+    })
+
     // RC fills form
     const fillRes = await fetch(`${API}/submissions`, {
       method: 'POST',

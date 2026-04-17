@@ -43,23 +43,27 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
     return map
   }, [submissions])
 
-  function getOperatorSub(locId: string): ApiSubmission | undefined {
-    return subsByLoc[locId]?.find(s => s.submitted_by_role === 'OPERATOR' && s.status !== 'draft')
+  const ROLES = ['OPERATOR', 'CONTROLLER', 'DGM', 'REGIONAL_CONTROLLER'] as const
+  type RoleKey = typeof ROLES[number]
+
+  function getSubsByRole(locId: string): Partial<Record<RoleKey, ApiSubmission>> {
+    const out: Partial<Record<RoleKey, ApiSubmission>> = {}
+    for (const s of subsByLoc[locId] ?? []) {
+      if (s.status === 'draft') continue
+      const role = (s.submitted_by_role || 'OPERATOR') as RoleKey
+      if (ROLES.includes(role) && !out[role]) out[role] = s
+    }
+    return out
   }
 
-  function getSubStatus(locId: string): 'approved' | 'pending' | 'rejected' | 'none' {
-    const opSub = getOperatorSub(locId)
-    if (!opSub) return 'none'
-    if (opSub.status === 'approved') return 'approved'
-    if (opSub.status === 'rejected') return 'rejected'
-    return 'pending'
+  const ROLE_SHORT: Record<RoleKey, string> = {
+    OPERATOR: 'OP', CONTROLLER: 'CTRL', DGM: 'DGM', REGIONAL_CONTROLLER: 'RC',
   }
 
-  const STATUS_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
-    approved: { bg: 'var(--g0)', color: 'var(--g7)', border: 'var(--g2)', label: 'Approved' },
-    pending:  { bg: '#fffbeb', color: 'var(--amb)', border: '#fcd34d', label: 'Pending Approval' },
-    rejected: { bg: '#fff1f2', color: 'var(--red)', border: '#fca5a5', label: 'Rejected' },
-    none:     { bg: '#f8fafc', color: '#94a3b8', border: '#e2e8f0', label: 'No Submission' },
+  const STATUS_STYLE: Record<string, { bg: string; color: string; border: string }> = {
+    approved: { bg: 'var(--g0)', color: 'var(--g7)', border: 'var(--g2)' },
+    pending:  { bg: '#fffbeb', color: 'var(--amb)', border: '#fcd34d' },
+    rejected: { bg: '#fff1f2', color: 'var(--red)', border: '#fca5a5' },
   }
 
   const dateLabel = new Date(today + 'T12:00:00').toLocaleDateString('en-GB', {
@@ -93,20 +97,19 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
                 <tr>
                   <th style={{ minWidth: 160 }}>Location</th>
                   <th style={{ minWidth: 80 }}>CC</th>
-                  <th style={{ minWidth: 120, textAlign: 'center' }}>Submission Status</th>
-                  <th style={{ minWidth: 130 }}>Submitted By</th>
-                  <th style={{ textAlign: 'right', minWidth: 100 }}>Total Cash</th>
-                  <th style={{ textAlign: 'right', minWidth: 100 }}>Variance</th>
+                  <th style={{ minWidth: 220 }}>Submissions Today</th>
+                  <th style={{ textAlign: 'right', minWidth: 110 }}>Operator Total</th>
+                  <th style={{ textAlign: 'right', minWidth: 110 }}>Operator Variance</th>
                   <th style={{ minWidth: 120, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {locations.map(loc => {
-                  const status = getSubStatus(loc.id)
-                  const ss = STATUS_STYLE[status]
-                  const opSub = getOperatorSub(loc.id)
-                  const canFill = status === 'none' || status === 'rejected'
-                  const canView = status === 'approved' || status === 'pending'
+                  const byRole = getSubsByRole(loc.id)
+                  const opSub = byRole.OPERATOR
+                  const rcSub = byRole.REGIONAL_CONTROLLER
+                  const hasAny = Object.keys(byRole).length > 0
+                  const canFill = !rcSub   // RC can submit once per day
 
                   return (
                     <tr key={loc.id}>
@@ -115,31 +118,37 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
                         <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--ts)' }}>{loc.id}</div>
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--ts)' }}>{loc.cost_center || '—'}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 6,
-                          background: ss.bg, color: ss.color, border: `1px solid ${ss.border}`,
-                          whiteSpace: 'nowrap',
-                        }}>
-                          {ss.label}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        {opSub ? (
-                          <div>
-                            <span style={{ fontWeight: 500 }}>{opSub.operator_name}</span>
-                            {opSub.submitted_by_role !== 'OPERATOR' && (
-                              <span style={{
-                                marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '1px 5px',
-                                borderRadius: 4, background: '#f0fdf4', color: '#15803d',
-                                border: '1px solid #15803d30',
-                              }}>
-                                {opSub.submitted_by_role}
-                              </span>
-                            )}
+                      <td>
+                        {hasAny ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {ROLES.map(role => {
+                              const sub = byRole[role]
+                              if (!sub) return null
+                              const sstyle = STATUS_STYLE[sub.status] || STATUS_STYLE.pending
+                              return (
+                                <button
+                                  key={role}
+                                  title={`${role} · ${sub.status} · ${sub.operator_name}`}
+                                  onClick={() => onNavigate('op-readonly', {
+                                    locationId: loc.id,
+                                    date: today,
+                                    submissionId: sub.id,
+                                    fromPanel: 'rc-location-review',
+                                  })}
+                                  style={{
+                                    cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                                    padding: '3px 9px', borderRadius: 6,
+                                    background: sstyle.bg, color: sstyle.color,
+                                    border: `1px solid ${sstyle.border}`, whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {ROLE_SHORT[role]} · {sub.status}
+                                </button>
+                              )
+                            })}
                           </div>
                         ) : (
-                          <span style={{ color: '#bbb' }}>—</span>
+                          <span style={{ fontSize: 11, color: '#bbb' }}>No submissions yet</span>
                         )}
                       </td>
                       <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 14 }}>
@@ -162,21 +171,7 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          {canView && (
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 11, padding: '4px 12px' }}
-                              onClick={() => onNavigate('op-readonly', {
-                                locationId: loc.id,
-                                date: today,
-                                submissionId: opSub?.id ?? '',
-                                fromPanel: 'rc-location-review',
-                              })}
-                            >
-                              View Form
-                            </button>
-                          )}
-                          {canFill && (
+                          {canFill ? (
                             <button
                               className="btn btn-primary"
                               style={{ fontSize: 11, padding: '4px 12px' }}
@@ -190,9 +185,10 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
                             >
                               Fill Form
                             </button>
-                          )}
-                          {status === 'none' && (
-                            <span style={{ fontSize: 11, color: '#bbb', alignSelf: 'center' }}>No submission yet</span>
+                          ) : (
+                            <span style={{ fontSize: 11, color: 'var(--g7)', alignSelf: 'center', fontWeight: 600 }}>
+                              ✓ RC filled
+                            </span>
                           )}
                         </div>
                       </td>
