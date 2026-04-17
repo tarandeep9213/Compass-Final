@@ -57,6 +57,8 @@ export default function AdmUsers({ adminName }: Props) {
   const [fetchError,   setFetchError]   = useState('')
   const [apiLocations, setApiLocations] = useState<{id: string; name: string}[]>(LOCATIONS.map(l => ({ id: l.id, name: l.name })))
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [sortCol, setSortCol] = useState<'name' | 'email' | 'role' | 'active'>('name')
+  const [sortAsc, setSortAsc] = useState(true)
 
   // ── Access delegation (operator + controller) ─────────────────────────
   const [opGrants,   setOpGrants]   = useState<Record<string, AccessGrant>>(() => readGrants('operator'))
@@ -182,7 +184,12 @@ export default function AdmUsers({ adminName }: Props) {
     (filterRole === '' || u.role === filterRole || (filterRole === 'operator' && opGrants[u.id]) || (filterRole === 'controller' && ctrlGrants[u.id])) &&
     (filterLoc  === '' || u.locationIds.includes(filterLoc)) &&
     (nameQuery  === '' || u.name.toLowerCase().includes(nameQuery) || u.email.toLowerCase().includes(nameQuery))
-  )
+  ).sort((a, b) => {
+    const va = String(a[sortCol] ?? '')
+    const vb = String(b[sortCol] ?? '')
+    const cmp = va.localeCompare(vb)
+    return sortAsc ? cmp : -cmp
+  })
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
   const pageRows   = filteredUsers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const fromRow    = filteredUsers.length === 0 ? 0 : page * PAGE_SIZE + 1
@@ -389,8 +396,22 @@ export default function AdmUsers({ adminName }: Props) {
           <table className="dt">
             <thead>
               <tr>
-                <th>Name</th><th>Email</th><th style={{textAlign:'center'}}>Role</th>
-                <th>Assigned Locations</th><th style={{textAlign:'center'}}>Status</th><th style={{textAlign:'right'}}>Actions</th>
+                {([
+                  ['name', 'Name', {}],
+                  ['email', 'Email', {}],
+                  ['role', 'Role', {textAlign:'center' as const}],
+                ] as const).map(([col, label, style]) => (
+                  <th key={col} style={{...style, cursor:'pointer', userSelect:'none'}}
+                    onClick={() => { if (sortCol === col) setSortAsc(!sortAsc); else { setSortCol(col); setSortAsc(true) } }}>
+                    {label} {sortCol === col ? (sortAsc ? '▲' : '▼') : ''}
+                  </th>
+                ))}
+                <th>Assigned Locations</th>
+                <th style={{textAlign:'center', cursor:'pointer', userSelect:'none'}}
+                  onClick={() => { if (sortCol === 'active') setSortAsc(!sortAsc); else { setSortCol('active'); setSortAsc(true) } }}>
+                  Status {sortCol === 'active' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th style={{textAlign:'right'}}>Actions</th>
               </tr>
             </thead>
             <tbody>

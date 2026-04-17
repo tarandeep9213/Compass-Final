@@ -49,6 +49,8 @@ export default function AdmLocations({ adminName }: Props) {
   })
   const [defSaved, setDefSaved] = useState(false)
   const [defErrors, setDefErrors] = useState<Record<string, string>>({})
+  const [sortCol, setSortCol] = useState<'cost_center' | 'name' | 'expectedCash' | 'tolerancePct' | 'active'>('name')
+  const [sortAsc, setSortAsc] = useState(true)
 
   useEffect(() => {
     listLocations()
@@ -60,9 +62,15 @@ export default function AdmLocations({ adminName }: Props) {
   }, [])
   const [filterLoc, setFilterLoc] = useState('')
 
-  const filtered   = filterLoc
+  const filtered   = (filterLoc
     ? locs.filter(l => l.id === filterLoc)
     : locs
+  ).sort((a, b) => {
+    const va = sortCol === 'expectedCash' || sortCol === 'tolerancePct' ? Number(a[sortCol] ?? 0) : String(a[sortCol] ?? '')
+    const vb = sortCol === 'expectedCash' || sortCol === 'tolerancePct' ? Number(b[sortCol] ?? 0) : String(b[sortCol] ?? '')
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0
+    return sortAsc ? cmp : -cmp
+  })
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageRows   = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const fromRow    = filtered.length === 0 ? 0 : page * PAGE_SIZE + 1
@@ -253,10 +261,18 @@ export default function AdmLocations({ adminName }: Props) {
           <table className="dt">
             <thead>
               <tr>
-                <th>Cost Center</th><th>Location</th>
-                <th style={{textAlign:'right'}}>Imprest Amount</th>
-                <th style={{textAlign:'center'}}>Tolerance</th>
-                <th style={{textAlign:'center'}}>Status</th>
+                {([
+                  ['cost_center', 'Cost Center', {}],
+                  ['name', 'Location', {}],
+                  ['expectedCash', 'Imprest Amount', {textAlign:'right' as const}],
+                  ['tolerancePct', 'Tolerance', {textAlign:'center' as const}],
+                  ['active', 'Status', {textAlign:'center' as const}],
+                ] as const).map(([col, label, style]) => (
+                  <th key={col} style={{...style, cursor:'pointer', userSelect:'none'}}
+                    onClick={() => { if (sortCol === col) setSortAsc(!sortAsc); else { setSortCol(col); setSortAsc(true) } }}>
+                    {label} {sortCol === col ? (sortAsc ? '▲' : '▼') : ''}
+                  </th>
+                ))}
                 <th style={{textAlign:'right'}}>Actions</th>
               </tr>
             </thead>
