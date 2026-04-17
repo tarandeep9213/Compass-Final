@@ -154,6 +154,8 @@ export default function AdmAudit({ adminName }: Props) {
   const [apiLocations, setApiLocations] = useState<{ id: string; name: string; cost_center?: string }[]>([])
   const [fetchError, setFetchError] = useState('')
   const [isExporting, setIsExporting] = useState(false)
+  const [sortCol, setSortCol] = useState<'timestamp' | 'eventType' | 'actor' | 'detail'>('timestamp')
+  const [sortAsc, setSortAsc] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -237,8 +239,13 @@ export default function AdmAudit({ adminName }: Props) {
         if (dateEnd   && dateOnly > dateEnd)   return false
         return true
       })
-      .sort((a,b) => b.timestamp.localeCompare(a.timestamp)),
-  [filterType, filterActor, filterLoc, dateStart, dateEnd, sourceEvents])
+      .sort((a, b) => {
+        const va = a[sortCol] ?? ''
+        const vb = b[sortCol] ?? ''
+        const cmp = va.localeCompare(vb)
+        return sortAsc ? cmp : -cmp
+      }),
+  [filterType, filterActor, filterLoc, dateStart, dateEnd, sourceEvents, sortCol, sortAsc])
 
   // ── Export Logic ────────────────────────────────────────────────────────
   const formatFilename = (ext: string) => {
@@ -429,10 +436,20 @@ export default function AdmAudit({ adminName }: Props) {
               <table className="dt">
                 <thead>
                   <tr>
-                    <th style={{minWidth:160}}>Timestamp</th>
-                    <th style={{minWidth:160}}>Event</th>
-                    <th>Actor</th>
-                    <th style={{minWidth:260}}>Detail</th>
+                    {([
+                      ['timestamp', 'Timestamp', {minWidth:160}],
+                      ['eventType', 'Event', {minWidth:160}],
+                      ['actor', 'Actor', {}],
+                      ['detail', 'Detail', {minWidth:260}],
+                    ] as const).map(([col, label, style]) => (
+                      <th
+                        key={col}
+                        style={{...style, cursor:'pointer', userSelect:'none', whiteSpace:'nowrap'}}
+                        onClick={() => { if (sortCol === col) setSortAsc(!sortAsc); else { setSortCol(col); setSortAsc(true) } }}
+                      >
+                        {label} {sortCol === col ? (sortAsc ? '▲' : '▼') : ''}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
