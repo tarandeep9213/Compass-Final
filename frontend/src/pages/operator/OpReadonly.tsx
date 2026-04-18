@@ -316,7 +316,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
     () => Object.fromEntries(SECTIONS.map(k => [k, '']))
   )
 
-  const isManagerView = ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard' || ctx.fromPanel === 'dgm-dash'
+  const isManagerView = ctx.fromPanel === 'mgr-approvals' || ctx.fromPanel === 'ctrl-dashboard' || ctx.fromPanel === 'dgm-dash' || ctx.fromPanel === 'rc-location-review'
 
   if (apiLoading) {
     return (
@@ -333,7 +333,7 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
         <div className="alert-warn">
           <span>⚠️</span>
           <div>No submission found. The operator has yet to complete the details. {' '}
-            <button className="btn btn-ghost" onClick={() => onNavigate(ctx.fromPanel === 'ctrl-dashboard' ? 'ctrl-dashboard' : ctx.fromPanel === 'dgm-dash' ? 'dgm-dash' : isManagerView ? 'mgr-approvals' : 'op-start')}>
+            <button className="btn btn-ghost" onClick={() => onNavigate(ctx.fromPanel === 'ctrl-dashboard' ? 'ctrl-dashboard' : ctx.fromPanel === 'dgm-dash' ? 'dgm-dash' : ctx.fromPanel === 'rc-location-review' ? 'rc-location-review' : isManagerView ? 'mgr-approvals' : 'op-start')}>
               ← Go back
             </button>
           </div>
@@ -519,6 +519,8 @@ export default function OpReadonly({ ctx, onNavigate }: Props) {
                 onNavigate('ctrl-dashboard', backCtx)
               } else if (ctx.fromPanel === 'dgm-dash') {
                 onNavigate('dgm-dash')
+              } else if (ctx.fromPanel === 'rc-location-review') {
+                onNavigate('rc-location-review')
               } else {
                 onNavigate('mgr-approvals')
               }
