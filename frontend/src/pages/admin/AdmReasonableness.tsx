@@ -286,6 +286,7 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
                     <td style={{ padding: '10px 12px', fontSize: 13 }}>{r.preparer}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <button onClick={() => openDetail(r)}
+                        data-screenshot-trigger="reasonableness-view"
                         style={{ padding: '5px 10px', fontSize: 11, borderRadius: 6, border: '1.5px solid var(--g4, #52b06e)', background: 'transparent', color: 'var(--g7, #1f6138)', cursor: 'pointer', fontWeight: 500 }}>
                         View
                       </button>
@@ -332,10 +333,12 @@ table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 8px;font-
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: '#fff', borderRadius: 14, maxWidth: 820, width: '94%', maxHeight: '90vh', overflowY: 'auto',
-            boxShadow: '0 24px 64px rgba(0,0,0,.3)',
-          }}>
+          <div onClick={e => e.stopPropagation()}
+            data-screenshot="reasonableness-detail-modal"
+            style={{
+              background: '#fff', borderRadius: 14, maxWidth: 820, width: '94%', maxHeight: '90vh', overflowY: 'auto',
+              boxShadow: '0 24px 64px rgba(0,0,0,.3)',
+            }}>
             {/* Modal header */}
             <div style={{
               padding: '18px 22px', borderBottom: '1px solid var(--border)',

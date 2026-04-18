@@ -915,14 +915,12 @@ export default function OpForm({ userName, ctx, onNavigate }: Props) {
                         <NumInput
                           val={m.m1}
                           onChange={v => setCMach(p => ({ ...p, [r.key]: { ...p[r.key] ?? { m1: '', m2: '' }, m1: v } }))}
-                          width={50}
                         />
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <NumInput
                           val={m.m2}
                           onChange={v => setCMach(p => ({ ...p, [r.key]: { ...p[r.key] ?? { m1: '', m2: '' }, m2: v } }))}
-                          width={50}
                         />
                       </td>
                       <td style={{ textAlign: 'right', color: 'var(--ts)', fontSize: 11 }}>

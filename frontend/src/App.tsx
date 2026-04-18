@@ -69,6 +69,7 @@ import AlarmUserAccess     from './pages/alarm/admin/AlarmUserAccess'
 import AlarmAuditTrail     from './pages/alarm/admin/AlarmAuditTrail'
 import AlarmUserManagement from './pages/alarm/admin/AlarmUserManagement'
 import EsDashboard from './pages/EsDashboard'
+import UserGuide from './pages/UserGuide'
 import './index.css'
 
 interface AuthState { userId: string; role: Role; name: string; locationIds: string[] }
@@ -85,6 +86,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
     switch (role) {
       case 'alarm-tester': return [
         { id: 'alarm-history',   icon: '🔔', label: 'My Tests',          panel: 'alarm-history'   },
+        { id: 'user-guide',      icon: '📖', label: 'User Guide',        panel: 'user-guide'      },
       ]
       case 'alarm-approver': return [
         { id: 'alarm-approval',  icon: '✅', label: 'Pending Approvals', panel: 'alarm-approval'   },
@@ -92,6 +94,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
         { id: 'alarm-trends',    icon: '📉', label: 'Trends',            panel: 'alarm-trends'     },
         { id: 'alarm-escalation',icon: '⏰', label: 'Escalations',       panel: 'alarm-escalation' },
         { id: 'alarm-audit-trail',icon: '📋', label: 'Audit Trail',      panel: 'alarm-audit-trail'},
+        { id: 'user-guide',      icon: '📖', label: 'User Guide',        panel: 'user-guide'       },
       ]
       case 'alarm-admin': return [
         { id: 'alarm-building-setup',  icon: '🏢', label: 'Buildings',     panel: 'alarm-building-setup' },
@@ -100,6 +103,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
         { id: 'alarm-user-mgmt',       icon: '👥', label: 'Alarm Users',    panel: 'alarm-user-mgmt'      },
         { id: 'alarm-overview',        icon: '🛡', label: 'Compliance',     panel: 'alarm-overview'       },
         { id: 'alarm-audit-trail',     icon: '📋', label: 'Audit Trail',    panel: 'alarm-audit-trail'    },
+        { id: 'user-guide',            icon: '📖', label: 'User Guide',     panel: 'user-guide'           },
       ]
       default: return []
     }
@@ -109,7 +113,8 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
   //    alarm compliance dashboards as read-only nav items. ────────────────
   switch (role) {
     case 'operator': return [
-      { id: 'submit', icon: '🏠', label: 'Dashboard', panel: 'op-start' },
+      { id: 'submit',     icon: '🏠', label: 'Dashboard',  panel: 'op-start' },
+      { id: 'user-guide', icon: '📖', label: 'User Guide', panel: 'user-guide' },
     ]
     case 'controller': return [
       { id: 'daily-report', icon: '📋', label: 'Daily Review Dashboard',  panel: 'ctrl-daily-report' },
@@ -119,6 +124,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
       { id: 'alarm-overview', icon: '🛡', label: 'Alarm Compliance',     panel: 'alarm-overview' },
       { id: 'alarm-trends',   icon: '📉', label: 'Alarm Trends',         panel: 'alarm-trends' },
       { id: 'alarm-audit-trail', icon: '📋', label: 'Alarm Audit',       panel: 'alarm-audit-trail' },
+      { id: 'user-guide',     icon: '📖', label: 'User Guide',           panel: 'user-guide' },
     ]
     case 'dgm': return [
       { id: 'dashboard', icon: '📊', label: 'Coverage Dashboard', panel: 'dgm-dash' },
@@ -126,6 +132,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
       { id: 'alarm-overview', icon: '🛡', label: 'Alarm Compliance', panel: 'alarm-overview' },
       { id: 'alarm-trends',   icon: '📉', label: 'Alarm Trends',     panel: 'alarm-trends' },
       { id: 'alarm-audit-trail', icon: '📋', label: 'Alarm Audit',   panel: 'alarm-audit-trail' },
+      { id: 'user-guide', icon: '📖', label: 'User Guide',           panel: 'user-guide' },
     ]
     case 'admin': return [
       { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard', panel: 'rc-biz-dash'   },
@@ -136,6 +143,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
       { id: 'users',     icon: '👥', label: 'Users',         panel: 'adm-users' },
       { id: 'import',    icon: '📥', label: 'Import Roster', panel: 'adm-import' },
       { id: 'reasonableness', icon: '🧮', label: 'Reasonableness Reports', panel: 'adm-reasonableness' },
+      { id: 'user-guide', icon: '📖', label: 'User Guide', panel: 'user-guide' },
     ]
     case 'regional-controller': return [
       { id: 'biz-dash',   icon: '🎯', label: 'Business Dashboard',   panel: 'rc-biz-dash'   },
@@ -146,6 +154,7 @@ function navItems(role: Role, mode: AppMode): { id: string; icon: string; label:
       { id: 'alarm-overview',    icon: '🛡', label: 'Alarm Compliance', panel: 'alarm-overview' },
       { id: 'alarm-trends',      icon: '📉', label: 'Alarm Trends',     panel: 'alarm-trends' },
       { id: 'alarm-audit-trail', icon: '📋', label: 'Alarm Audit',      panel: 'alarm-audit-trail' },
+      { id: 'user-guide',        icon: '📖', label: 'User Guide',       panel: 'user-guide' },
     ]
     default: return []
   }
@@ -396,6 +405,9 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
       case 'alarm-user-mgmt':        return <AlarmUserManagement adminName={auth.name} onNavigate={navigate} />
       case 'alarm-audit-trail':      return <AlarmAuditTrail    adminName={auth.name} onNavigate={navigate} />
 
+      // ── User Guide (role-specific) ───────────────────────────────────
+      case 'user-guide': return <UserGuide role={auth.role} />
+
       // ── All other panels (coming soon) ───────────────────────────────
       default: return <ComingSoon panel={panel} role={auth.role} />
     }
@@ -458,6 +470,7 @@ function AppShell({ auth, onLogout }: { auth: AuthState; onLogout: () => void })
           {items.map(item => (
             <div
               key={item.id}
+              data-panel={item.panel}
               className={`nav-item${activeSidebarPanel === item.panel ? ' active' : ''}`}
               onClick={() => { navigate(item.panel); setSidebarOpen(false) }}
             >

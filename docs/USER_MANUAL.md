@@ -17,10 +17,12 @@ CashRoom is a web-based application that digitizes the daily cash reconciliation
 | Role | What They Do |
 |------|-------------|
 | **Operator** | Submits daily cash count forms for their assigned location |
-| **Controller** | Reviews/approves operator submissions, schedules weekly verification visits |
+| **Controller** | Reviews/approves operator submissions, schedules weekly verification visits, reviews DGM visits, runs cash reasonableness tests |
 | **DGM (District General Manager)** | Schedules monthly verification visits, oversees multiple locations |
-| **Regional Controller (RC)** | Views compliance dashboards and reports across all locations |
-| **Admin** | Manages users, locations, system settings, and has full dashboard access |
+| **Regional Controller (RC)** | Views compliance dashboards, Location Review drill-down, reports, and cash trends across all locations |
+| **Admin** | Manages users, locations, rosters, system settings; full audit trail and reasonableness reports |
+
+> **Note:** The system also supports an Alarm Monitoring module with its own roles (Alarm Tester, Alarm Approver, Alarm Admin). This manual covers cashroom features only; alarm documentation is maintained separately.
 
 ---
 
@@ -92,28 +94,34 @@ After logging in, you will see:
 > [Screenshot placeholder: Method selection screen with Form, Excel, and Chat options]
 
 **Step 3:** Fill in the Cash Count Form
-The form mirrors the paper Cashroom Count Worksheet with these sections:
+The form mirrors the paper Cashroom Count Worksheet. It has **9 sections (A–I)** plus three standalone numeric fields (Holdover, Replenishment, Coin in Transit).
 
-| Section | What to Enter |
-|---------|-------------|
-| **Section A** — Changers/Coin | Count all coins and bills in changers |
-| **Section B** — Loose Coin | Count loose coins (quarters, dimes, nickels, pennies) |
-| **Section C** — Loose Currency | Count loose bills |
-| **Section D** — Unissued Fund | Count unissued funds |
-| **Section E** — Checks | List any checks |
-| **Section F** — Short/Over | Record any known shorts or overs |
-| **Section G** — Paid Outs | Record paid outs |
-| **Section H** — Deposits | Record deposits |
-| **Section I** — Other | Any other items |
-| **Section J** — Replenishment | Record replenishment amounts |
-| **Section K** — Coin in Transit | Record coin in transit |
+| Section | Title | What to Enter |
+|---------|-------|-------------|
+| **A** | Currency (Bills) | Quantity of each bill denomination ($1, $2, $5, $10, $20, $50, $100) and any "Other" loose currency amount |
+| **B** | Rolled Coin | Quantity of rolled coin by denomination |
+| **C** | Coins in Counting Machines (Sorter/Counter) | For each denomination, quantity loaded in **No. 1** and **No. 2** counting machines |
+| **D** | Bagged Coin (Full for Bank) | Quantity of full bags by type (Dollar, Quarter, Dime, Nickel, Bulker) |
+| **E** | Unissued Changer Funds in Cashroom or Vault | Custom rows — description, quantity, amount |
+| **F** | Returned but Uncounted Manual Change | Manual change returned but not yet counted |
+| **G** | Mutilated Currency, Foreign, and/or Bent Coin | Non-circulatable currency and coin |
+| **H** | Changer Funds Outstanding (Per Form #1841 / #403-1) | Funds issued to changers and not yet returned |
+| **I** | Net Unreimbursed Bill Changer Fund Shortage / (Overage) | Carried forward automatically from your prior in-month submission (see below) |
+
+**Standalone fields below Section I:**
+- **Holdover** — amount held over to tomorrow's count (deducted from today's total)
+- **Replenishment** — cash received from the bank today
+- **Coin in Transit** — coin on its way to/from the bank
 
 For each section:
-1. Enter the amounts in the white input fields
-2. Yellow fields are auto-calculated — do not type in them
-3. The running total updates automatically at the bottom
+1. Enter amounts in the white input fields.
+2. Yellow fields are auto-calculated — do not type in them.
+3. The running total updates automatically at the section footer and at the bottom of the form.
 
-> [Screenshot placeholder: Cash count form showing sections with input fields and auto-calculated totals]
+> [Screenshot placeholder: Cash count form showing sections A–I with input fields and auto-calculated totals]
+
+##### Section I — "Yesterday" auto-carry
+Section I captures the running shortage/overage across the month. The system **automatically pre-fills "Yesterday's" figure** based on your prior in-month submission for the same location. You only need to enter **today's** count; the cumulative figure is computed for you. If no prior submission exists this month, Section I starts at zero.
 
 **Step 4:** Review the Summary
 - At the bottom of the form, review:
@@ -133,7 +141,7 @@ For each section:
 **Step 6:** Confirmation
 - After submission, your dashboard will show the submission status:
   - **Pending Approval** (amber) — waiting for controller review
-  - **Approved** (green) — controller approved your count
+  - **Accepted** (green) — controller approved your count
   - **Rejected** (red) — controller rejected, you need to resubmit
 
 > [Screenshot placeholder: Dashboard showing "Pending Approval" status after submission]
@@ -185,10 +193,12 @@ This screen shows your scheduled verification visits and their status.
 **Scheduling a Visit:**
 1. Click the **Schedule** button (or navigate to the schedule screen)
 2. Select a **location** from the dropdown
-3. Select a **date** (weekdays only, Mon-Fri)
-4. Select a **time slot** (09:00, 11:00, 13:00, 15:00, or 17:00)
-5. If a day-of-week warning appears (same location visited on same weekday recently), select a reason
-6. Click **"Schedule Visit"**
+3. Select a **date** on the calendar (weekdays only, Mon–Fri)
+4. If a day-of-week warning appears (same location visited on same weekday in the last 2 weeks), select a reason to acknowledge
+5. Optionally add a note
+6. Click **"Schedule"**
+
+> The scheduling screen no longer asks for a time slot — only a date.
 
 > [Screenshot placeholder: Visit scheduling form with location, date, and time dropdowns]
 
@@ -224,8 +234,37 @@ This screen shows your scheduled verification visits and their status.
 | **Notes/Reason** | Any notes from the visit or reason for missed/cancelled |
 | **Actions** | Buttons to complete, miss, or cancel the visit |
 
+#### Review DGM Visits
+Controllers have a dedicated screen to review the monthly visits completed by DGMs in their portfolio.
+
+**What you see:**
+- A table of DGM visits for your assigned locations in a selected date range.
+- For each visit: DGM name, location, visit date, observed cash, variance vs. imprest, notes, and any attachments.
+- Flag a visit for follow-up if the observed cash or notes raise concerns.
+
+**Typical usage:**
+1. Navigate to **Review DGM Visits** from the sidebar.
+2. Choose a date range.
+3. Click a visit row to see the DGM's recorded cash count and notes.
+4. If needed, add your own reviewer note — it is captured in the audit trail alongside the visit.
+
+> [Screenshot placeholder: Controller "Review DGM Visits" table with filter and detail panel]
+
 #### Cash Reasonableness Test
-This screen allows you to generate and review reasonableness reports for your locations.
+Controllers can run a reasonableness test on any recent operator submission to evaluate whether the reported cash count is plausible against historical trends before approving.
+
+**How it works:**
+1. Navigate to **Cash Reasonableness Test** from the sidebar.
+2. Pick a location and date.
+3. The screen shows the operator's reported totals next to the expected **min/max band per section**, computed from the trailing 30 days at that location.
+4. Sections falling outside the band are highlighted (amber = warning, red = significant).
+5. Choose an action: **Accept**, **Query operator** (sends an in-system message), or **Reject with reasoning**.
+
+**Why it helps:**
+- Surfaces subtle variance patterns that the fixed tolerance percentage can miss.
+- Creates an auditable reasonableness record attached to your approval decision.
+
+> [Screenshot placeholder: Cash Reasonableness Test showing expected bands vs. reported totals]
 
 ---
 
@@ -268,6 +307,7 @@ View all your past visits with their outcomes, variances, and notes.
 ### FOR REGIONAL CONTROLLER (RC)
 
 #### Business Dashboard
+
 Your main overview of compliance across all locations.
 
 > [Screenshot placeholder: RC Business Dashboard with KPIs and charts]
@@ -307,6 +347,19 @@ Shows the 5 locations with the highest risk scores. Risk factors include:
 **DGM Coverage:**
 Shows which DGMs have completed their monthly visits and which locations are still pending.
 
+#### Location Review
+A drill-down screen that gives you a single-day, single-location view of all activity — operator submission, controller approval, controller visit, and DGM visit.
+
+**What you see:**
+- Pick a date. The table lists every location you cover with a **role badge** for each role that submitted or acted that day (Operator ✓, Controller ✓, DGM ✓, etc.).
+- Click a location to open its full activity panel: the submitted cash count form, the approval chain, visit records, and any controller/DGM notes.
+
+**Why it helps:**
+- Faster than jumping across dashboards — one click gives you the full story of one day at one location.
+- Role badges make it immediately obvious which role is missing from the day (e.g., operator submitted, controller didn't approve → visible red gap).
+
+> [Screenshot placeholder: RC Location Review showing per-location row with role badges and expandable detail panel]
+
 #### Reports
 Detailed reporting with date range selection:
 - **Submissions table** — all operator submissions with status and variance
@@ -344,6 +397,9 @@ Visual charts showing trends over time:
 2. Modify the fields
 3. Click **"Save"**
 
+**Sorting the table:**
+- Click any column header in the Locations table (Cost Center, Name, Imprest, Tolerance, Active) to sort ascending; click again to sort descending; a third click clears the sort.
+
 **Note:** Multiple locations can share the same Cost Center.
 
 #### Managing Users
@@ -357,6 +413,9 @@ Visual charts showing trends over time:
    - **Locations** — assign one or more locations (not needed for Admin/RC)
 4. Click **"Save"**
 5. The user will receive a **welcome email** with their login credentials
+
+**Sorting the table:**
+- Click any column header in the Users table (Name, Email, Role, Locations, Active) to sort ascending/descending. Click a third time to clear the sort.
 
 > [Screenshot placeholder: Add User form with name, email, role, and location fields]
 
@@ -382,10 +441,26 @@ View a log of every action taken in the system:
 
 #### System Settings
 The Admin also has access to:
-- **Business Dashboard** — same as RC view, for full Midwest visibility
-- **Reports** — detailed submission and compliance reports
-- **Cash Trends** — trend analysis charts
-- **Reasonableness Reports** — cash reasonableness test results
+- **Business Dashboard** — same high-level view as the RC, spanning every region
+- **Reports** — detailed submission and compliance reports with CSV export
+- **Cash Trends** — trend analysis charts across locations and time periods
+- **Reasonableness Reports** — rollup of controller reasonableness decisions
+
+#### Reasonableness Reports
+A cross-location view of how often submissions fall outside expected ranges and how controllers responded.
+
+**What you can do:**
+- Filter by date range, region, or controller.
+- See a summary: total flags, top outlier locations, per-controller query volumes.
+- Drill into a row to see the underlying submissions and controller decisions.
+- Export CSV/Excel for leadership packs.
+- Tune the reasonableness bands (global or per-location tolerance). All tolerance changes are captured in the audit trail.
+
+**Why it helps:**
+- Recurring red flags at a single location are a strong signal to schedule a DGM visit.
+- Controller query patterns can indicate training gaps (same controller querying many submissions).
+
+> [Screenshot placeholder: Admin Reasonableness Reports with filter bar and summary table]
 
 ---
 
