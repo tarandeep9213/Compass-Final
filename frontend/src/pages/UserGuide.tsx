@@ -173,6 +173,10 @@ function GuideViewer({ entry, onBack }: { entry: HelpEntry; onBack: () => void }
 }
 
 function VideoViewer({ entry, onBack }: { entry: HelpEntry; onBack: () => void }) {
+  const videos = entry.videos
+  const [activeIdx, setActiveIdx] = useState(0)
+  const active = videos[activeIdx]
+
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
@@ -181,12 +185,9 @@ function VideoViewer({ entry, onBack }: { entry: HelpEntry; onBack: () => void }
       <h2 style={{ fontFamily: 'DM Serif Display, serif', marginBottom: 16 }}>
         {entry.title} — Video
       </h2>
-      <div className="card" style={{ padding: 24 }}>
-        {entry.video ? (
-          <video controls src={entry.video} style={{ width: '100%', borderRadius: 6 }}>
-            Your browser does not support the video tag.
-          </video>
-        ) : (
+
+      {videos.length === 0 && (
+        <div className="card" style={{ padding: 24 }}>
           <div
             style={{
               border: '1px dashed var(--g3)',
@@ -203,8 +204,73 @@ function VideoViewer({ entry, onBack }: { entry: HelpEntry; onBack: () => void }
               Walkthrough for this section will appear here once published.
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {videos.length > 0 && (
+        <>
+          {videos.length > 1 && (
+            <div
+              className="card"
+              style={{ padding: '14px 20px', marginBottom: 16, background: 'var(--g0)' }}
+            >
+              <div style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                color: 'var(--g8)',
+                marginBottom: 8,
+                textTransform: 'uppercase',
+              }}>
+                Pick a walkthrough
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {videos.map((v, i) => {
+                  const isActive = i === activeIdx
+                  return (
+                    <button
+                      key={v.url}
+                      onClick={() => setActiveIdx(i)}
+                      style={{
+                        background: isActive ? 'var(--g6)' : '#fff',
+                        color: isActive ? '#fff' : 'var(--g8)',
+                        fontWeight: isActive ? 700 : 500,
+                        border: `1px solid ${isActive ? 'var(--g6)' : 'var(--g3)'}`,
+                        padding: '6px 12px',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        borderRadius: 6,
+                      }}
+                    >
+                      🎥 {v.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="card" style={{ padding: 24 }}>
+            {active && (
+              <>
+                {videos.length > 1 && (
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--g8)', marginBottom: 10 }}>
+                    {active.label}
+                  </div>
+                )}
+                <video
+                  key={active.url}
+                  controls
+                  src={active.url}
+                  style={{ width: '100%', borderRadius: 6 }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -287,7 +353,13 @@ export default function UserGuide({ role }: Props) {
                   <SectionBox
                     icon="🎥"
                     label="Video"
-                    subtitle={entry.video ? 'Watch walkthrough' : 'Coming soon'}
+                    subtitle={
+                      entry.videos.length === 0
+                        ? 'Coming soon'
+                        : entry.videos.length === 1
+                        ? 'Watch walkthrough'
+                        : `${entry.videos.length} walkthroughs`
+                    }
                     onClick={() => setView({ mode: 'video', entryIdx: idx })}
                   />
                 </div>
