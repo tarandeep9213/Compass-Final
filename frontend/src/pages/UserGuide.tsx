@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Role } from './Login'
 import { getHelpEntries, type HelpEntry } from '../help/manifest'
 
@@ -144,7 +145,7 @@ function GuideViewer({ entry, onBack }: { entry: HelpEntry; onBack: () => void }
           {intro.trim() && (
             <div className="card" style={{ padding: 24, marginBottom: 16 }}>
               <div className="user-guide-body">
-                <ReactMarkdown>{intro}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{intro}</ReactMarkdown>
               </div>
             </div>
           )}
@@ -161,7 +162,7 @@ function GuideViewer({ entry, onBack }: { entry: HelpEntry; onBack: () => void }
                 style={{ padding: 24, marginBottom: 16, scrollMarginTop: 16 }}
               >
                 <div className="user-guide-body">
-                  <ReactMarkdown>{section}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{section}</ReactMarkdown>
                 </div>
               </div>
             )

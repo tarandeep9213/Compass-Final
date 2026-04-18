@@ -1,8 +1,8 @@
 # DGM User Guide
 
-As a **District General Manager**, you own monthly visit coverage across the locations in your district and create downstream audit-ready records.
+As a **District General Manager**, you own monthly visit coverage across multiple locations in your district and create downstream audit-ready records.
 
-![DGM Coverage Dashboard](/help/screenshots/dgm/dgm-dash.png)
+![DGM Coverage Dashboard — full page](/help/screenshots/dgm/dgm-dash.png)
 
 ## What you can do
 
@@ -16,13 +16,13 @@ As a **District General Manager**, you own monthly visit coverage across the loc
 
 Your primary screen — shows the month's visits across your assigned locations.
 
-**KPI cards:** `Scheduled · Overdue · Completed · Missed`.
+### What the screen shows
 
-**Filters:** status (`all · scheduled · overdue · completed · missed`) + location.
+- **KPI row** — four cards: `Scheduled`, `Overdue`, `Completed`, `Missed`.
+- **Filter row** — status dropdown + location dropdown.
+- **Visits table** — paginated.
 
-**Table columns:** `Location · Month-Year · Scheduled Date · Status · Observed Total`.
-
-Status badges:
+#### Status badges
 
 | Status | Badge |
 |---|---|
@@ -31,9 +31,17 @@ Status badges:
 | Completed | ✅ Completed (green) |
 | Missed | ❌ Missed (red) |
 
-Click a row to expand inline controls for **Complete / Miss / Cancel**.
+#### Table columns
+
+`Location · Month-Year · Scheduled Date · Status · Observed Total`. Click a row to expand inline controls for **Complete / Miss / Cancel**.
 
 > **Overdue vs. Missed:** a visit becomes **Overdue** automatically once the scheduled date passes without action. You can still complete it (within the SLA window) or mark it Missed. Overdue is a transitional state, not a final one.
+
+### Filtering by status
+
+![Coverage Dashboard filtered to Scheduled visits](/help/screenshots/dgm/dgm-dash-scheduled.png)
+
+The **status** dropdown lets you narrow to one state — `all · scheduled · overdue · completed · missed`. Combine with the location dropdown to drill in further.
 
 ## Scheduling a monthly visit
 
@@ -48,6 +56,8 @@ Constraints the system enforces:
 
 - **One visit per location per calendar month.** If a visit already exists for the chosen location in that month, you'll see a validation error.
 - The scheduling screen does **not** ask for a time slot — only a date.
+
+The system shows an informational warning if you're scheduling the same day-of-month visited in the past 3 months — no acknowledgement required, just awareness.
 
 ## Completing a visit
 
@@ -70,20 +80,31 @@ The operator's submission **must be approved** by the controller before you can 
 
 ## Visit History
 
-![DGM Visit History](/help/screenshots/dgm/dgm-history.png)
-
 View every visit you've logged — completed, missed, or scheduled.
 
-**Filters:** location · year · month · status.
+![Visit History — full page](/help/screenshots/dgm/dgm-history.png)
 
-**Columns:** `Location · Date · Verifier · Status · Observed Total` (with variance colour-coded by tolerance).
+### What the screen shows
+
+- **Filter row** — location · year · month · status dropdowns.
+- **Visits table** — paginated, 10 rows per page.
+
+#### Table columns
+
+`Location · Date · Verifier · Status · Observed Total`. Variance is colour-coded by tolerance (green / amber / red). Observed Total is shown in serif font if present.
 
 The history is view-only — to take action on a visit, return to the Coverage Dashboard.
+
+### Filtering by location
+
+![History filtered to a single location](/help/screenshots/dgm/dgm-history-location-applied.png)
+
+Pick a location from the **Location** dropdown and the table narrows to only that site's visits. Combine with year, month, and status dropdowns to drill further.
 
 ## Tips
 
 - Complete at least **one visit per location per month** — the Coverage Dashboard's Overdue card is your early-warning signal.
-- Check the dashboard at the start of the month to plan your visit schedule; the further you plan ahead, the more you avoid end-of-month scrambles.
+- Check the dashboard at the start of the month to plan your visit schedule.
 - Add **thorough notes** when completing a visit — these feed the Controller's Review DGM Visits screen and the audit trail.
 - Don't delay — once the SLA window closes, you can only mark the visit Missed.
 

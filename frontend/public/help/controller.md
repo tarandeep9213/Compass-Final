@@ -1,8 +1,8 @@
 # Controller User Guide
 
-As a **Controller**, you review operator submissions, schedule location verification visits, review DGM visits, and use the reasonableness test to catch subtle variances.
+As a **Controller**, you review operator submissions, schedule location verification visits, review DGM visits, and use the reasonableness test to catch subtle variances before they become incidents.
 
-![Daily Review Dashboard](/help/screenshots/controller/ctrl-daily-report.png)
+![Daily Review Dashboard — full page](/help/screenshots/controller/ctrl-daily-report.png)
 
 ## What you can do
 
@@ -14,60 +14,92 @@ As a **Controller**, you review operator submissions, schedule location verifica
 
 ## Daily Review Dashboard
 
-Every pending operator submission for your assigned locations lands here.
+This is where every pending operator submission for your assigned locations lands.
 
-**KPI cards** summarise the period: `Pending Approval · Approved · Rejected`.
+### What the screen shows
 
-**Filters:**
+The screen is a single card with a live KPI strip above the table:
 
-- **Status** chips: `All · Pending · Approved · Rejected`.
+- **KPI row** — three cards: `Pending Approval`, `Approved`, `Rejected`.
+- **Filter row** — status chips + date range chips + location dropdown.
+- **Submissions table** — paginated, 10 rows per page.
+
+#### Table columns
+
+| Column | Meaning |
+|---|---|
+| **Date** | Submission date. |
+| **Operator** | Name of the operator who submitted. |
+| **Location** | Site name. |
+| **Total Cash** | The operator's reported total for that day. |
+| **Variance** | Difference vs. imprest, colour-coded by tolerance (green / amber / red). |
+| **Status** | `Pending Approval` (amber) · `Approved` (green) · `Rejected` (red) badge. |
+| **Action** | **View & Approve** or **Review** button. |
+
+Timestamps shown as "time ago" (e.g. `3h 2m ago`). Click any column header to sort.
+
+### Filtering pending submissions
+
+![Daily Review filtered to Pending](/help/screenshots/controller/ctrl-daily-pending.png)
+
+Three filter controls in the header:
+
+- **Status** chips: `All · Pending · Approved · Rejected`. Click Pending to see only what needs your attention.
 - **Date range** chips: `7 days · 30 days · All`.
 - **Location** dropdown scopes to one site.
 
-**Submission table columns:** `Date · Operator · Location · Total Cash · Variance · Status · Action`. Status badges use green / amber / red. Variance is colour-coded by the configured tolerance. Timestamps are shown as "time ago" (e.g. `3h 2m ago`).
+The selected chip turns dark green; filters combine, so you can drill in to "Rejected submissions at Appleton in the last 7 days".
 
-**Reviewing a submission:**
+### Reviewing a submission
 
 1. Find the pending submission and click **View & Approve**.
-2. The full cash count form opens in read-only view. You can mark individual sections **Approve** or **Flag**.
+2. The full cash count form opens in read-only view. You can mark individual sections as **Approve** or **Flag** using the section toolbar.
 3. Click **Approve** to accept the submission, or **Reject** and enter a clear reason. The operator sees your reason on their dashboard and via email.
 
 ## Weekly Review Dashboard
 
-![Weekly Review Dashboard](/help/screenshots/controller/ctrl-dashboard.png)
-
 Shows your scheduled verification visits and their state.
 
-**KPI cards:** `Scheduled · Completed · Missed`.
+![Weekly Review Dashboard](/help/screenshots/controller/ctrl-dashboard.png)
 
-**Filters:** status (`all · scheduled · completed · missed · cancelled`) + location.
+### What the screen shows
 
-**Visit table columns:** `Location · Date · DOW · Type · Status · Variance`.
+- **KPI row** — `Scheduled`, `Completed`, `Missed` visit counts for the period.
+- **Filter row** — status dropdown + location dropdown.
+- **Visits table** — paginated.
 
-Visit statuses use coloured badges:
+#### Visit status badges
 
 | Status | Badge |
 |---|---|
 | Scheduled | 📅 Scheduled (blue) |
 | Completed | ✅ Completed (green) |
 | Missed | ❌ Missed (red) |
-| Cancelled | ⊘ Cancelled (gray) |
+| Cancelled | ⊘ Cancelled (grey) |
 
-Click a row to expand inline controls for **Complete / Miss / Cancel**.
+#### Visit table columns
 
-## Scheduling a visit
+`Location · Date · DOW · Type · Status · Variance`. Type is `Controller` or `DGM`. Click a row to expand inline controls for **Complete / Miss / Cancel**.
 
-Click **Schedule Visit** (from the Weekly Review Dashboard or the sidebar).
+### Filtering visits by status
+
+![Weekly Review filtered to Scheduled visits](/help/screenshots/controller/ctrl-dashboard-scheduled.png)
+
+The **status** dropdown lets you narrow to one state: `all · scheduled · completed · missed · cancelled`. The table updates immediately.
+
+### Scheduling a visit
+
+Click **Schedule Visit** (from this screen or the sidebar):
 
 1. Pick a **location** from the dropdown.
 2. Pick a **date** on the calendar (Mon–Fri only; weekends are blocked).
 3. Optionally add a **note**.
-4. If you've visited the same location on the same weekday within the past 2 weeks, a warning modal appears — acknowledge with a reason to proceed.
+4. If you've visited the same location on the same weekday in the past 2 weeks, a warning modal appears — acknowledge with a reason to proceed.
 5. Click **Schedule**.
 
 > The scheduling screen no longer asks for a time slot — only a date.
 
-## Completing a visit
+### Completing a visit
 
 1. Find the scheduled visit on the Weekly Review Dashboard.
 2. Click **Mark as Completed**.
@@ -79,49 +111,42 @@ Click **Schedule Visit** (from the Weekly Review Dashboard or the sidebar).
 
 The **Complete** action is available only during the SLA window (scheduled time + `approval_sla_hours`). After that it disappears and you must use **Miss** instead.
 
-## Miss and Cancel rules
+### Miss and Cancel rules
 
-- **Miss** is available after the scheduled time passes, or for past dates. Choose a reason from the dropdown (6 options: access blocked, staff conflict, emergency, transport, rescheduled, other).
-- **Cancel** is available only for future dates and for today before the scheduled time. Once the scheduled time arrives, you can no longer cancel — mark the visit Missed instead.
+- **Miss** — available after the scheduled time passes, or for past dates. Choose a reason from the dropdown (6 options: access blocked, staff conflict, emergency, transport, rescheduled, other).
+- **Cancel** — available only for future dates and for today before the scheduled time. Once the scheduled time arrives, you can no longer cancel — mark the visit Missed instead.
 
 ## Review DGM Visits
 
-![Review DGM Visits](/help/screenshots/controller/ctrl-dgm-review.png)
-
 A dedicated screen to audit the monthly visits completed by DGMs in your portfolio.
 
-**Filters:** location + time window (`Today · Week · Month · All`).
+![Review DGM Visits — Month view](/help/screenshots/controller/ctrl-dgm-review-month.png)
 
-**Columns:** `Location · Month · Date · Verifier · Status · Observed Total · Notes`.
+### What the screen shows
 
-Click a row to expand into a **section-level review** — for each of Sections A–I, you can mark the DGM's observations **accept** or **reject** with a comment. Snapshots of the operator's submission at visit-time are visible alongside for cross-reference.
+- Location filter + time window chips (`Today · Week · Month · All`).
+- Table of DGM visits with status badges and observed cash totals.
+
+#### Columns
+
+`Location · Month · Date · Verifier · Status · Observed Total · Notes`. Click a row to expand a section-level review — for each of Sections A–I, you can mark the DGM's observations **accept** or **reject** with a comment. Snapshots of the operator's submission at visit-time are visible alongside for cross-reference.
 
 Use this screen to catch DGM visits where the observed cash, section results, or notes warrant follow-up.
 
 ## Cash Reasonableness Test
 
-![Cash Reasonableness Test](/help/screenshots/controller/ctrl-reasonableness.png)
+Evaluates whether recent submissions are plausible against historical trends. Saves the result for the Admin's Reasonableness Reports.
 
-Evaluates whether recent submissions are plausible against historical trends before you approve them. The screen is a **two-step flow**:
+![Cash Reasonableness Test — Step 1 parameters](/help/screenshots/controller/ctrl-reasonableness-step1.png)
 
-**Step 1 — parameters:**
-
-- **Location Group** — pick one of your assigned groups.
-- **From / To dates** — the period to evaluate.
-- **Factor** — the reasonableness multiplier (how many standard-variances wide the expected band is).
-
-**Step 2 — calculated report:**
-
-A table shows, per location in the group: `Expected Fund · Actual (max daily submission) · Over · Cushion · Net`. Rows outside the reasonable band are highlighted.
-
-You can **Accept**, **Query operator** (sends an in-system message), or **Reject with reasoning** from this view. Your reasonableness decision is recorded in the audit trail with full context.
+See the dedicated **Cash Reasonableness** tab in this User Guide for the full walkthrough — formula, per-location action notes, the auto-save trigger, and how the overall report status is decided.
 
 ## Tips
 
 - Review pending submissions **within 48 hours** to avoid SLA breaches.
 - When rejecting, give a **clear reason** so the operator knows what to fix.
 - Spread visits across **different weekdays** — the system warns about same-weekday repeats in the past 2 weeks.
-- Use **Query operator** for ambiguous cases instead of an outright rejection.
+- Use **Query operator** for ambiguous cases instead of an outright rejection (in Cash Reasonableness).
 - You can complete a visit even if the operator didn't submit — the form lets you fill in the cash count yourself.
 
 *Video walkthrough coming soon.*

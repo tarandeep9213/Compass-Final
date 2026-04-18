@@ -280,3 +280,26 @@ table.dt tr:hover td { background: var(--g0); }
   border-radius: 4px;
   font-size: 12px;
 }
+
+/* GitHub-flavored markdown tables (rendered via remark-gfm). */
+.user-guide-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.user-guide-body th,
+.user-guide-body td {
+  border: 1px solid var(--g3);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.user-guide-body thead th {
+  background: var(--g0);
+  font-weight: 700;
+  color: var(--g8);
+}
+.user-guide-body tbody tr:nth-child(even) {
+  background: #fafafa;
+}
