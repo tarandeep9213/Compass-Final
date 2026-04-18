@@ -11,8 +11,12 @@
 *.key 
 
 # Explicit sensitive files
-campus.pem 
-campus_dev.pem 
+campus.pem
+campus_dev.pem
+
+# Google OAuth client secrets (downloaded JSON files from GCP console)
+client_secret_*.json
+client_secret*.json
 
 # =========================================================
 # 🗄 DATABASE FILES (LOCAL ONLY)
