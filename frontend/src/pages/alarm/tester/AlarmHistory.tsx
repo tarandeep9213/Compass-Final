@@ -81,9 +81,6 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
     return result
   }, [tests, locationBuildingIds, filterBuilding, filterStatus, filterYear, filterMonth])
 
-  // Reset page when filters change
-  useEffect(() => { setPage(0) }, [filterBuilding, filterStatus, filterYear, filterMonth])
-
   // ── KPI counts ────────────────────────────────────────────────────────────
   const currentYear = new Date().getFullYear().toString()
   const yearTests = tests.filter(
@@ -124,8 +121,8 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
           <p style={{ color: 'var(--ts)', fontSize: 13, margin: '4px 0 0' }}>View all alarm tests across your assigned buildings</p>
         </div>
         <div className="ph-right" style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-primary" onClick={() => onNavigate('alarm-test-form')}>🔔 Monthly Alarm Test</button>
-          <button className="btn btn-outline" onClick={() => onNavigate('biannual-check')}>📋 Biannual Checks</button>
+          <button className="btn btn-primary" data-screenshot-trigger="nav-test-form" onClick={() => onNavigate('alarm-test-form')}>🔔 Monthly Alarm Test</button>
+          <button className="btn btn-outline" data-screenshot-trigger="nav-biannual-form" onClick={() => onNavigate('biannual-check')}>📋 Biannual Checks</button>
         </div>
       </div>
 
@@ -133,6 +130,7 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
       <div style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
         {(['monthly', 'biannual'] as const).map(tab => (
           <button key={tab}
+            data-screenshot-trigger={tab === 'biannual' ? 'tab-biannual' : 'tab-monthly'}
             onClick={() => { setActiveTab(tab); setPage(0); setBiPage(0) }}
             style={{
               padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
@@ -184,7 +182,7 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
             className="f-sel"
             style={{ width: 200 }}
             value={filterBuilding}
-            onChange={(e) => setFilterBuilding(e.target.value)}
+            onChange={(e) => { setFilterBuilding(e.target.value); setPage(0) }}
           >
             <option value="">All Buildings</option>
             {locationBuildings.map((b) => (
@@ -199,7 +197,7 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
                 key={s}
                 type="button"
                 style={pillStyle(filterStatus === s)}
-                onClick={() => setFilterStatus(s)}
+                onClick={() => { setFilterStatus(s); setPage(0) }}
               >
                 {STATUS_LABELS[s]}
               </button>
@@ -212,7 +210,7 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
               className="f-sel"
               style={{ width: 100 }}
               value={filterYear}
-              onChange={(e) => { setFilterYear(e.target.value); setFilterMonth('') }}
+              onChange={(e) => { setFilterYear(e.target.value); setFilterMonth(''); setPage(0) }}
             >
               <option value="">All Years</option>
               {[2026, 2025, 2024, 2023].map((y) => (
@@ -223,7 +221,7 @@ export default function AlarmHistory({ locationIds, onNavigate }: Props) {
               className="f-sel"
               style={{ width: 130 }}
               value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
+              onChange={(e) => { setFilterMonth(e.target.value); setPage(0) }}
               disabled={!filterYear}
             >
               <option value="">All Months</option>

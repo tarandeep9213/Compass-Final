@@ -622,7 +622,7 @@ export default function RcBizDash({ adminName }: Props) {
           ))}
         </div>
       ) : (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+      <div data-screenshot="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
         {(kpiCards ?? []).map(kpi => {
           const isRed   = kpi.redBelow   !== undefined && kpi.raw < kpi.redBelow
           const isAmber = kpi.amberBelow !== undefined && kpi.raw < kpi.amberBelow && !isRed
@@ -653,7 +653,7 @@ export default function RcBizDash({ adminName }: Props) {
       )}
 
       {/* ── Coverage Strip — real API data (Task 6) ────────────────────── */}
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div data-screenshot="coverage-strip" className="card" style={{ marginBottom: 20 }}>
         <div className="card-body" style={{ padding: '14px 20px' }}>
           {!coverage ? (
             <div style={{ textAlign: 'center', color: 'var(--ts)', fontSize: 13, padding: '12px 0' }}>Loading coverage data…</div>
@@ -708,7 +708,7 @@ export default function RcBizDash({ adminName }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 20 }}>
 
         {/* Trend chart — real API data (Task 1) */}
-        <div className="card">
+        <div data-screenshot="compliance-trend" className="card">
           <div className="card-header">
             <span className="card-title">Compliance Trend</span>
             <span className="card-sub">Last 8 weeks · {trendLoading ? 'Loading…' : trendData ? `${trendData.length} data points` : 'No data'}</span>
@@ -736,7 +736,7 @@ export default function RcBizDash({ adminName }: Props) {
         </div>
 
         {/* At-Risk panel — real API data (Task 3) */}
-        <div className="card">
+        <div data-screenshot="top-at-risk" className="card">
           <div className="card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span className="card-title">Top At-Risk Locations</span>
@@ -786,7 +786,7 @@ export default function RcBizDash({ adminName }: Props) {
       </div>
 
       {/* ── Operator Behaviour — real API data (Tasks 9+10) ────────────── */}
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div data-screenshot="operator-behaviour" className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">
           <span className="card-title">Operator Behaviour</span>
           <span className="card-sub">{opBehaviourLoading ? 'Loading…' : 'Submission patterns · Platform usage · This month'}</span>
@@ -868,7 +868,7 @@ export default function RcBizDash({ adminName }: Props) {
       </div>
 
       {/* ── Controller Activity — real API data (Task 8) ──────────────── */}
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div data-screenshot="controller-activity" className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="card-title">Controller Activity</span>
@@ -946,7 +946,7 @@ export default function RcBizDash({ adminName }: Props) {
       </div>
 
       {/* ── DGM Coverage — real API data (Task 11) ────────────────────── */}
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div data-screenshot="dgm-coverage" className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="card-title">DGM Coverage</span>
@@ -1034,7 +1034,7 @@ export default function RcBizDash({ adminName }: Props) {
       </div>
 
       {/* ── Slowest Approvers — real API data (Task 2) ────────────────────── */}
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div data-screenshot="slowest-approvers" className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="card-title">Slowest Approvers</span>
@@ -1099,7 +1099,7 @@ export default function RcBizDash({ adminName }: Props) {
       </div>
 
       {/* ── Layer 3: Location Compliance Detail (collapsible) ────────── */}
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div data-screenshot="location-detail" className="card" style={{ marginBottom: 20 }}>
         <div
           className="card-header"
           style={{ cursor: 'pointer', userSelect: 'none' }}

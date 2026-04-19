@@ -317,7 +317,12 @@ export default function AlarmBuildingSetup({ adminName, onNavigate }: Props) {
       {/* Sub-nav pill bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         {NAV_PILLS.map(p => (
-          <span key={p.panel} style={pillStyle(p.panel === 'alarm-building-setup')} onClick={() => onNavigate(p.panel)}>
+          <span
+            key={p.panel}
+            data-screenshot-trigger={`sub-${p.panel}`}
+            style={pillStyle(p.panel === 'alarm-building-setup')}
+            onClick={() => onNavigate(p.panel)}
+          >
             {p.label}
           </span>
         ))}
@@ -386,7 +391,7 @@ export default function AlarmBuildingSetup({ adminName, onNavigate }: Props) {
               ⬇ Sample CSV
             </a>
             <button className="btn btn-outline" onClick={openImport}>Import CSV</button>
-            <button className="btn btn-primary" onClick={openAdd}>+ Add Building</button>
+            <button className="btn btn-primary" data-screenshot-trigger="add-building" onClick={openAdd}>+ Add Building</button>
             <button
               className="btn btn-outline"
               style={{ color: 'var(--red)', borderColor: 'var(--red)' }}

@@ -49,7 +49,7 @@ function StatusBadge({ status }: { status: AlarmTest['status'] }) {
   return <span className="badge badge-gray">{status}</span>
 }
 
-export default function AlarmApproval({ adminName: _adminName, onNavigate }: Props) {
+export default function AlarmApproval({ onNavigate }: Props) {
   const [activeTab, setActiveTab] = useState<'monthly' | 'biannual'>('monthly')
   const [allTests, setAllTests]     = useState<AlarmTest[]>([])
   const [allBiannual, setAllBiannual] = useState<BiannualCheck[]>([])
@@ -64,7 +64,6 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
 
   // ── Load all tests in one shot ────────────────────────────────────────────
   useEffect(() => {
-    setLoading(true)
     Promise.all([
       listTests({}),
       listAlarmBuildings(),
@@ -130,7 +129,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div>
+    <div className="fade-up">
       {/* ── Page header ── */}
       <div className="ph">
         <div>
@@ -371,6 +370,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
                         <td>
                           <button
                             className={t.status === 'SUBMITTED' ? 'btn btn-primary' : 'btn btn-outline'}
+                            data-screenshot-trigger="review-first"
                             style={{ padding: '5px 14px', fontSize: 12 }}
                             onClick={() => onNavigate('alarm-review', { testId: t.id, fromPanel: 'alarm-approval' })}
                           >
@@ -416,7 +416,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
       {activeTab === 'biannual' && (() => {
         const biStatusFilter = statusFilter
         const filtered = allBiannual.filter((c: BiannualCheck) => {
-          const approvalStatus = ((c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED') || 'DRAFT'
+          const approvalStatus = (c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED'
           if (biStatusFilter !== 'ALL' && approvalStatus !== biStatusFilter) return false
           if (regionFilter) {
             const bld = buildings.find(b => b.id === c.buildingId)
@@ -502,7 +502,7 @@ export default function AlarmApproval({ adminName: _adminName, onNavigate }: Pro
                   <tbody>
                     {biRows.map((c: BiannualCheck) => {
                       const bld = buildings.find(b => b.id === c.buildingId)
-                      const approvalStatus = ((c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED') || 'DRAFT'
+                      const approvalStatus = (c as unknown as {approval_status?: string}).approval_status || 'SUBMITTED'
                       return (
                         <tr key={c.id}>
                           <td>{formatDate(c.checkDate)}</td>
