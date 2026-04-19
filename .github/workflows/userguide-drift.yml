@@ -1,0 +1,116 @@
+name: User Guide screenshot drift
+
+# Runs on PRs that touch frontend panels, user-guide markdown/screenshots,
+# or backend code that affects demo-seed data. Captures a fresh screenshot
+# for every target in scripts/userguide-targets.mjs and fails if any differ
+# from the committed baselines — forcing the PR author to either refresh
+# the baselines (if the UI change is intentional) or fix the UI drift.
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/pages/**'
+      - 'frontend/public/help/**'
+      - 'frontend/src/index.css'
+      - 'scripts/userguide-targets.mjs'
+      - 'scripts/userguide-diff.mjs'
+      - 'backend/seed.py'
+      - 'backend/seed_demo.py'
+      - 'backend/app/**'
+      - '.github/workflows/userguide-drift.yml'
+  workflow_dispatch:
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Seed demo data
+        working-directory: backend
+        run: |
+          python seed.py
+          # seed_demo.py is optional — some envs don't have it wired to /v1
+          python seed_demo.py || echo "seed_demo.py skipped"
+
+      - name: Start backend (port 8001)
+        working-directory: backend
+        run: |
+          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 > /tmp/backend.log 2>&1 &
+          echo "backend_pid=$!" >> $GITHUB_ENV
+          # Wait for /docs to respond
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8001/docs > /dev/null; then
+              echo "backend up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "backend failed to start"; tail -n 80 /tmp/backend.log; exit 1
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Start frontend (port 3000)
+        working-directory: frontend
+        env:
+          VITE_API_URL: http://localhost:8001/v1
+        run: |
+          nohup npm run dev -- --host 0.0.0.0 --port 3000 > /tmp/frontend.log 2>&1 &
+          echo "frontend_pid=$!" >> $GITHUB_ENV
+          for i in {1..60}; do
+            if curl -fsS http://localhost:3000 > /dev/null; then
+              echo "frontend up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "frontend failed to start"; tail -n 80 /tmp/frontend.log; exit 1
+
+      - name: Run drift check
+        id: drift
+        env:
+          FRONTEND_URL: http://localhost:3000
+        run: node scripts/userguide-diff.mjs
+
+      - name: Upload fresh captures on failure
+        if: failure() && steps.drift.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: userguide-fresh-captures
+          path: /tmp/userguide-diff-*
+          if-no-files-found: ignore
+
+      - name: Upload server logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: |
+            /tmp/backend.log
+            /tmp/frontend.log
+          if-no-files-found: ignore
