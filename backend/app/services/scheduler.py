@@ -23,6 +23,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 SCHEDULER_TZ = ZoneInfo("America/Chicago")
 
 from app.db.session import SessionLocal
+from app.core.business_days import is_business_day
 from app.models.user import User, UserRole
 from app.models.location import Location
 from app.models.submission import Submission, SubmissionStatus
@@ -51,10 +52,19 @@ def _run_async(coro) -> None:
 # ── Job 1: Daily submission reminder ─────────────────────────────────────────
 
 def job_daily_reminder() -> None:
-    """Email operators who haven't submitted today."""
+    """Email operators who haven't submitted today.
+
+    Skips weekends — cashrooms don't operate Sat/Sun so no reminder is useful.
+    Uses SCHEDULER_TZ (not the container's UTC) so "today" matches the
+    operator's notion of the day.
+    """
+    today_local = datetime.now(SCHEDULER_TZ).date()
+    if not is_business_day(today_local):
+        logger.info("Skipping daily_reminder — %s is a weekend", today_local)
+        return
     db = SessionLocal()
     try:
-        today = date.today().isoformat()
+        today = today_local.isoformat()
         cfg = _get_config(db)
 
         # Find all active operators
@@ -92,7 +102,16 @@ def job_daily_reminder() -> None:
 # ── Job 2: SLA breach check ───────────────────────────────────────────────────
 
 def job_sla_breach_check() -> None:
-    """Email controllers for submissions pending approval past SLA threshold."""
+    """Email controllers for submissions pending approval past SLA threshold.
+
+    Skips weekends — controllers don't approve on Sat/Sun, so a Friday
+    submission doesn't need to wake them up Saturday night. The breach
+    still exists; emails resume Monday morning when the job next runs
+    on a business day. The SLA cutoff timestamp itself is unchanged —
+    this only controls *when* the notification is sent.
+    """
+    if not is_business_day(datetime.now(SCHEDULER_TZ).date()):
+        return
     db = SessionLocal()
     try:
         cfg = _get_config(db)
