@@ -3,8 +3,9 @@ import { getLocation, formatCurrency, IMPREST, todayStr } from '../../mock/data'
 import type { VerificationRecord } from '../../mock/data'
 import { listDgmVerifications, listControllerVerifications, completeDgmVisit, missDgmVisit, cancelDgmVisit } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
+import { listClosures } from '../../api/closures'
 import { api } from '../../api/client'
-import type { ApiVerification } from '../../api/types'
+import type { ApiVerification, ApiClosure } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 import { DEFAULT_TOLERANCE } from '../../utils/variance'
 
@@ -171,6 +172,8 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   const [apiSubsMap, setApiSubsMap] = useState<Record<string, { status: string; id: string; totalCash: number; submittedByRole: string }>>({})
+  // Closure lookup for any visit day (Issue #2 Option 4): `${locId}_${date}` → ApiClosure.
+  const [closureMap, setClosureMap] = useState<Record<string, ApiClosure>>({})
   const [slaHours, setSlaHours] = useState(48)
   const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE)
 
@@ -197,6 +200,18 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
         status: v.status, notes: v.notes ?? '',
       }))))
       .catch(() => {})
+
+    // 2a. Fetch Closures for every assigned location (Issue #2 Option 4).
+    if (locationIds.length > 0) {
+      Promise.all(locationIds.map(id =>
+        listClosures({ location_id: id }).then(r => r.items).catch(() => [] as ApiClosure[])
+      ))
+        .then(arrays => {
+          const map: Record<string, ApiClosure> = {}
+          for (const c of arrays.flat()) map[`${c.location_id}_${c.closure_date}`] = c
+          setClosureMap(map)
+        })
+    }
 
     // 2. Fetch Submissions to check approval status + get IDs for navigation
     if (locationIds.length > 0) {
@@ -597,6 +612,26 @@ export default function DGMDash({ dgmName, locationIds, ctx, onNavigate }: Props
                         <td>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{loc?.name ?? v.locationId}</div>
                           <div style={{ fontSize: 11, color: 'var(--ts)' }}>CC: {(loc as unknown as { costCenter?: string; cost_center?: string })?.costCenter || (loc as unknown as { costCenter?: string; cost_center?: string })?.cost_center || 'N/A'}</div>
+                          {(() => {
+                            const closure = closureMap[`${v.locationId}_${v.date}`]
+                            if (!closure) return null
+                            return (
+                              <span
+                                title={closure.notes
+                                  ? `Closed — ${closure.reason.toLowerCase()} — ${closure.notes} — reported by ${closure.reported_by_name}`
+                                  : `Closed — ${closure.reason.toLowerCase()} — reported by ${closure.reported_by_name}`}
+                                style={{
+                                  display: 'inline-block', marginTop: 4,
+                                  fontSize: 10, fontWeight: 700,
+                                  padding: '2px 7px', borderRadius: 6,
+                                  background: 'var(--g0)', color: 'var(--g8)',
+                                  border: '1px solid var(--g3)', whiteSpace: 'nowrap',
+                                }}
+                              >
+                                🗓 Closed · {closure.reason.toLowerCase()}
+                              </span>
+                            )
+                          })()}
                         </td>
                         <td><StatusBadge status={v.status} isOverdue={(v as DashRecord).isOverdue} /></td>
                         <td style={{ textAlign: 'right', fontFamily: 'DM Serif Display,serif', fontSize: 15 }}>

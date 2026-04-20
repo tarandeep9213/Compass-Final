@@ -3,7 +3,8 @@ import { VERIFICATIONS, VERIFICATION_REVIEWS, getLocation, todayStr } from '../.
 import type { VerificationRecord, VerificationReview } from '../../mock/data'
 import { listDgmVerifications } from '../../api/verifications'
 import { listSubmissions } from '../../api/submissions'
-import type { ApiVerification } from '../../api/types'
+import { listClosures } from '../../api/closures'
+import type { ApiVerification, ApiClosure } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 
 function mapApiVerification(v: ApiVerification): VerificationRecord {
@@ -38,6 +39,8 @@ export default function CtrlDgmReview({ locationIds, onNavigate }: Props) {
 
   const [apiVerifs, setApiVerifs] = useState<VerificationRecord[]>([])
   const [apiSubsMap, setApiSubsMap] = useState<Record<string, { id: string }>>({})
+  // Closure lookup (Issue #2 Option 4) — surfaced as a pill on any visit row.
+  const [closureMap, setClosureMap] = useState<Record<string, ApiClosure>>({})
   useEffect(() => {
     listDgmVerifications()
       .then(r => setApiVerifs(r.items.map(mapApiVerification).filter(v => locationIds.includes(v.locationId))))
@@ -49,6 +52,16 @@ export default function CtrlDgmReview({ locationIds, onNavigate }: Props) {
           arrays.flat().forEach(s => { map[`${s.location_id}_${s.submission_date}`] = { id: s.id } })
           setApiSubsMap(map)
         }).catch(() => {})
+
+      // Closures per location → single lookup keyed by locId_date.
+      Promise.all(locationIds.map(id =>
+        listClosures({ location_id: id }).then(r => r.items).catch(() => [] as ApiClosure[])
+      ))
+        .then(arrays => {
+          const map: Record<string, ApiClosure> = {}
+          for (const c of arrays.flat()) map[`${c.location_id}_${c.closure_date}`] = c
+          setClosureMap(map)
+        })
     }
   }, [locationIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -331,6 +344,26 @@ export default function CtrlDgmReview({ locationIds, onNavigate }: Props) {
                         <td>
                           <div style={{ fontWeight: 500, fontSize: 13 }}>{loc?.name ?? v.locationId}</div>
                           <div style={{ fontSize: 11, color: 'var(--ts)', fontFamily: 'monospace' }}>CC: {(loc as unknown as { costCenter?: string; cost_center?: string })?.costCenter || (loc as unknown as { costCenter?: string; cost_center?: string })?.cost_center || 'N/A'}</div>
+                          {(() => {
+                            const closure = closureMap[`${v.locationId}_${v.date}`]
+                            if (!closure) return null
+                            return (
+                              <span
+                                title={closure.notes
+                                  ? `Closed — ${closure.reason.toLowerCase()} — ${closure.notes} — reported by ${closure.reported_by_name}`
+                                  : `Closed — ${closure.reason.toLowerCase()} — reported by ${closure.reported_by_name}`}
+                                style={{
+                                  display: 'inline-block', marginTop: 4,
+                                  fontSize: 10, fontWeight: 700,
+                                  padding: '2px 7px', borderRadius: 6,
+                                  background: 'var(--g0)', color: 'var(--g8)',
+                                  border: '1px solid var(--g3)', whiteSpace: 'nowrap',
+                                }}
+                              >
+                                🗓 Closed · {closure.reason.toLowerCase()}
+                              </span>
+                            )
+                          })()}
                         </td>
 
                         {/* DGM Name */}
