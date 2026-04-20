@@ -82,8 +82,11 @@ def test_submit_draft(client, operator_token):
     assert r.json()["status"] == "pending_approval"
 
 
-# ── TC-3.5  Cannot update a submitted submission ──────────────────────────────
-def test_cannot_update_submitted(client, operator_token):
+# ── TC-3.5  Can update a pending submission (confirmed via e2e spec) ─────────
+# Operators can edit a pending submission to fix mistakes before the
+# controller reviews it. Once APPROVED, the endpoint returns 400.
+# See frontend/e2e/update-submission.spec.ts for the full flow.
+def test_can_update_pending_submission(client, operator_token):
     create = client.post("/v1/submissions",
         headers={"Authorization": f"Bearer {operator_token}"},
         json={"location_id": "loc-1", "submission_date": "2026-03-05",
@@ -96,7 +99,7 @@ def test_cannot_update_submitted(client, operator_token):
         json={"location_id": "loc-1", "submission_date": "2026-03-05",
               "source": "FORM", "sections": SECTIONS},
     )
-    assert r.status_code == 400
+    assert r.status_code == 200
 
 
 # ── TC-3.6  Operator cannot access another operator's submission ──────────────
