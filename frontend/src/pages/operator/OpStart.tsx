@@ -391,6 +391,7 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                 {todayIsBusinessDay && (
                   <button
                     className="btn btn-outline"
+                    data-screenshot-trigger="report-no-count"
                     style={{ padding: '9px 16px', fontSize: 13 }}
                     onClick={() => setClosureModalOpen(true)}
                   >
