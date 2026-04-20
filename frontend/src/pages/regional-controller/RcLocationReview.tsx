@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { listLocations } from '../../api/locations'
 import { listSubmissions } from '../../api/submissions'
 import { formatCurrency } from '../../mock/data'
+import { mostRecentBusinessDateISO, isBusinessDay } from '../../utils/businessDays'
 import type { ApiLocation, ApiSubmission } from '../../api/types'
 
 interface Props {
@@ -14,10 +15,11 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
   const [submissions, setSubmissions] = useState<ApiSubmission[]>([])
   const [loading, setLoading] = useState(true)
 
-  const today = useMemo(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }, [])
+  // Cashrooms are closed Sat/Sun — on a weekend, land the user on the most
+  // recent business day (Friday) instead of showing an empty Sat/Sun page.
+  // `todayIsBusinessDay` controls a small "showing Friday" banner below.
+  const today = useMemo(() => mostRecentBusinessDateISO(), [])
+  const todayIsBusinessDay = useMemo(() => isBusinessDay(new Date()), [])
 
   useEffect(() => {
     setLoading(true)
@@ -80,6 +82,22 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
           </p>
         </div>
       </div>
+
+      {!todayIsBusinessDay && (
+        <div
+          style={{
+            padding: '10px 16px',
+            background: 'var(--g0)',
+            border: '1px solid var(--g3)',
+            borderRadius: 8,
+            color: 'var(--g8)',
+            fontSize: 13,
+            marginBottom: 16,
+          }}
+        >
+          Cashrooms are closed weekends — showing the most recent business day ({dateLabel}).
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--ts)' }}>Loading...</div>

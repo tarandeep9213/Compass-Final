@@ -227,11 +227,23 @@ def get_compliance_trend(
     total_locations = len(locations)
 
     # Build period boundaries
+    # Daily view skips Sat/Sun — cashrooms don't operate weekends, so showing
+    # 0% compliance bars every Sat/Sun made the graph look alarming without
+    # reflecting a real issue. We walk further back than `periods` if needed
+    # to keep `periods` business-day buckets on the result.
+    from app.core.business_days import is_business_day
     buckets = []
     if granularity == "daily":
-        for i in range(periods - 1, -1, -1):
+        seen = 0
+        i = 0
+        while seen < periods:
             d = today - timedelta(days=i)
+            i += 1
+            if not is_business_day(d):
+                continue
             buckets.append((d.isoformat(), d.isoformat(), d.isoformat()))
+            seen += 1
+        buckets.reverse()  # oldest → newest
     elif granularity == "monthly":
         for i in range(periods - 1, -1, -1):
             m = today.month - i
