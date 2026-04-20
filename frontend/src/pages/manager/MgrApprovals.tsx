@@ -3,8 +3,9 @@ import { getLocation, formatCurrency } from '../../mock/data'
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
+import { listClosures } from '../../api/closures'
 import { api } from '../../api/client'
-import type { ApiSubmission, ApiLocation } from '../../api/types'
+import type { ApiSubmission, ApiLocation, ApiClosure } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 import { varColor, varHighlight, DEFAULT_TOLERANCE } from '../../utils/variance'
 
@@ -81,6 +82,22 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
     Promise.all(locationIds.map(id => listSubmissions({ location_id: id, page_size: 100 }).then(r => r.items.map(mapApiSub))))
       .then(arrays => setApiSubs(arrays.flat()))
       .catch(() => { /* fall back to mock */ })
+  }, [locationIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Today's closures across the controller's assigned locations — surfaced as
+  // a banner so controllers don't chase operators at a closed site.
+  const [todayClosures, setTodayClosures] = useState<ApiClosure[]>([])
+  useEffect(() => {
+    const key = locationIds.join(',')
+    if (!key) return
+    const t = new Date()
+    const todayIso = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+    Promise.all(locationIds.map(id =>
+      listClosures({ location_id: id, date_from: todayIso, date_to: todayIso })
+        .then(r => r.items)
+        .catch(() => [] as ApiClosure[])
+    ))
+      .then(arrays => setTodayClosures(arrays.flat()))
   }, [locationIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset to page 0 when filters change
@@ -182,6 +199,40 @@ export default function MgrApprovals({ managerName, locationIds, onNavigate }: P
           </p>
         </div>
       </div>
+
+      {/* ── Closures banner (Issue #2) ─────────────────────────────────
+           Controllers see a single strip listing any locations closed today
+           so they don't chase operators at a closed site. */}
+      {todayClosures.length > 0 && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '10px 14px',
+            background: 'var(--g0)',
+            border: '1px solid var(--g3)',
+            borderRadius: 8,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '6px 12px',
+            alignItems: 'center',
+            fontSize: 13,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>📅</span>
+          <span style={{ fontWeight: 600, color: 'var(--g8)' }}>
+            {todayClosures.length === 1 ? '1 location closed today' : `${todayClosures.length} locations closed today`}:
+          </span>
+          {todayClosures.map((c, i) => (
+            <span key={c.id} style={{ color: 'var(--tm)' }}>
+              <strong style={{ color: 'var(--g8)' }}>{c.location_name}</strong>
+              {' — '}
+              {c.reason.toLowerCase()}
+              {c.notes && ` (${c.notes})`}
+              {i < todayClosures.length - 1 && ','}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* ── KPI row ── */}
       <div className="kpi-row" style={{ marginBottom: 20 }}>
