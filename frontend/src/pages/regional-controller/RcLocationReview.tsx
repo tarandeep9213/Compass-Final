@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { listLocations } from '../../api/locations'
 import { listSubmissions } from '../../api/submissions'
+import { listClosures } from '../../api/closures'
 import { formatCurrency } from '../../mock/data'
 import { mostRecentBusinessDateISO, isBusinessDay } from '../../utils/businessDays'
-import type { ApiLocation, ApiSubmission } from '../../api/types'
+import type { ApiLocation, ApiSubmission, ApiClosure } from '../../api/types'
 
 interface Props {
   userName: string
@@ -13,6 +14,7 @@ interface Props {
 export default function RcLocationReview({ userName, onNavigate }: Props) {
   const [locations, setLocations] = useState<ApiLocation[]>([])
   const [submissions, setSubmissions] = useState<ApiSubmission[]>([])
+  const [closures, setClosures] = useState<ApiClosure[]>([])
   const [loading, setLoading] = useState(true)
 
   // Cashrooms are closed Sat/Sun — on a weekend, land the user on the most
@@ -26,14 +28,23 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
     Promise.all([
       listLocations(),
       listSubmissions({ date_from: today, date_to: today, page_size: 200 }),
+      listClosures({ date_from: today, date_to: today }).catch(() => ({ items: [] as ApiClosure[] })),
     ])
-      .then(([locs, subs]) => {
+      .then(([locs, subs, cls]) => {
         setLocations(locs)
         setSubmissions(subs.items)
+        setClosures(cls.items)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [today])
+
+  // Closure lookup by location — at most one row per location per date.
+  const closureByLoc = useMemo(() => {
+    const map: Record<string, ApiClosure> = {}
+    for (const c of closures) map[c.location_id] = c
+    return map
+  }, [closures])
 
   // Group submissions by location
   const subsByLoc = useMemo(() => {
@@ -128,6 +139,7 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
                   const rcSub = byRole.REGIONAL_CONTROLLER
                   const hasAny = Object.keys(byRole).length > 0
                   const canFill = !rcSub   // RC can submit once per day
+                  const closure = closureByLoc[loc.id]
 
                   return (
                     <tr key={loc.id}>
@@ -137,7 +149,21 @@ export default function RcLocationReview({ userName, onNavigate }: Props) {
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--ts)' }}>{loc.cost_center || '—'}</td>
                       <td>
-                        {hasAny ? (
+                        {closure ? (
+                          <span
+                            title={closure.notes
+                              ? `Closed — ${closure.reason.toLowerCase()} — ${closure.notes} — reported by ${closure.reported_by_name}`
+                              : `Closed — ${closure.reason.toLowerCase()} — reported by ${closure.reported_by_name}`}
+                            style={{
+                              fontSize: 11, fontWeight: 700,
+                              padding: '3px 9px', borderRadius: 6,
+                              background: 'var(--g0)', color: 'var(--g8)',
+                              border: '1px solid var(--g3)', whiteSpace: 'nowrap',
+                            }}
+                          >
+                            🗓 Closed · {closure.reason.toLowerCase()}
+                          </span>
+                        ) : hasAny ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                             {ROLES.map(role => {
                               const sub = byRole[role]

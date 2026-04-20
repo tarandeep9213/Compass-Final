@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from app.api.v1 import auth, locations, users, config, submissions, verifications, compliance, reports, audit, admin, business_dashboard, reasonableness, alarm_buildings, alarm_zones, alarm_rules, alarm_access, alarm_tests, alarm_audit, alarm_biannual, alarm_escalation, alarm_dashboard, alarm_users
+from app.api.v1 import auth, locations, users, config, submissions, verifications, compliance, reports, audit, admin, business_dashboard, reasonableness, closures, alarm_buildings, alarm_zones, alarm_rules, alarm_access, alarm_tests, alarm_audit, alarm_biannual, alarm_escalation, alarm_dashboard, alarm_users
 from app.core.deps import block_alarm_roles
 
 router = APIRouter(prefix="/v1")
@@ -18,6 +18,7 @@ router.include_router(audit.router, dependencies=_BLOCK_ALARM)
 router.include_router(admin.router, dependencies=_BLOCK_ALARM)
 router.include_router(business_dashboard.router, dependencies=_BLOCK_ALARM)
 router.include_router(reasonableness.router, dependencies=_BLOCK_ALARM)
+router.include_router(closures.router, dependencies=_BLOCK_ALARM)
 
 # ── Alarm routers — RBAC enforced inside each router ─────────────────────────
 router.include_router(alarm_buildings.router)

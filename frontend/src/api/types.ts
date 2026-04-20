@@ -18,6 +18,21 @@ export type SubmissionSource = 'FORM' | 'CHAT' | 'EXCEL'
 export type VerificationStatus = 'scheduled' | 'completed' | 'missed' | 'cancelled'
 export type VerificationType = 'CONTROLLER' | 'DGM'
 
+// ── Closures (Issue #2 — "no count" reporting) ───────────────────────────────
+export type ClosureReason = 'HOLIDAY' | 'WEATHER' | 'OTHER'
+
+export interface ApiClosure {
+  id: string
+  location_id: string
+  location_name: string
+  closure_date: string      // YYYY-MM-DD
+  reason: ClosureReason
+  notes: string
+  reported_by_id: string
+  reported_by_name: string
+  reported_at: string       // ISO
+}
+
 export type MissedReason =
   | 'Illness'
   | 'Technical Issue'

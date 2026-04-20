@@ -5,10 +5,13 @@ import {
 import type { Submission } from '../../mock/data'
 import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
+import { listClosures } from '../../api/closures'
 import { api } from '../../api/client'
-import type { ApiSubmission, ApiLocation } from '../../api/types'
+import type { ApiSubmission, ApiLocation, ApiClosure } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
 import { varColor, DEFAULT_TOLERANCE } from '../../utils/variance'
+import { isBusinessDay } from '../../utils/businessDays'
+import OpClosureModal from './OpClosureModal'
 
 function mapApiSub(s: ApiSubmission): Submission {
   const forceUTC = (d?: string | null) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
@@ -124,6 +127,18 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
   const todaySub = sourceSubs.find(s => s.locationId === locationId && s.date === todayStr() && s.status !== 'draft')
   const todayDraft = sourceSubs.find(s => s.locationId === locationId && s.date === todayStr() && s.status === 'draft')
   const todaySubmitted = !!todaySub
+
+  // ── Closure (Issue #2) — is today already marked closed? ───────────────
+  const [todayClosure, setTodayClosure] = useState<ApiClosure | null>(null)
+  const [closureModalOpen, setClosureModalOpen] = useState(false)
+  const todayIsBusinessDay = useMemo(() => isBusinessDay(new Date()), [])
+  useEffect(() => {
+    if (!locationId || !todayIsBusinessDay) return
+    const t = todayStr()
+    listClosures({ location_id: locationId, date_from: t, date_to: t })
+      .then(r => setTodayClosure(r.items[0] ?? null))
+      .catch(() => { /* non-fatal */ })
+  }, [locationId, todayIsBusinessDay])
 
   // ── Build history rows (last 90 days, including today) ──
   const last30 = lastNDays(90)
@@ -342,6 +357,24 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
               </div>
             </div>
           </div>
+        ) : todayClosure ? (
+          /* Closure reported for today — show neutral confirmation state */
+          <div style={{ borderRadius: 12, padding: '20px 24px', background: 'var(--g0)', border: '1.5px solid var(--g3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 28 }}>🗓</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--ts)', marginBottom: 4 }}>Today's Submission</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--g8)', marginBottom: 4 }}>
+                  No count reported — {todayClosure.reason.toLowerCase()}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ts)' }}>
+                  {todayClosure.notes
+                    ? `“${todayClosure.notes}” — reported by ${todayClosure.reported_by_name}`
+                    : `Reported by ${todayClosure.reported_by_name}`}
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           /* Not submitted yet */
           <div style={{ borderRadius: 12, padding: '20px 24px', background: '#fff', border: '2px dashed var(--ow2)' }}>
@@ -354,7 +387,16 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
                   Submit your cash count for today to keep your location compliant.
                 </div>
               </div>
-              <div style={{ marginLeft: 'auto' }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {todayIsBusinessDay && (
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '9px 16px', fontSize: 13 }}
+                    onClick={() => setClosureModalOpen(true)}
+                  >
+                    Report no count →
+                  </button>
+                )}
                 <button className="btn btn-primary" style={{ padding: '10px 22px', fontSize: 14 }}
                   onClick={() => onNavigate('op-method', { locationId, date: todayStr(), from: 'op-start' })}>
                   Submit Now →
@@ -678,6 +720,16 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
           )}
         </div>
       </div>
+
+      {closureModalOpen && locationId && (
+        <OpClosureModal
+          locationId={locationId}
+          locationName={location?.name ?? locationId}
+          closureDate={todayStr()}
+          onClose={() => setClosureModalOpen(false)}
+          onCreated={c => { setTodayClosure(c); setClosureModalOpen(false) }}
+        />
+      )}
 
     </div>
   )
