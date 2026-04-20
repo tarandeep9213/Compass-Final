@@ -9,10 +9,18 @@ Jobs:
 import asyncio
 import logging
 from datetime import date, datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+
+# Timezone for the daily_reminder / visit_reminder cron jobs.
+# Without this, APScheduler defaults to container local time (UTC in our
+# prod containers), which fired reminders at 3 AM for US operators.
+# All stored timestamps + SLA math remain UTC — this only affects when
+# the daily cron jobs fire.
+SCHEDULER_TZ = ZoneInfo("America/Chicago")
 
 from app.db.session import SessionLocal
 from app.models.user import User, UserRole
@@ -181,7 +189,7 @@ def start_scheduler() -> None:
 
     _scheduler.add_job(
         job_daily_reminder,
-        CronTrigger(hour=int(hour), minute=int(minute)),
+        CronTrigger(hour=int(hour), minute=int(minute), timezone=SCHEDULER_TZ),
         id="daily_reminder",
         replace_existing=True,
         misfire_grace_time=3600,
@@ -194,13 +202,14 @@ def start_scheduler() -> None:
     )
     _scheduler.add_job(
         job_visit_reminder,
-        CronTrigger(hour=8, minute=0),
+        CronTrigger(hour=8, minute=0, timezone=SCHEDULER_TZ),
         id="visit_reminder",
         replace_existing=True,
         misfire_grace_time=3600,
     )
     _scheduler.start()
-    logger.info("Scheduler started — daily_reminder at %s:%s, visit_reminder at 08:00, sla_check every 1h", hour, minute)
+    logger.info("Scheduler started — daily_reminder at %s:%s %s, visit_reminder at 08:00 %s, sla_check every 1h",
+                hour, minute, SCHEDULER_TZ.key, SCHEDULER_TZ.key)
 
 
 def stop_scheduler() -> None:
