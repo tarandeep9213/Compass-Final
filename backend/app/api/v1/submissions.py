@@ -348,8 +348,12 @@ def update_draft(
         raise HTTPException(404, "Submission not found")
     if s.operator_id != current_user.id:
         raise HTTPException(403, "Access denied")
-    if s.status not in (SubmissionStatus.DRAFT, SubmissionStatus.REJECTED, SubmissionStatus.PENDING_APPROVAL):
-        raise HTTPException(400, "Only draft, rejected, or pending submissions can be updated")
+    # Operators can only edit a draft (never submitted) or a rejected
+    # submission (to fix & resubmit). Once PENDING_APPROVAL or APPROVED the
+    # data is locked — if a mistake is found, the reviewer must reject so
+    # the operator can correct it via the "fix & resubmit" path.
+    if s.status not in (SubmissionStatus.DRAFT, SubmissionStatus.REJECTED):
+        raise HTTPException(400, "Only draft or rejected submissions can be updated")
 
     loc = db.get(Location, body.location_id)
     cfg = _get_config(db)
