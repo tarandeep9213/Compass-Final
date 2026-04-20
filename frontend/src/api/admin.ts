@@ -115,7 +115,7 @@ export function listAccessGrants(): Promise<{ items: ApiAccessGrant[] }> {
 
 export function grantAccess(
   user_id: string,
-  access_type: 'operator' | 'controller',
+  access_type: string,
   note: string,
 ): Promise<ApiAccessGrant> {
   return api.post<ApiAccessGrant>('/admin/access-grants', { user_id, access_type, note })

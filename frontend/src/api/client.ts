@@ -57,3 +57,20 @@ export const api = {
   patch:  <T>(path: string, body: unknown) => request<T>('PATCH',  path, body),
   delete: <T>(path: string)               => request<T>('DELETE', path),
 }
+
+/** Fetch a binary response (e.g. CSV export) with the JWT auth header, returns a Blob. */
+export async function fetchBlob(path: string): Promise<Blob> {
+  const token = getToken()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(`${BASE_URL}${path}`, { headers })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new ApiError(
+      (err as { detail?: string }).detail ?? res.statusText,
+      res.status,
+      err,
+    )
+  }
+  return res.blob()
+}

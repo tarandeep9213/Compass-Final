@@ -45,7 +45,7 @@ export function submitDraft(id: string, varianceNote: string | null): Promise<Ap
 }
 
 export function deleteDraft(id: string): Promise<void> {
-  return api.delete(`/submissions/${id}`)
+  return api.delete<void>(`/submissions/${id}`)
 }
 
 export function approveSubmission(id: string, body: ApproveBody = {}): Promise<ApproveResponse> {

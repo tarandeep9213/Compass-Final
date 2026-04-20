@@ -443,3 +443,183 @@ export interface SlaSummary {
   sla_compliance_pct: number | null
   approvers: SlaApprover[]
 }
+
+// ── Alarm Testing ────────────────────────────────────────────────────────────
+
+export type AlarmZoneType =
+  | 'ENTRY_EXIT'
+  | 'INTERIOR_MOTION'
+  | 'PANIC_SILENT'
+  | 'HOLDUP'
+  | 'FIRE_SMOKE'
+  | 'OTHER'
+
+export type AlarmTestStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+
+export type AlarmTestZoneResult = 'TESTED' | 'NOT_TESTED' | 'ISSUE_FOUND'
+
+export type AlarmBuildingStatus = 'active' | 'temporarily_exempt' | 'closed'
+
+export type AlarmAttachmentFileType = 'PDF' | 'EXCEL' | 'IMAGE'
+
+export type BiannualCheckType = 'CELLULAR_BACKUP' | 'CAMERA_BACKUP'
+
+export type BiannualCheckStatus = 'COMPLIANT' | 'NON_COMPLIANT' | 'PENDING'
+
+export type BiannualStatusValue = 'COMPLIANT' | 'NON_COMPLIANT' | 'PENDING' | 'NO_CHECK'
+
+export interface AlarmUser {
+  id: string
+  name: string
+  role: string
+  region: string
+}
+
+export interface AlarmBuilding {
+  id: string
+  locationId: string
+  name: string
+  region: string
+  securityCompanyName: string
+  securityCustomerId: string
+  securityCompanyPhone: string
+  status: AlarmBuildingStatus
+  exemptReason?: string
+  assignedTesters: string[]
+  assignedApprover: string
+}
+
+export interface AlarmZone {
+  id: string
+  buildingId: string
+  zoneNumber: number
+  zoneName: string
+  zoneType: AlarmZoneType
+  areaNumber: number
+  isActive: boolean
+  otherDescription?: string
+}
+
+export interface AlarmTestAttachment {
+  id: string
+  alarmTestId: string
+  fileName: string
+  fileType: AlarmAttachmentFileType
+  fileSize: number
+  uploadedAt: string
+}
+
+export interface AlarmTest {
+  id: string
+  buildingId: string
+  testDate: string
+  testMonth: string
+  testerId: string
+  testerName: string
+  status: AlarmTestStatus
+  submittedAt?: string
+  approvedBy?: string
+  approvedByName?: string
+  approvedAt?: string
+  rejectionReason?: string
+  testStartTime?: string
+  testEndTime?: string
+  notes?: string
+  zonesTotal: number
+  zonesTested: number
+  zonesIssue: number
+  attachments: AlarmTestAttachment[]
+}
+
+export interface AlarmTestZone {
+  id: string
+  alarmTestId: string
+  alarmZoneId: string
+  result: AlarmTestZoneResult
+  alarmTriggeredAt?: string
+  alarmRestoredAt?: string
+  notes?: string
+}
+
+export interface BiannualCheck {
+  id: string
+  buildingId: string
+  checkType: BiannualCheckType
+  checkDate: string
+  nextDueDate: string
+  checkedBy: string
+  checkedByName: string
+  status: BiannualCheckStatus
+  evidencePath?: string
+  notes?: string
+}
+
+export interface ComplianceRules {
+  monthlyDeadlineDay: number
+  approvalSlaDays: number
+  requireAllZonesTested: boolean
+  requireReportUpload: boolean
+  requireApproverSignoff: boolean
+  escalation: {
+    tier1: { daysBefore: number; recipients: string[] }
+    tier2: { daysAfter: number; recipients: string[] }
+    tier3: { daysAfter: number; recipients: string[] }
+  }
+  biannual: {
+    cellularFrequencyMonths: number
+    cameraCheckFrequencyDays: number
+    reminderDaysBefore: number
+  }
+}
+
+// ── Alarm Dashboard / API Return Types ───────────────────────────────────────
+
+export interface BuildingComplianceRow {
+  buildingId: string
+  buildingName: string
+  region: string
+  status: 'compliant' | 'pending' | 'overdue' | 'exempt'
+  lastTestDate?: string
+  lastTestStatus?: string
+  approverName?: string
+}
+
+export interface AlarmOverviewData {
+  summary: {
+    totalBuildings: number
+    compliant: number
+    pendingReview: number
+    overdue: number
+    exempt: number
+    complianceRate: number
+  }
+  buildings: BuildingComplianceRow[]
+  monthlyHistory: { month: string; compliant: number; total: number }[]
+}
+
+export interface OverdueBuilding {
+  buildingId: string
+  buildingName: string
+  region: string
+  daysSinceLastTest: number
+  assignedTesters: string[]
+}
+
+export interface AlarmTrendData {
+  months: {
+    month: string
+    compliant: number
+    total: number
+    complianceRate: number
+  }[]
+}
+
+export interface BiannualStatusRow {
+  buildingId: string
+  buildingName: string
+  region: string
+  cellularStatus: BiannualStatusValue
+  cellularNextDue?: string
+  cameraStatus: BiannualStatusValue
+  cameraNextDue?: string
+}

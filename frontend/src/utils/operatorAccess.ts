@@ -1,4 +1,4 @@
-export type AccessType = 'operator' | 'controller'
+export type AccessType = 'operator' | 'controller' | 'alarm_tester' | 'alarm_approver'
 
 export interface AccessGrant {
   userId:    string
