@@ -1,7 +1,7 @@
 import { test, expect, request } from '@playwright/test'
 import { execSync } from 'child_process'
 
-const BASE_API = 'http://localhost:8002/v1'
+const BASE_API = 'http://localhost:8001/v1'
 const PASSWORD = 'demo1234'
 const LOCATION = 'loc-appleton'
 

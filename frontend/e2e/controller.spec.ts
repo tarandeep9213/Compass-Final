@@ -437,7 +437,7 @@ test('CTRL-DGM-002: controller API returns no future DGM visits', async ({ page 
   const result = await page.evaluate(async (todayStr) => {
     const token = localStorage.getItem('ccs_token')
     const base  = (window as unknown as { __VITE_API_URL__?: string }).__VITE_API_URL__
-      ?? 'http://localhost:8006/v1'
+      ?? 'http://localhost:8001/v1'
     const res = await fetch(`${base}/verifications/dgm?page_size=100`, {
       headers: { Authorization: `Bearer ${token}` },
     })

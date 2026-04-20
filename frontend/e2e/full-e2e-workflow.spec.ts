@@ -12,7 +12,7 @@
 import { test, expect, Page } from '@playwright/test'
 
 const BASE = 'http://localhost:3000'
-const API  = 'http://localhost:8010/v1'
+const API  = 'http://localhost:8001/v1'
 
 const USERS = {
   operator:   { email: 'nitk.rahul@gmail.com',        password: 'demo1234' },

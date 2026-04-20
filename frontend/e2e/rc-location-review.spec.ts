@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
-const BASE = 'http://localhost:3003'
-const API = 'http://localhost:8004/v1'
+const BASE = 'http://localhost:3000'
+const API = 'http://localhost:8001/v1'
 
 test.describe.serial('RC Location Review', () => {
 

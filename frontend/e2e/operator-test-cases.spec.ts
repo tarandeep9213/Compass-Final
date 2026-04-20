@@ -5,7 +5,7 @@
  */
 import { test, expect } from '@playwright/test'
 
-const API = 'http://localhost:8006/v1'
+const API = 'http://localhost:8001/v1'
 
 // Generate a unique date string (2029-MM-DD) to avoid collisions
 let _dateCounter = 0

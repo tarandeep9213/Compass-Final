@@ -5,8 +5,8 @@ import { test, expect, Page } from '@playwright/test'
 // ─────────────────────────────────────────────────────────────────────────────
 async function loginAsDemoController(page: Page) {
   // Block ALL requests to the backend API so the app falls back to demo/mock mode
-  await page.route('http://localhost:8006/**', route => route.abort())
-  await page.route('http://localhost:8000/**', route => route.abort())
+  await page.route('http://localhost:8001/**', route => route.abort())
+  await page.route('http://localhost:8001/**', route => route.abort())
   await page.goto('/')
   await page.evaluate(() => {
     localStorage.removeItem('ccs_token')

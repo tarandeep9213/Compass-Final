@@ -1,8 +1,8 @@
 import { test, expect, request, Page } from '@playwright/test'
 import { execSync } from 'child_process'
 
-const BASE_UI = 'http://localhost:3003'
-const BASE_API = 'http://localhost:8004/v1'
+const BASE_UI = 'http://localhost:3000'
+const BASE_API = 'http://localhost:8001/v1'
 const EMAIL = 'con@compass.com'
 const PASSWORD = 'demo1234'
 

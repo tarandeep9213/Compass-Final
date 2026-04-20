@@ -3,7 +3,7 @@
  */
 import { test, expect } from '@playwright/test'
 
-const API = 'http://localhost:8006/v1'
+const API = 'http://localhost:8001/v1'
 
 async function getToken(request: import('@playwright/test').APIRequestContext): Promise<string> {
   return (await (await request.post(`${API}/auth/login`, { data: { email: 'operator@compass.com', password: 'demo1234' } })).json()).access_token

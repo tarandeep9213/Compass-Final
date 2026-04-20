@@ -19,7 +19,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 
-const API = 'http://localhost:8006/v1'
+const API = 'http://localhost:8001/v1'
 
 // ── Helper: build a minimal valid cashroom Excel file ────────────────────────
 function createCashroomExcel(): string {

@@ -12,7 +12,7 @@ import { test, expect, Page } from '@playwright/test'
  */
 
 // ── Config ──────────────────────────────────────────────────────────────────
-const BASE = 'http://localhost:3001'
+const BASE = 'http://localhost:3000'
 const ADMIN_EMAIL = 'admin@compass.com'
 const CONTROLLER_EMAIL = 'terri.serrano@compass.com'
 const RC_EMAIL = 'kyle.decker@compass.com' // Regional Controller
