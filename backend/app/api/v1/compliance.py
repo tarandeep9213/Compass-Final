@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.deps import get_current_user
+from app.core.business_days import is_business_day
 from app.models.user import User, UserRole
 from app.models.location import Location
 from app.models.submission import Submission, SubmissionStatus
@@ -26,8 +27,12 @@ def _location_health(
     variance_exception: bool,
     days_since_controller: int | None,
     sla_hours: int,
+    business_day_today: bool = True,
 ) -> str:
-    if not has_submission_today:
+    # Cashrooms don't operate Sat/Sun, so a missing submission on a weekend
+    # is expected behavior, not a compliance failure. Stale controller visits
+    # are still surfaced below.
+    if business_day_today and not has_submission_today:
         return "red"
     if submission_status == "rejected":
         return "red"
@@ -47,7 +52,9 @@ def get_compliance_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    today = TODAY()
+    today_d = date.today()
+    today = today_d.isoformat()
+    is_bd_today = is_business_day(today_d)
     cfg = _get_config(db)
 
     # Determine which locations to show
@@ -95,15 +102,22 @@ def get_compliance_dashboard(
             Verification.month_year == month_year,
         ).order_by(Verification.created_at.desc()).first()
 
-        # Submission rate last 30 days
+        # Submission rate last 30 days. Denominator is business days (Mon-Fri)
+        # in the window, not calendar days — operators don't submit on Sat/Sun,
+        # so using 30 capped perfect attendance at ~73%.
         from datetime import date as dtdate, timedelta
-        thirty_days_ago = (dtdate.today() - timedelta(days=30)).isoformat()
+        thirty_days_ago_d = dtdate.today() - timedelta(days=30)
+        thirty_days_ago = thirty_days_ago_d.isoformat()
         total_30d = db.query(Submission).filter(
             Submission.location_id == loc.id,
             Submission.submission_date >= thirty_days_ago,
             Submission.status != SubmissionStatus.DRAFT,
         ).count()
-        sub_rate_30d = round(min(total_30d / 30 * 100, 100), 1)
+        business_days_30d = sum(
+            1 for i in range(31)
+            if is_business_day(thirty_days_ago_d + timedelta(days=i))
+        )
+        sub_rate_30d = round(min(total_30d / max(business_days_30d, 1) * 100, 100), 1)
 
         # Days since last controller visit
         days_since_ctrl = None
@@ -119,6 +133,7 @@ def get_compliance_dashboard(
             variance_exception=today_sub.variance_exception if today_sub else False,
             days_since_controller=days_since_ctrl,
             sla_hours=cfg.approval_sla_hours,
+            business_day_today=is_bd_today,
         )
 
         # Tally summary counters
@@ -130,7 +145,8 @@ def get_compliance_dashboard(
             submitted_today += 1
             if today_sub.variance_exception:
                 variance_exceptions += 1
-        else:
+        elif is_bd_today:
+            # Weekends aren't "overdue" — cashrooms are closed.
             overdue += 1
 
         if days_since_ctrl is not None and days_since_ctrl > 30:

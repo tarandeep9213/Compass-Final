@@ -7,6 +7,7 @@ import { listSubmissions } from '../../api/submissions'
 import { listLocations } from '../../api/locations'
 import type { ApiSubmission, ApiLocation } from '../../api/types'
 import KpiCard from '../../components/KpiCard'
+import { isBusinessDay } from '../../utils/businessDays'
 
 function mapApiSub(s: ApiSubmission): Submission {
   const forceUTC = (d?: string | null) => (d && !d.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(d) ? d + 'Z' : d);
@@ -135,6 +136,10 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
 
     return last30
       .filter(date => firstSubDate !== null && date >= firstSubDate)
+      // Cashrooms don't operate Sat/Sun — weekend dates are not "missed",
+      // they're closed. Drop them so they never appear as red rows or inflate
+      // the Missed KPI.
+      .filter(date => isBusinessDay(new Date(date + 'T12:00:00')))
       .map(date => {
         const sub = sourceSubs.find(s => s.locationId === locationId && s.date === date)
         const explained = EXPLAINED_MISSED.has(`${locationId}|${date}`)
@@ -427,9 +432,9 @@ export default function OpStart({ locationIds, userName, onNavigate }: Props) {
           onClick={() => setFilter('missing')}
           style={{ background: '#f9fafb', border: '1px solid #d1d5db', padding: '12px 16px', borderRadius: 10 }}
           tooltip={{
-            what: 'Days without a recorded daily submission.',
-            how: 'Total scheduled operational days missing a completed cash count.',
-            formula: "COUNT(past_days) - COUNT(submissions)",
+            what: 'Business days (Mon–Fri) without a recorded submission.',
+            how: 'Cashrooms don\'t operate on weekends, so Sat/Sun are never counted.',
+            formula: "COUNT(past_business_days) - COUNT(submissions)",
           }}
         />
       </div>
